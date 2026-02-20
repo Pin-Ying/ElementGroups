@@ -1,0 +1,12 @@
+firebase_admin
+Flask
+Flask-Cors
+Flask_Login
+flask_sqlalchemy
+pandas
+pydantic-settings
+python-dotenv
+Pyrebase4
+Requests
+SQLAlchemy
+gunicorn

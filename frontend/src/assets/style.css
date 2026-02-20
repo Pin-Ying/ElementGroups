@@ -1,0 +1,104 @@
+body {
+    width: 100%;
+    text-align: center;
+    background-color: black;
+    color: #FFFFFF;
+    margin-top: 6px;
+}
+
+img {
+    width: 100%;
+    border-style: solid;
+    border-radius: 2px;
+}
+
+a {
+    color: #FFFFFF;
+}
+
+.element-header {
+    position: sticky;
+    top: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    width: 100%;
+    margin: 20px auto;
+    padding: 5px 20px;
+    z-index: 50;
+}
+
+
+#group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin: 10px;
+    padding: 5px;
+    gap: 10px;
+}
+
+.group-title {
+    align-content: center;
+}
+
+.group-box {
+    display: grid;
+    grid-template-rows: 1fr 3fr;
+    max-height: 240px;
+}
+
+.elements-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    width: 90%;
+    height: 100%;
+    margin: 1% auto;
+    overflow: auto;
+}
+
+.elements {
+    display: block;
+    margin: 0 auto;
+    width: 20%;
+    height: 20%;
+}
+
+.element {
+    height: 100%;
+    width: 70px;
+    height: 70px;
+    border-radius: 6px;
+    font-size: 20px;
+    background-color: rgb(80, 65, 80);
+    border-style: solid;
+}
+
+.group-type-button {
+    display: grid;
+    justify-self: center;
+    justify-content: center;
+    grid-template-columns: 1fr 1fr 1fr;
+    width: 90%;
+    margin: auto;
+    gap: 10px;
+}
+
+@media only screen and (max-width: 600px) {
+    #group {
+        grid-template-columns: repeat(1, 1fr);
+        margin: 10px;
+        padding: 5px;
+        gap: 10px;
+    }
+
+    .element {
+        margin: 6px auto;
+    }
+
+    .group-type-button {
+        display: grid;
+        width: 90%;
+        align-items: center;
+        grid-template-columns: 1fr;
+    }
+}

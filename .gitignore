@@ -1,0 +1,20 @@
+*.ipynb
+.vscode
+other_staff
+__pycache__
+
+# Environment
+.env
+backend/.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Database
+*.db
+
+# Python
+*.pyc
+__pycache__/
+*.egg-info/
