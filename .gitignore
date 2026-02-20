@@ -4,6 +4,7 @@ other_staff
 __pycache__
 
 # Environment
+.venv
 .env
 backend/.env
 
