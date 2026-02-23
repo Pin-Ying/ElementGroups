@@ -1,64 +1,69 @@
 <template>
-  <div v-if="elInfo">
-    <div class="element-btns">
-      <div>
-        <router-link
-          class="button"
-          :to="'/stroy/' + fEl.Symbol"
-          :style="{ borderColor: '#' + fEl.CPKHexColor }"
-        >
-          PREVIOUS ELEMENT
-        </router-link>
-      </div>
-      <div class="title column">{{ elInfo.Symbol }}'s Story</div>
-      <div>
-        <router-link
-          class="button"
-          :to="'/stroy/' + bEl.Symbol"
-          :style="{ borderColor: '#' + bEl.CPKHexColor }"
-        >
-          NEXT ELEMENT
-        </router-link>
-      </div>
-    </div>
+  <div>
+    <LoadingSpinner v-if="loading" />
 
-    <div class="element-story">
-      <div class="element-grid">
-        <img
-          :style="{ borderColor: '#' + elInfo.CPKHexColor }"
-          :src="imgSrc || altImage"
-          :title="elInfo.Name"
-          alt="Still Creating..."
-        />
-        <div
-          class="element-grid-info"
-          :style="{
-            borderColor: '#' + elInfo.CPKHexColor,
-            backgroundColor: '#' + elInfo.CPKHexColor + '33'
-          }"
-          id="main-content"
-        >
-          <div class="title">Atomic NUMBER: {{ elInfo.AtomicNumber }}</div>
-          <div class="subtitle">
-            {{ elInfo.Name }} / {{ elInfo.Symbol }} / {{ elInfo.ElectronConfiguration }}
-          </div>
-          <div>
-            <template v-if="story">
-              <span v-html="story.replace(/\\n/g, '<br>')"></span>
-            </template>
-            <template v-else>Still Creating...</template>
-          </div>
+    <div v-if="elInfo">
+      <div class="element-btns">
+        <div>
+          <router-link
+            class="button"
+            :to="'/stroy/' + fEl.Symbol"
+            :style="{ borderColor: '#' + fEl.CPKHexColor }"
+          >
+            PREVIOUS ELEMENT
+          </router-link>
+        </div>
+        <div class="title column">{{ elInfo.Symbol }}'s Story</div>
+        <div>
+          <router-link
+            class="button"
+            :to="'/stroy/' + bEl.Symbol"
+            :style="{ borderColor: '#' + bEl.CPKHexColor }"
+          >
+            NEXT ELEMENT
+          </router-link>
         </div>
       </div>
 
-      <div id="element-ability" :style="{ borderColor: '#' + elInfo.CPKHexColor }">
-        <template v-for="ab in abilities" :key="ab.key">
-          <div>{{ ab.label }}</div>
-          <div class="ability-bar" :style="{ width: abilityWidth(ab.key) }"></div>
-        </template>
-      </div>
+      <div class="element-story">
+        <div class="element-grid">
+          <img
+            :style="{ borderColor: '#' + elInfo.CPKHexColor }"
+            :src="resolvedImg"
+            :title="elInfo.Name"
+            alt="Still Creating..."
+            @error="onImgError"
+          />
+          <div
+            class="element-grid-info"
+            :style="{
+              borderColor: '#' + elInfo.CPKHexColor,
+              backgroundColor: '#' + elInfo.CPKHexColor + '33'
+            }"
+            id="main-content"
+          >
+            <div class="title">Atomic NUMBER: {{ elInfo.AtomicNumber }}</div>
+            <div class="subtitle">
+              {{ elInfo.Name }} / {{ elInfo.Symbol }} / {{ elInfo.ElectronConfiguration }}
+            </div>
+            <div>
+              <template v-if="story">
+                <span v-html="story.replace(/\\n/g, '<br>')"></span>
+              </template>
+              <template v-else>Still Creating...</template>
+            </div>
+          </div>
+        </div>
 
-      <AbilityChart v-if="abilityData" :elInfo="abilityData" />
+        <div id="element-ability" :style="{ borderColor: '#' + elInfo.CPKHexColor }">
+          <template v-for="ab in abilities" :key="ab.key">
+            <div>{{ ab.label }}</div>
+            <div class="ability-bar" :style="{ width: abilityWidth(ab.key) }"></div>
+          </template>
+        </div>
+
+        <AbilityChart v-if="abilityData" :elInfo="abilityData" />
+      </div>
     </div>
   </div>
 </template>
@@ -66,6 +71,7 @@
 <script>
 import { getElementDetail, getElementAbility } from '../api'
 import AbilityChart from '../components/AbilityChart.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 const ABILITIES = [
   { key: 'MeltingPoint', label: 'MeltingPoint (K)' },
@@ -78,7 +84,7 @@ const ABILITIES = [
 ]
 
 export default {
-  components: { AbilityChart },
+  components: { AbilityChart, LoadingSpinner },
   props: { symbol: { type: String, required: true } },
   data() {
     return {
@@ -87,9 +93,19 @@ export default {
       bEl: {},
       story: null,
       imgSrc: null,
+      imgData: null,
       altImage: '',
+      imgFallbackLevel: 0,
       abilityData: null,
-      abilities: ABILITIES
+      abilities: ABILITIES,
+      loading: false
+    }
+  },
+  computed: {
+    resolvedImg() {
+      if (this.imgFallbackLevel === 0) return this.imgSrc || this.imgData || this.altImage
+      if (this.imgFallbackLevel === 1) return this.imgData || this.altImage
+      return this.altImage
     }
   },
   watch: {
@@ -100,6 +116,9 @@ export default {
   },
   methods: {
     async loadData() {
+      this.loading = true
+      this.elInfo = null
+      this.imgFallbackLevel = 0
       try {
         const [detailRes, abilityRes] = await Promise.all([
           getElementDetail(this.symbol),
@@ -112,12 +131,18 @@ export default {
         this.bEl = detail.b_el
         this.story = detail.story
         this.imgSrc = detail.img_src
+        this.imgData = detail.img_data
         this.altImage = detail.alt_image
 
         this.abilityData = abilityRes.data
       } catch (e) {
         console.error('Failed to load element data:', e)
+      } finally {
+        this.loading = false
       }
+    },
+    onImgError() {
+      if (this.imgFallbackLevel < 2) this.imgFallbackLevel++
     },
     abilityWidth(key) {
       if (!this.abilityData || !this.abilityData.abMax) return '0%'
@@ -187,6 +212,7 @@ export default {
 .ability-bar {
   background-color: #e4fbff;
   color: #000000;
+  transition: width 0.6s ease;
 }
 
 @media only screen and (max-width: 800px) {

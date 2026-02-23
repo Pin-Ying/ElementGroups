@@ -1,5 +1,7 @@
 <template>
   <div>
+    <LoadingSpinner v-if="loading" />
+
     <!-- Login Form -->
     <div v-if="!loggedIn" class="admin-box">
       <p class="title">LOGIN</p>
@@ -28,7 +30,7 @@
         <button class="button" @click="handleUpdateDb">Update db</button>
         <button class="button" @click="handleLogout">Log out</button>
       </div>
-      <p v-if="adminMsg" class="label">{{ adminMsg }}</p>
+      <p v-if="adminMsg" class="label" :class="adminMsgType">{{ adminMsg }}</p>
 
       <!-- Update Story Form -->
       <div class="box">
@@ -44,7 +46,7 @@
           <input class="input" type="file" accept=".jpg" ref="imageInput" />
           <button class="button" type="submit" style="margin-top:10px">Submit</button>
         </form>
-        <p class="label">{{ storyMsg }}</p>
+        <p class="label" :class="storyMsgType">{{ storyMsg }}</p>
       </div>
     </div>
   </div>
@@ -52,16 +54,21 @@
 
 <script>
 import { login, logout, createDb, updateDb, getStoryData, updateStory } from '../api'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
+  components: { LoadingSpinner },
   data() {
     return {
+      loading: false,
       loggedIn: false,
       email: '',
       password: '',
       msg: '',
       adminMsg: '',
+      adminMsgType: '',
       storyMsg: '',
+      storyMsgType: '',
       elements: [],
       storyDatas: {},
       imageDatas: {},
@@ -71,6 +78,7 @@ export default {
   },
   methods: {
     async handleLogin() {
+      this.loading = true
       try {
         const res = await login(this.email, this.password)
         if (res.data.result === 'success') {
@@ -80,30 +88,47 @@ export default {
         }
       } catch (e) {
         this.msg = e.response?.data?.message || 'Login failed'
+      } finally {
+        this.loading = false
       }
     },
     async handleLogout() {
+      this.loading = true
       try {
         await logout()
         this.loggedIn = false
       } catch (e) {
         console.error('Logout failed:', e)
+      } finally {
+        this.loading = false
       }
     },
     async handleCreateDb() {
+      this.loading = true
+      this.adminMsg = ''
       try {
         const res = await createDb()
         this.adminMsg = res.data.message
+        this.adminMsgType = 'success-msg'
       } catch (e) {
         this.adminMsg = e.response?.data?.message || 'Error!'
+        this.adminMsgType = 'error-msg'
+      } finally {
+        this.loading = false
       }
     },
     async handleUpdateDb() {
+      this.loading = true
+      this.adminMsg = ''
       try {
         const res = await updateDb()
         this.adminMsg = res.data.message
+        this.adminMsgType = 'success-msg'
       } catch (e) {
         this.adminMsg = e.response?.data?.message || 'Error!'
+        this.adminMsgType = 'error-msg'
+      } finally {
+        this.loading = false
       }
     },
     async loadStoryData() {
@@ -130,12 +155,18 @@ export default {
       const imageFile = this.$refs.imageInput?.files[0]
       if (imageFile) formData.append('image', imageFile)
 
+      this.loading = true
+      this.storyMsg = ''
       try {
         const res = await updateStory(formData)
         this.storyMsg = res.data.message
+        this.storyMsgType = 'success-msg'
         this.storyDatas[this.selectedSymbol] = this.storyText
       } catch (e) {
         this.storyMsg = e.response?.data?.message || 'Error!'
+        this.storyMsgType = 'error-msg'
+      } finally {
+        this.loading = false
       }
     }
   }
@@ -157,5 +188,13 @@ input,
 button,
 select {
   margin: 5px auto;
+}
+
+.success-msg {
+  color: #6ee76e;
+}
+
+.error-msg {
+  color: #ff6b6b;
 }
 </style>

@@ -16,17 +16,47 @@ a {
     color: #FFFFFF;
 }
 
+/* ── Header ── */
 .element-header {
     position: sticky;
     top: 0;
-    background-color: rgba(0, 0, 0, 0.8);
+    background-color: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(6px);
     width: 100%;
-    margin: 20px auto;
-    padding: 5px 20px;
+    margin: 0 auto 20px;
+    padding: 8px 20px;
     z-index: 50;
+    border-bottom: 1px solid rgba(228, 251, 255, 0.15);
 }
 
+/* ── Buttons ── */
+.button {
+    cursor: pointer;
+    border-color: #e4fbff;
+    border-style: solid;
+    border-radius: 6px;
+    background-color: transparent;
+    color: #ffffff;
+    padding: 8px 16px;
+    font-size: 14px;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
 
+.button:hover {
+    background-color: rgba(228, 251, 255, 0.12);
+}
+
+.button:active {
+    transform: scale(0.97);
+}
+
+.button.active {
+    background-color: rgba(228, 251, 255, 0.2);
+    border-color: #e4fbff;
+    font-weight: bold;
+}
+
+/* ── Group layout ── */
 #group {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -37,6 +67,9 @@ a {
 
 .group-title {
     align-content: center;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    opacity: 0.85;
 }
 
 .group-box {
@@ -45,6 +78,7 @@ a {
     max-height: 240px;
 }
 
+/* ── Element grid ── */
 .elements-box {
     display: flex;
     flex-wrap: wrap;
@@ -64,15 +98,23 @@ a {
 }
 
 .element {
-    height: 100%;
     width: 70px;
     height: 70px;
     border-radius: 6px;
     font-size: 20px;
     background-color: rgb(80, 65, 80);
     border-style: solid;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+    cursor: pointer;
 }
 
+.element:hover {
+    transform: scale(1.12);
+    background-color: rgb(110, 90, 110);
+    z-index: 1;
+}
+
+/* ── Group type buttons ── */
 .group-type-button {
     display: grid;
     justify-self: center;
@@ -83,6 +125,7 @@ a {
     gap: 10px;
 }
 
+/* ── Responsive ── */
 @media only screen and (max-width: 600px) {
     #group {
         grid-template-columns: repeat(1, 1fr);
@@ -96,7 +139,6 @@ a {
     }
 
     .group-type-button {
-        display: grid;
         width: 90%;
         align-items: center;
         grid-template-columns: 1fr;
