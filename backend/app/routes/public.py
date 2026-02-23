@@ -80,11 +80,13 @@ def get_element_detail(symbol):
         # Firebase story data
         story = None
         img_src = None
+        img_data = None
         alt_image = "https://firebasestorage.googleapis.com/v0/b/elementgroups-168e4.appspot.com/o/static%2Fimg%2FElectron.JPG?alt=media&token=134d2620-9424-4b60-ae8e-1854a5e76988"
         query = show_fdb(symbol)
         if query:
             story = query.get("description")
             img_src = query.get("img")
+            img_data = query.get("img_data")
 
         return jsonify(
             {
@@ -93,6 +95,7 @@ def get_element_detail(symbol):
                 "b_el": {"Symbol": b_el["Symbol"], "CPKHexColor": b_el["CPKHexColor"]},
                 "story": story,
                 "img_src": img_src,
+                "img_data": img_data,
                 "alt_image": alt_image,
             }
         )

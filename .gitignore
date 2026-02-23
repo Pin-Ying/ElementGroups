@@ -1,5 +1,6 @@
 *.ipynb
 .vscode
+.idea
 other_staff
 __pycache__
 

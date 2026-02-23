@@ -1,3 +1,4 @@
+import base64
 import os
 import tempfile
 
@@ -92,12 +93,15 @@ def update_story():
             temp = tempfile.NamedTemporaryFile(delete=False)
             image.save(temp.name)
             img = upload_file(temp.name, filename)
+            with open(temp.name, "rb") as f:
+                img_data = "data:image/jpeg;base64," + base64.b64encode(f.read()).decode("utf-8")
             temp.close()
             os.remove(temp.name)
         else:
             img = imageDatas.get(symbol, "")
+            img_data = fbDatas.get(symbol, {}).get("img_data", "")
 
-        upload_fdb(symbol, {"img": img, "description": story})
+        upload_fdb(symbol, {"img": img, "img_data": img_data, "description": story})
         return jsonify({"result": "success", "message": "Finish!"})
 
     except Exception as e:
