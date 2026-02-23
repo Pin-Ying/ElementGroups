@@ -3,10 +3,6 @@ import re
 import pandas as pd
 import requests
 
-from app.config import settings
-
-url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/periodictable/JSON"
-
 char_groups = [
     "Nonmetal",
     "Alkali metal",
@@ -20,12 +16,7 @@ char_groups = [
     "Actinide",
 ]
 
-
-def _get_db_path():
-    uri = settings.DATABASE_URI
-    if uri.startswith("sqlite:///"):
-        return uri.replace("sqlite:///", "")
-    return "elementGroups.db"
+url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/periodictable/JSON"
 
 
 def element_info():
@@ -44,15 +35,13 @@ def element_info():
         return None
 
 
+def _get_periodic_table_df():
+    from app.firebase import get_periodic_table
+    return pd.DataFrame(get_periodic_table())
+
+
 def get_abMax():
-    import sqlite3
-
-    con = sqlite3.connect(_get_db_path())
-    datas = pd.read_sql_query(
-        "SELECT * from PeriodicTable", con=con, index_col=["AtomicNumber"]
-    )
-    con.close()
-
+    datas = _get_periodic_table_df().set_index('AtomicNumber')
     abilities = [
         "MeltingPoint",
         "Electronegativity",
@@ -68,39 +57,17 @@ def get_abMax():
 
 
 def get_atomicOrbital(element=None):
-    import sqlite3
-
-    con = sqlite3.connect(_get_db_path())
-    datas = pd.read_sql_query(
-        "SELECT * from PeriodicTable", con=con, index_col=["Symbol"]
-    )
-    con.close()
-
+    datas = _get_periodic_table_df().set_index('Symbol')
     datas["elf"] = datas["ElectronConfiguration"].apply(
         lambda x: re.split(r"\d+", x.replace("(predicted)", "").strip())[-2]
     )
     if element:
-        elf = datas.loc[element]["elf"]
-        elf = {element: elf}
-    else:
-        elf = datas["elf"].to_dict()
-
-    return elf
+        return {element: datas.loc[element]["elf"]}
+    return datas["elf"].to_dict()
 
 
 def get_characteristic(element=None):
-    import sqlite3
-
-    con = sqlite3.connect(_get_db_path())
-    datas = pd.read_sql_query(
-        "SELECT * from PeriodicTable", con=con, index_col=["Symbol"]
-    )
-    con.close()
-
+    datas = _get_periodic_table_df().set_index('Symbol')
     if element:
-        elf = datas.loc[element]["GroupBlock"]
-        elf = {element: elf}
-    else:
-        elf = datas["GroupBlock"].to_dict()
-
-    return elf
+        return {element: datas.loc[element]["GroupBlock"]}
+    return datas["GroupBlock"].to_dict()

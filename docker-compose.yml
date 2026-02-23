@@ -5,15 +5,10 @@ services:
       - "8000:8000"
     env_file:
       - ./backend/.env
-    volumes:
-      - db_data:/app/elementGroups.db
 
   frontend:
     build: ./frontend
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - backend
-
-volumes:
-  db_data:

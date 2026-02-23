@@ -4,7 +4,6 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Flask
     SECRET_KEY: str
-    DATABASE_URI: str = "sqlite:///elementGroups.db"
     PORT: int = 8000
 
     # Firebase Admin SDK

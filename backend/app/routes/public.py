@@ -1,11 +1,9 @@
 import json
 
 from flask import Blueprint, jsonify, request
-from sqlalchemy import text
 
 from app.elements import get_atomicOrbital, get_characteristic, get_abMax
-from app.firebase import show_fdb
-from app.models import sess
+from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number
 
 public_bp = Blueprint("public", __name__, url_prefix="/api")
 
@@ -13,15 +11,15 @@ public_bp = Blueprint("public", __name__, url_prefix="/api")
 @public_bp.route("/elements", methods=["GET"])
 def get_elements():
     try:
-        columns = ["AtomicNumber", "Symbol", "CPKHexColor"]
-        datas = sess.execute(
-            text(f'SELECT {",".join(columns)} FROM PeriodicTable')
-        ).fetchall()
-        elements = [dict(zip(columns, data)) for data in datas]
-    except Exception:
-        elements = []
+        elements_data = get_periodic_table()
+        elements = [
+            {"AtomicNumber": e["AtomicNumber"], "Symbol": e["Symbol"], "CPKHexColor": e["CPKHexColor"]}
+            for e in elements_data
+        ]
+        groups = get_characteristic()
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
 
-    groups = get_characteristic()
     return jsonify({"elements": elements, "groups": groups})
 
 
@@ -30,11 +28,11 @@ def get_groups():
     body = request.get_json()
     group_type = body.get("groupType")
 
-    columns = ["AtomicNumber", "Symbol", "CPKHexColor"]
-    datas = sess.execute(
-        text(f'SELECT {",".join(columns)} FROM PeriodicTable')
-    ).fetchall()
-    elements = [dict(zip(columns, data)) for data in datas]
+    elements_data = get_periodic_table()
+    elements = [
+        {"AtomicNumber": e["AtomicNumber"], "Symbol": e["Symbol"], "CPKHexColor": e["CPKHexColor"]}
+        for e in elements_data
+    ]
 
     try:
         if group_type == "cp":
@@ -60,38 +58,22 @@ def get_groups():
 @public_bp.route("/elements/<symbol>", methods=["GET"])
 def get_element_detail(symbol):
     try:
-        sql_str = "SELECT name FROM PRAGMA_TABLE_INFO('PeriodicTable');"
-        columns = sess.execute(text(sql_str)).fetchall()
-        columns = [col[0] for col in columns]
+        el_info = get_element_by_symbol(symbol)
 
-        info = sess.execute(
-            text("SELECT * FROM PeriodicTable WHERE Symbol=:symbol"),
-            {"symbol": symbol},
-        ).fetchone()
-
-        if not info:
+        if not el_info:
             return jsonify({"result": "failure", "exception": "Element not found"}), 404
 
-        el_info = dict(zip(columns, info))
         el_AN = int(el_info["AtomicNumber"])
 
         # Previous element
         if el_AN != 1:
-            f_info = sess.execute(
-                text("SELECT * FROM PeriodicTable WHERE AtomicNumber=:an"),
-                {"an": el_AN - 1},
-            ).fetchone()
-            f_el = dict(zip(columns, f_info)) if f_info else el_info
+            f_el = get_element_by_atomic_number(el_AN - 1) or el_info
         else:
             f_el = el_info
 
         # Next element
         if el_AN != 118:
-            b_info = sess.execute(
-                text("SELECT * FROM PeriodicTable WHERE AtomicNumber=:an"),
-                {"an": el_AN + 1},
-            ).fetchone()
-            b_el = dict(zip(columns, b_info)) if b_info else el_info
+            b_el = get_element_by_atomic_number(el_AN + 1) or el_info
         else:
             b_el = el_info
 
@@ -122,19 +104,11 @@ def get_element_detail(symbol):
 @public_bp.route("/elements/<symbol>/ability", methods=["GET"])
 def get_element_ability(symbol):
     try:
-        sql_str = "SELECT name FROM PRAGMA_TABLE_INFO('PeriodicTable');"
-        columns = sess.execute(text(sql_str)).fetchall()
-        columns = [col[0] for col in columns]
+        el_info = get_element_by_symbol(symbol)
 
-        info = sess.execute(
-            text("SELECT * FROM PeriodicTable WHERE Symbol=:symbol"),
-            {"symbol": symbol},
-        ).fetchone()
-
-        if not info:
+        if not el_info:
             return jsonify({"result": "failure", "exception": "Element not found"}), 404
 
-        el_info = dict(zip(columns, info))
         abMax = get_abMax()
         el_info["abMax"] = abMax
         return json.dumps(el_info, ensure_ascii=False)

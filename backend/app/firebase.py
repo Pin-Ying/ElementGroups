@@ -42,6 +42,38 @@ firebase = pyrebase.initialize_app(firebase_config)
 auth_pyrebase = firebase.auth()
 
 fdb = db.reference()
+periodic_table_ref = db.reference('periodic_table')
+
+
+def periodic_table_exists():
+    data = periodic_table_ref.order_by_key().limit_to_first(1).get()
+    return bool(data)
+
+
+def upload_periodic_table(elements):
+    data = {e['Symbol']: e for e in elements}
+    periodic_table_ref.set(data)
+
+
+def get_periodic_table():
+    data = periodic_table_ref.get()
+    if not data:
+        return []
+    return sorted(data.values(), key=lambda e: int(e['AtomicNumber']))
+
+
+def get_element_by_symbol(symbol):
+    return periodic_table_ref.child(symbol).get()
+
+
+def get_element_by_atomic_number(an):
+    data = periodic_table_ref.get()
+    if not data:
+        return None
+    for element in data.values():
+        if element.get('AtomicNumber') == str(an):
+            return element
+    return None
 
 
 def upload_file(from_f, to_f):

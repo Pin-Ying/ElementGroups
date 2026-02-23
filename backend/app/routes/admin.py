@@ -6,9 +6,7 @@ from flask_login import current_user, login_required
 
 from app import auth as auth_module
 from app.elements import element_info
-from app.firebase import show_fdb, upload_fdb, upload_file
-from app.models import ElementGroups, alchemy_db, sess
-from sqlalchemy import text
+from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api")
 
@@ -37,22 +35,19 @@ def logout():
 @admin_bp.route("/admin/create-db", methods=["POST"])
 @login_required
 def create_db():
-    try:
-        alchemy_db.create_all()
-        return jsonify({"result": "success", "message": "create_db finish!"})
-    except Exception as e:
-        print("create_db error!", e)
-        return jsonify({"result": "failure", "message": str(e)}), 500
+    return jsonify({"result": "success", "message": "Firestore 無需建立資料表"})
 
 
 @admin_bp.route("/admin/update-db", methods=["POST"])
 @login_required
 def update_db():
     try:
+        if periodic_table_exists():
+            return jsonify({"result": "success", "message": "資料已存在，略過更新"})
         data = element_info()
-        data.to_sql(
-            "PeriodicTable", index=False, con=alchemy_db.engine, if_exists="replace"
-        )
+        if data is None:
+            return jsonify({"result": "failure", "message": "無法取得元素資料"}), 500
+        upload_periodic_table(data.to_dict(orient='records'))
         return jsonify({"result": "success", "message": "update-db finish!"})
     except Exception as e:
         print("update-db error!", e)
@@ -69,8 +64,8 @@ def update_story():
                 fbDatas = {}
             imageDatas = {data: fbDatas[data]["img"] for data in fbDatas}
             storyDatas = {data: fbDatas[data]["description"] for data in fbDatas}
-            symbols = sess.execute(text("SELECT Symbol FROM PeriodicTable;")).fetchall()
-            elements = [sym[0] for sym in symbols]
+            elements_data = get_periodic_table()
+            elements = [e["Symbol"] for e in elements_data]
             return jsonify(
                 {
                     "elements": elements,
@@ -102,7 +97,6 @@ def update_story():
         else:
             img = imageDatas.get(symbol, "")
 
-        ElementGroups.updateData(symbol=symbol, img=img, description=story)
         upload_fdb(symbol, {"img": img, "description": story})
         return jsonify({"result": "success", "message": "Finish!"})
 
