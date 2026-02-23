@@ -135,4 +135,35 @@ Admin 登入 UI 重排 + 元素頁面 inline 編輯 + Session / Auth 修正
 
 ---
 
+## [修正] - 2026-02-23 | pending commit
+
+### 變更類型
+統一 Auth 狀態，修正切換頁面被登出問題
+
+### 根本原因
+`AdminView.vue` 擁有自己獨立的 `loggedIn: false` 本地狀態，與 `authState` store 完全分離：
+- 從 Header 登入 → `authState.loggedIn = true`，但 AdminView 的 `this.loggedIn` 仍為 `false` → 進入 `/admin` 頁面顯示登入表單（外觀上像被登出）
+- 從 AdminView 登入 → `this.loggedIn = true`，但 `authState.loggedIn` 仍為 `false` → StoryView 看不到 Edit 按鈕
+
+### 執行動作
+
+**後端**
+- `routes/admin.py`：新增 `GET /api/auth/status` endpoint，回傳 `{"loggedIn": current_user.is_authenticated}`，供前端重整頁面後恢復登入狀態
+
+**前端**
+- `api/index.js`：新增 `getAuthStatus()` 函式
+- `store/auth.js`：新增 `initAuth()`，呼叫 `/api/auth/status` 恢復登入狀態；改用 store 的 `login`/`logout` 給 AdminView 使用
+- `App.vue`：新增 `created()` 呼叫 `initAuth()`，頁面載入（含重整）時自動恢復登入狀態
+- `AdminView.vue`：
+  - 移除本地 `loggedIn` 狀態
+  - 改用 `authState` + store 的 `login`/`logout`（從 `'../store/auth'` 匯入）
+  - 新增 `mounted()` 鉤子：若已登入則自動載入 story 資料
+
+### 修正問題
+- 切換到 `/admin` 頁面後顯示登入表單（狀態不同步）
+- 從 AdminView 登入後 StoryView 不顯示 Edit 按鈕（狀態不同步）
+- 頁面重整後登入狀態遺失（`initAuth()` 修正）
+
+---
+
 *後續變更將自動記錄於此*

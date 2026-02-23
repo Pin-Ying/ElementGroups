@@ -71,6 +71,7 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 | GET | `/api/elements/:symbol/ability` | 能力數值 + abMax |
 | POST | `/api/auth/login` | 登入 |
 | POST | `/api/auth/logout` | 登出 |
+| GET | `/api/auth/status` | 查詢目前登入狀態（`{"loggedIn": bool}`）|
 | POST | `/api/admin/update-db` | 初始化/更新週期表（已有資料則略過）|
 | GET/POST | `/api/admin/story` | 故事與圖片管理 |
 
@@ -114,6 +115,9 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 - `logout()` 不加 `@login_required`，避免 session 過期時無法登出（返回 401）
 - Realtime DB 根節點同時有故事資料（`{Symbol}/img,description`）和 `periodic_table/` 子樹，迭代時需過濾 `periodic_table` 鍵
 - `App.vue` Admin 登入區塊在標題下方（column layout），避免橫排破版
+- **Auth 狀態唯一來源**：`store/auth.js` 的 `authState`。所有元件（App、AdminView、StoryView）都使用同一個 reactive 物件，嚴禁在元件內建立本地 `loggedIn` 狀態
+- `initAuth()`：App 掛載時呼叫，透過 `GET /api/auth/status` 恢復頁面重整後的登入狀態
+- `AdminView` 在 `mounted()` 若已登入會自動載入 story 資料
 
 ---
 

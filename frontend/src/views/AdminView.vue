@@ -3,7 +3,7 @@
     <LoadingSpinner v-if="loading" />
 
     <!-- Login Form -->
-    <div v-if="!loggedIn" class="admin-box">
+    <div v-if="!authState.loggedIn" class="admin-box">
       <p class="title">LOGIN</p>
       <div class="box" id="login-box">
         <form @submit.prevent="handleLogin">
@@ -22,7 +22,7 @@
     </div>
 
     <!-- Admin Panel -->
-    <div v-else class="admin-box">
+    <div v-if="authState.loggedIn" class="admin-box">
       <p class="title">ADMIN</p>
       <div style="margin-bottom: 20px">
         <router-link class="button" to="/">Back To Index</router-link>
@@ -53,15 +53,16 @@
 </template>
 
 <script>
-import { login, logout, createDb, updateDb, getStoryData, updateStory } from '../api'
+import { createDb, updateDb, getStoryData, updateStory } from '../api'
+import { authState, login, logout } from '../store/auth'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
   components: { LoadingSpinner },
   data() {
     return {
+      authState,
       loading: false,
-      loggedIn: false,
       email: '',
       password: '',
       msg: '',
@@ -76,15 +77,21 @@ export default {
       storyText: ''
     }
   },
+  async mounted() {
+    if (this.authState.loggedIn) {
+      await this.loadStoryData()
+    }
+  },
   methods: {
     async handleLogin() {
       this.loading = true
       try {
-        const res = await login(this.email, this.password)
-        if (res.data.result === 'success') {
-          this.loggedIn = true
+        const result = await login(this.email, this.password)
+        if (result.ok) {
           this.msg = ''
           await this.loadStoryData()
+        } else {
+          this.msg = result.message || 'Login failed'
         }
       } catch (e) {
         this.msg = e.response?.data?.message || 'Login failed'
@@ -96,7 +103,6 @@ export default {
       this.loading = true
       try {
         await logout()
-        this.loggedIn = false
       } catch (e) {
         console.error('Logout failed:', e)
       } finally {

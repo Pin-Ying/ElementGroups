@@ -29,6 +29,10 @@ export function logout() {
   return api.post('/auth/logout')
 }
 
+export function getAuthStatus() {
+  return api.get('/auth/status')
+}
+
 export function createDb() {
   return api.post('/admin/create-db')
 }

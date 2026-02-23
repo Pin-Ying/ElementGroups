@@ -1,9 +1,18 @@
 import { reactive } from 'vue'
-import { login as apiLogin, logout as apiLogout } from '../api'
+import { login as apiLogin, logout as apiLogout, getAuthStatus } from '../api'
 
 export const authState = reactive({
   loggedIn: false
 })
+
+export async function initAuth() {
+  try {
+    const res = await getAuthStatus()
+    authState.loggedIn = res.data.loggedIn
+  } catch {
+    authState.loggedIn = false
+  }
+}
 
 export async function login(email, password) {
   const res = await apiLogin(email, password)

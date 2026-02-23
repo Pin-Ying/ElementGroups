@@ -33,6 +33,11 @@ def logout():
     return jsonify({"result": "success", "message": "Logged out successfully"})
 
 
+@admin_bp.route("/auth/status", methods=["GET"])
+def auth_status():
+    return jsonify({"loggedIn": current_user.is_authenticated})
+
+
 @admin_bp.route("/admin/create-db", methods=["POST"])
 @login_required
 def create_db():

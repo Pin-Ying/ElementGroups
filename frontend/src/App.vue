@@ -34,7 +34,7 @@
 </template>
 
 <script>
-import { authState, login, logout } from './store/auth'
+import { authState, login, logout, initAuth } from './store/auth'
 
 export default {
   data() {
@@ -46,6 +46,9 @@ export default {
       errMsg: '',
       loggingIn: false
     }
+  },
+  created() {
+    initAuth()
   },
   methods: {
     async handleLogin() {
