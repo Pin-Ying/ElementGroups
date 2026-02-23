@@ -10,6 +10,7 @@ from app.firebase import auth_pyrebase
 from firebase_admin import auth
 
 login_manager = LoginManager()
+login_manager.session_protection = None  # 停用 IP/UA 識別符檢查，避免 IPv4/IPv6 切換導致 session 失效
 users = {}
 
 

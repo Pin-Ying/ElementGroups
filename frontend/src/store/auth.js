@@ -8,9 +8,13 @@ export const authState = reactive({
 export async function initAuth() {
   try {
     const res = await getAuthStatus()
-    authState.loggedIn = res.data.loggedIn
+    // 只允許設為 true（恢復頁面重整後的登入狀態）
+    // 不設 false，避免 pending request 在用戶登入後才返回而覆蓋狀態
+    if (res.data.loggedIn) {
+      authState.loggedIn = true
+    }
   } catch {
-    authState.loggedIn = false
+    // 忽略，不改變狀態
   }
 }
 

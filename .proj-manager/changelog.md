@@ -166,4 +166,33 @@ Admin 登入 UI 重排 + 元素頁面 inline 編輯 + Session / Auth 修正
 
 ---
 
+## [修正] - 2026-02-23 | pending commit
+
+### 變更類型
+修正切換頁面後端 session 失效（401 無權限）
+
+### 根本原因
+Flask-Login 預設的 session protection 機制：將 `hash(remote_addr + user_agent)` 存入 session 作為識別符。
+在 Windows Docker 環境中，localhost 請求有時使用 IPv4 (`127.0.0.1`)，有時使用 IPv6 (`::1`)，
+兩者 hash 不同 → Flask-Login 認為識別符被竄改 → 自動將 `_user_id` 從 session 移除 → 後續請求匿名 → 401。
+前端 `authState.loggedIn` 仍為 true（因為沒有任何機制通知），故 Edit 按鈕持續顯示。
+
+### 執行動作
+
+**後端**
+- `auth.py`：設定 `login_manager.session_protection = None`，停用 IP/UA 識別符檢查
+
+**前端**
+- `store/auth.js`：`initAuth()` 只允許設為 true，不設 false，
+  避免 pending request 在用戶登入後才返回而覆蓋登入狀態（race condition 防護）
+- `App.vue`：在 `created()` 加入 axios 401 interceptor，
+  任何 401 response 自動將 `authState.loggedIn = false`，確保前後端狀態同步
+
+### 修正問題
+- 切換頁面後嘗試編輯顯示 401 無權限（IPv4/IPv6 切換導致 session 失效）
+- `initAuth()` race condition：用戶登入後 stale request 返回 `{"loggedIn": false}` 覆蓋狀態
+- 前端不知道後端 session 已失效（Edit 按鈕顯示但操作失敗）
+
+---
+
 *後續變更將自動記錄於此*

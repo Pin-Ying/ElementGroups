@@ -35,6 +35,7 @@
 
 <script>
 import { authState, login, logout, initAuth } from './store/auth'
+import api from './api'
 
 export default {
   data() {
@@ -48,6 +49,16 @@ export default {
     }
   },
   created() {
+    // 若後端 session 失效（401），立即更新前端狀態
+    api.interceptors.response.use(
+      res => res,
+      err => {
+        if (err.response?.status === 401) {
+          authState.loggedIn = false
+        }
+        return Promise.reject(err)
+      }
+    )
     initAuth()
   },
   methods: {
