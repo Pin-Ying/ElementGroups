@@ -8,7 +8,7 @@
         </router-link>
 
         <!-- Admin area -->
-        <div class="admin-area">
+        <div class="admin-area" style="text-align:left">
           <template v-if="authState.loggedIn">
             <span class="admin-badge">Admin Mode</span>
             <button class="button btn-sm" @click="handleLogout">Logout</button>
@@ -76,14 +76,13 @@ export default {
 <style scoped>
 .header-inner {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .header-title {
   text-align: left;
-  flex-shrink: 0;
 }
 
 .admin-area {
@@ -91,7 +90,6 @@ export default {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .login-form {
@@ -99,7 +97,6 @@ export default {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .login-form .input {

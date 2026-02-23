@@ -63,8 +63,8 @@ def update_story():
             fbDatas = show_fdb()
             if not fbDatas:
                 fbDatas = {}
-            imageDatas = {data: fbDatas[data]["img"] for data in fbDatas}
-            storyDatas = {data: fbDatas[data]["description"] for data in fbDatas}
+            imageDatas = {data: fbDatas[data].get("img", "") for data in fbDatas if data != "periodic_table"}
+            storyDatas = {data: fbDatas[data].get("description", "") for data in fbDatas if data != "periodic_table"}
             elements_data = get_periodic_table()
             elements = [e["Symbol"] for e in elements_data]
             return jsonify(
@@ -86,7 +86,7 @@ def update_story():
         fbDatas = show_fdb()
         if not fbDatas:
             fbDatas = {}
-        imageDatas = {data: fbDatas[data]["img"] for data in fbDatas}
+        imageDatas = {data: fbDatas[data].get("img", "") for data in fbDatas if data != "periodic_table"}
 
         if image and image.filename:
             filename = f"static/img/{symbol}.JPG"

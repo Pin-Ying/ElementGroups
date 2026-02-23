@@ -76,7 +76,7 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 
 ### 前端頁面
 - `HomeView.vue` - 主頁面（週期表 + 分組切換）
-- `StoryView.vue` - 元素詳細故事頁面
+- `StoryView.vue` - 元素詳細故事頁面（含登入後 inline 編輯 Modal）
 - `AdminView.vue` - 管理員頁面
 
 ### 前端元件
@@ -99,7 +99,7 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 
 - **Gunicorn workers = 1**：Flask-Login 使用 in-memory `users` dict，多 worker 會導致 session 跨 process 失效（401 問題）
 - CORS 已啟用（`supports_credentials=True`）
-- Session 有效期 5 分鐘（`backend/app/__init__.py`）
+- Session 有效期 10 分鐘 sliding（`backend/app/__init__.py`），每次 request 自動延長
 - 前端 `VITE_API_URL=/api`（`frontend/.env.production`），nginx 代理 `/api` 到後端
 - 開發模式：Vite proxy `/api` 到 `localhost:8000`
 - Firebase Realtime DB 使用 Spark 免費方案（週期表 + 圖片 base64 約 50 MB，遠低於 1 GB 上限）
@@ -108,6 +108,12 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 
 - [ ] Flask-Login session 改用 Redis 或 server-side store（支援多 worker）
 - [ ] StoryView 前端串接 img_data fallback 已實作，如需讓舊圖片也有 base64，需重新上傳
+
+## Auth 相關注意事項
+
+- `logout()` 不加 `@login_required`，避免 session 過期時無法登出（返回 401）
+- Realtime DB 根節點同時有故事資料（`{Symbol}/img,description`）和 `periodic_table/` 子樹，迭代時需過濾 `periodic_table` 鍵
+- `App.vue` Admin 登入區塊在標題下方（column layout），避免橫排破版
 
 ---
 

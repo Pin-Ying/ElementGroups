@@ -2,6 +2,34 @@
   <div>
     <LoadingSpinner v-if="loading" />
 
+    <!-- Edit modal -->
+    <div v-if="editing" class="modal-overlay" @click.self="editing = false">
+      <div class="modal-box" :style="{ borderColor: '#' + elInfo.CPKHexColor }">
+        <div class="modal-header">
+          <span>Edit {{ elInfo.Symbol }}</span>
+          <button class="modal-close" @click="editing = false">✕</button>
+        </div>
+        <form @submit.prevent="handleSubmit">
+          <label class="edit-label">Story</label>
+          <textarea
+            class="edit-textarea"
+            v-model="editStory"
+            rows="6"
+            placeholder="Write the story..."
+          ></textarea>
+          <label class="edit-label">Image (.jpg)</label>
+          <input class="edit-file" type="file" accept=".jpg" ref="imageInput" />
+          <div class="edit-actions">
+            <button class="btn-save" type="submit" :disabled="saving">
+              {{ saving ? 'Saving...' : 'Save' }}
+            </button>
+            <button class="btn-cancel" type="button" @click="editing = false">Cancel</button>
+            <span v-if="saveMsg" :class="saveMsgType" class="save-msg">{{ saveMsg }}</span>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div v-if="elInfo">
       <div class="element-btns">
         <div>
@@ -42,7 +70,15 @@
             }"
             id="main-content"
           >
-            <div class="title">Atomic NUMBER: {{ elInfo.AtomicNumber }}</div>
+            <div class="atomic-title">
+              <span class="title">Atomic NUMBER: {{ elInfo.AtomicNumber }}</span>
+              <button
+                v-if="authState.loggedIn"
+                class="btn-edit"
+                type="button"
+                @click="editing = true; saveMsg = ''"
+              >Edit</button>
+            </div>
             <div class="subtitle">
               {{ elInfo.Name }} / {{ elInfo.Symbol }} / {{ elInfo.ElectronConfiguration }}
             </div>
@@ -63,32 +99,6 @@
         </div>
 
         <AbilityChart v-if="abilityData" :elInfo="abilityData" />
-
-        <!-- Inline edit panel (admin only) -->
-        <div
-          v-if="authState.loggedIn"
-          class="edit-panel"
-          :style="{ borderColor: '#' + elInfo.CPKHexColor }"
-        >
-          <div class="edit-panel-title">Edit {{ elInfo.Symbol }}</div>
-          <form @submit.prevent="handleSubmit">
-            <label class="edit-label">Story</label>
-            <textarea
-              class="edit-textarea"
-              v-model="editStory"
-              rows="5"
-              placeholder="Write the story..."
-            ></textarea>
-            <label class="edit-label">Image (.jpg)</label>
-            <input class="edit-file" type="file" accept=".jpg" ref="imageInput" />
-            <div class="edit-actions">
-              <button class="button" type="submit" :disabled="saving">
-                {{ saving ? 'Saving...' : 'Save' }}
-              </button>
-              <span v-if="saveMsg" :class="saveMsgType" class="save-msg">{{ saveMsg }}</span>
-            </div>
-          </form>
-        </div>
       </div>
     </div>
   </div>
@@ -127,7 +137,7 @@ export default {
       abilityData: null,
       abilities: ABILITIES,
       loading: false,
-      // edit
+      editing: false,
       editStory: '',
       saving: false,
       saveMsg: '',
@@ -152,13 +162,13 @@ export default {
       this.loading = true
       this.elInfo = null
       this.imgFallbackLevel = 0
+      this.editing = false
       this.saveMsg = ''
       try {
         const [detailRes, abilityRes] = await Promise.all([
           getElementDetail(this.symbol),
           getElementAbility(this.symbol)
         ])
-
         const detail = detailRes.data
         this.elInfo = detail.el_info
         this.fEl = detail.f_el
@@ -168,7 +178,6 @@ export default {
         this.imgData = detail.img_data
         this.altImage = detail.alt_image
         this.editStory = detail.story || ''
-
         this.abilityData = abilityRes.data
       } catch (e) {
         console.error('Failed to load element data:', e)
@@ -192,7 +201,6 @@ export default {
       formData.append('stroy', this.editStory)
       const imageFile = this.$refs.imageInput?.files[0]
       if (imageFile) formData.append('image', imageFile)
-
       try {
         const res = await updateStory(formData)
         this.story = this.editStory
@@ -275,29 +283,75 @@ export default {
   transition: width 0.6s ease;
 }
 
-/* ── Inline edit panel ── */
-.edit-panel {
-  margin: 10px auto;
-  padding: 20px;
-  border: solid 2px;
+/* ── Atomic title row ── */
+.atomic-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-edit {
+  font-size: 12px;
+  padding: 2px 10px;
+  border: 1px solid rgba(228, 251, 255, 0.5);
   border-radius: 4px;
-  background: rgba(228, 251, 255, 0.05);
+  background: rgba(228, 251, 255, 0.1);
+  color: #e4fbff;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-edit:hover {
+  background: rgba(228, 251, 255, 0.22);
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-box {
+  background: rgb(30, 25, 30);
+  border: 2px solid;
+  border-radius: 8px;
+  width: min(560px, 92vw);
+  padding: 24px;
   text-align: left;
 }
 
-.edit-panel-title {
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 18px;
   font-weight: bold;
-  margin-bottom: 14px;
-  letter-spacing: 0.05em;
+  margin-bottom: 16px;
   color: #e4fbff;
 }
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover { color: #fff; }
 
 .edit-label {
   display: block;
   font-size: 13px;
   margin: 10px 0 4px;
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
 .edit-textarea {
@@ -320,38 +374,43 @@ export default {
 .edit-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
 }
 
-.edit-actions .button {
-  min-width: unset;
+.btn-save, .btn-cancel {
   padding: 6px 20px;
-}
-
-.save-msg {
+  border-radius: 4px;
+  cursor: pointer;
   font-size: 14px;
+  border: 1px solid;
+  transition: background 0.15s;
 }
 
+.btn-save {
+  background: rgba(228, 251, 255, 0.15);
+  border-color: #e4fbff;
+  color: #fff;
+}
+.btn-save:hover { background: rgba(228, 251, 255, 0.28); }
+.btn-save:disabled { opacity: 0.5; cursor: default; }
+
+.btn-cancel {
+  background: transparent;
+  border-color: #666;
+  color: #aaa;
+}
+.btn-cancel:hover { border-color: #aaa; color: #fff; }
+
+.save-msg { font-size: 13px; }
 .msg-success { color: #6ee76e; }
 .msg-error   { color: #ff6b6b; }
 
 @media only screen and (max-width: 800px) {
-  img,
-  #element-ability {
-    width: 90%;
-  }
-
-  .element-btns {
-    display: block;
-  }
-
-  .element-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .element-grid-info {
-    width: 90%;
-  }
+  img, #element-ability { width: 90%; }
+  .element-btns { display: block; }
+  .element-grid { grid-template-columns: 1fr; }
+  .element-grid-info { width: 90%; }
 }
 </style>

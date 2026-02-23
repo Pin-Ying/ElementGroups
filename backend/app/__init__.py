@@ -11,6 +11,8 @@ def create_app():
     app = Flask(__name__)
 
     app.config["SECRET_KEY"] = settings.SECRET_KEY
+    app.config["PERMANENT_SESSION_LIFETIME"] = datetime.timedelta(minutes=10)
+    app.config["SESSION_REFRESH_EACH_REQUEST"] = True  # 每次 request 重置過期時間
 
     CORS(app, supports_credentials=True)
 
@@ -18,8 +20,7 @@ def create_app():
 
     @app.before_request
     def make_session_permanent():
-        session.permanent = True
-        app.permanent_session_lifetime = datetime.timedelta(minutes=5)
+        session.permanent = True  # 使用 PERMANENT_SESSION_LIFETIME 而非 browser session
 
     from app.routes.public import public_bp
     from app.routes.admin import admin_bp

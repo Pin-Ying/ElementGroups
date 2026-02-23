@@ -108,4 +108,31 @@ README 更新
 
 ---
 
+## [功能新增 + 修正] - 2026-02-23 | pending commit
+
+### 變更類型
+Admin 登入 UI 重排 + 元素頁面 inline 編輯 + Session / Auth 修正
+
+### 執行動作
+
+**後端**
+- `app/__init__.py`：Session 改為 sliding 機制（靜置 10 分鐘過期），`PERMANENT_SESSION_LIFETIME=10min`、`SESSION_REFRESH_EACH_REQUEST=True`、`session.permanent=True`
+- `app/auth.py`：`logout()` 移除 `@login_required`，避免 session 過期後無法登出
+- `routes/admin.py`：`show_fdb()` 迭代時過濾 `periodic_table` 節點（避免與故事資料衝突的 KeyError）；`fbDatas[data]` 改用 `.get()` 存取 `img`/`description` 欄位
+
+**前端**
+- `App.vue`：Admin 登入區塊從標題旁移到標題下方（header-inner 改 column layout），避免破版
+- `StoryView.vue`：
+  - 在「Atomic NUMBER: XX」標題旁新增「Edit」按鈕（需登入才顯示）
+  - 點擊後以 Modal overlay 顯示編輯表單（故事文字 + 圖片上傳）
+  - 儲存成功後即時更新畫面；有圖片更換時重新載入資料
+  - Modal 可點擊遮罩關閉
+
+### 修正問題
+- `POST /api/admin/story` 500 KeyError `'img'`：Realtime DB 根節點同時有故事資料和 `periodic_table` 子樹，後者沒有 `img` 欄位
+- 401 on logout：`@login_required` 在 session 過期後阻擋登出請求
+- Session 5 分鐘太短：改為 10 分鐘 sliding session，使用中不會斷線
+
+---
+
 *後續變更將自動記錄於此*

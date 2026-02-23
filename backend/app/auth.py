@@ -57,7 +57,6 @@ def login(email, password):
             return f"Error: {error_message}"
 
 
-@login_required
 def logout():
     logout_user()
     return "Logged out successfully"
