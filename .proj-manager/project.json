@@ -1,8 +1,8 @@
 {
   "project_name": "ElementGroups",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "created_at": "2026-02-23T00:00:00Z",
-  "last_updated": "2026-02-23T00:00:00Z",
+  "last_updated": "2026-02-23T06:10:00Z",
   "agent_version": "1.0.0",
   "project_type": "fullstack",
   "framework": {
@@ -19,18 +19,25 @@
     "backend/.env.example",
     "backend/app/config.py",
     "frontend/vite.config.js",
+    "frontend/.env.production",
     "frontend/package.json"
   ],
   "git_initialized": true,
   "team_size": 1,
   "metadata": {
-    "description": "元素週期表分組應用，提供元素資訊、分組管理與視覺化功能，後端使用 Flask + SQLite + Firebase Auth，前端使用 Vue 3 + ECharts",
-    "repository": "local",
+    "description": "元素週期表分組應用，提供元素資訊、分組管理與視覺化功能。後端使用 Flask + Firebase Realtime DB + Firebase Auth，前端使用 Vue 3 + ECharts",
+    "repository": "https://github.com/Pin-Ying/ElementGroups",
     "deployment": {
-      "current": "Docker",
+      "current": "Docker Compose",
       "previous": "Render.com (Procfile)",
       "backend_port": 8000,
-      "frontend_port": 80
-    }
+      "frontend_port": 8080
+    },
+    "database": {
+      "type": "Firebase Realtime Database",
+      "removed": "SQLite / SQLAlchemy"
+    },
+    "gunicorn_workers": 1,
+    "notes": "workers=1 因 Flask-Login 使用 in-memory users dict，多 worker 導致 session 401"
   }
 }

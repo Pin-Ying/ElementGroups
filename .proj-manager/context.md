@@ -4,6 +4,7 @@
 
 **專案名稱:** ElementGroups
 **建立追蹤時間:** 2026-02-23
+**最後更新:** 2026-02-23
 **專案類型:** Fullstack Web Application
 **主要技術:** Python Flask (後端) + Vue 3 + Vite (前端)
 
@@ -11,7 +12,7 @@
 
 元素週期表分組應用，提供元素資訊查詢、分組管理與視覺化功能。
 
-- 後端：Flask REST API，SQLite 資料庫，Firebase Authentication
+- 後端：Flask REST API，Firebase Realtime Database（週期表 + 故事資料），Firebase Auth
 - 前端：Vue 3 SPA，ECharts 視覺化，Vue Router 路由
 
 ## 服務架構
@@ -20,41 +21,69 @@
 [Browser]
     |
     v
-[Frontend Container: Nginx:80]
+[Frontend Container: Nginx:8080]
     |-- 靜態資源 (Vue build)
     |-- /api/* --> 反向代理
     |
     v
-[Backend Container: Gunicorn:8000]
+[Backend Container: Gunicorn:8000 (1 worker)]
     |
-    |-- SQLite DB (volume 掛載)
+    |-- Firebase Realtime DB (periodic_table/, 故事資料)
+    |-- Firebase Storage (元素圖片)
     |-- Firebase Admin SDK
-    |-- Pyrebase4 (Firebase Client)
+    |-- Pyrebase4 (Firebase Client 認證)
 ```
+
+## 資料儲存
+
+| 資料 | 儲存位置 | 說明 |
+|------|---------|------|
+| 週期表 118 筆 | Realtime DB `periodic_table/{Symbol}` | 由 `POST /api/admin/update-db` 從 PubChem 爬取 |
+| 故事 / 圖片 URL | Realtime DB `{Symbol}/img, description` | 管理員上傳 |
+| 圖片 base64 備援 | Realtime DB `{Symbol}/img_data` | Storage 不可用時的 fallback |
+| 元素圖片檔案 | Firebase Storage `static/img/{Symbol}.JPG` | |
 
 ## 部署方式
 
-**目前:** Docker Compose
-**之前:** Render.com (Procfile: `web: python run.py`)
+**目前:** Docker Compose（前端 8080，後端 8000）
+**之前:** Render.com (Procfile)
 
 啟動指令:
 ```bash
-# 複製環境變數
-cp backend/.env.example backend/.env
-# 填入實際的 Firebase 金鑰後執行:
-docker-compose up --build
+cp backend/.env.example backend/.env   # 填入 Firebase 金鑰
+docker-compose up --build --quiet-pull  # build 時加 --quiet
+```
+
+初始化週期表資料（首次啟動後執行）:
+```
+POST /api/auth/login       # 管理員登入
+POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 ```
 
 ## 路由說明
 
 ### 後端路由
-- `backend/app/routes/public.py` - 公開 API (不需登入)
-- `backend/app/routes/admin.py` - 管理員 API (需登入)
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/api/elements` | 取得所有元素 |
+| POST | `/api/groups` | 分組資料（cp / vs）|
+| GET | `/api/elements/:symbol` | 元素詳細資料（含 img_data fallback）|
+| GET | `/api/elements/:symbol/ability` | 能力數值 + abMax |
+| POST | `/api/auth/login` | 登入 |
+| POST | `/api/auth/logout` | 登出 |
+| POST | `/api/admin/update-db` | 初始化/更新週期表（已有資料則略過）|
+| GET/POST | `/api/admin/story` | 故事與圖片管理 |
 
 ### 前端頁面
-- `HomeView.vue` - 主頁面 (元素週期表)
-- `StoryView.vue` - 故事頁面
+- `HomeView.vue` - 主頁面（週期表 + 分組切換）
+- `StoryView.vue` - 元素詳細故事頁面
 - `AdminView.vue` - 管理員頁面
+
+### 前端元件
+- `PeriodicTable.vue` - 週期表格
+- `GroupBox.vue` - 分組盒子
+- `AbilityChart.vue` - ECharts 雷達圖
+- `LoadingSpinner.vue` - 全域 loading overlay
 
 ## 環境變數
 
@@ -62,21 +91,24 @@ docker-compose up --build
 
 必填項目：
 - `SECRET_KEY` - Flask Session 密鑰
-- Firebase Admin SDK 相關金鑰 (FIREBASE_*)
-- Firebase Client 相關設定
+- `FIREBASE_*` - Firebase Admin SDK 與 Client 金鑰
+
+**已移除:** `DATABASE_URI`（SQLite 已廢棄）
 
 ## 開發注意事項
 
-- SQLite DB 路徑: `backend/elementGroups.db`，Docker 中透過 volume 掛載持久化
-- CORS 已啟用 (`supports_credentials=True`)
-- Session 有效期 5 分鐘 (可在 `backend/app/__init__.py` 調整)
-- 前端 `/api` 路徑在開發時代理到 `localhost:8000`，生產時由 Nginx 代理到 backend container
+- **Gunicorn workers = 1**：Flask-Login 使用 in-memory `users` dict，多 worker 會導致 session 跨 process 失效（401 問題）
+- CORS 已啟用（`supports_credentials=True`）
+- Session 有效期 5 分鐘（`backend/app/__init__.py`）
+- 前端 `VITE_API_URL=/api`（`frontend/.env.production`），nginx 代理 `/api` 到後端
+- 開發模式：Vite proxy `/api` 到 `localhost:8000`
+- Firebase Realtime DB 使用 Spark 免費方案（週期表 + 圖片 base64 約 50 MB，遠低於 1 GB 上限）
 
 ## 待辦事項
 
-- [ ] 補充 API 文檔
-- [ ] 完善測試覆蓋率
+- [ ] Flask-Login session 改用 Redis 或 server-side store（支援多 worker）
+- [ ] StoryView 前端串接 img_data fallback 已實作，如需讓舊圖片也有 base64，需重新上傳
 
 ---
 
-*此文檔由 project-manager skill 自動生成，可手動編輯以補充資訊*
+*此文檔由 project-manager skill 維護*
