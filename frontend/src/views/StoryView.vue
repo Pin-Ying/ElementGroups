@@ -63,15 +63,42 @@
         </div>
 
         <AbilityChart v-if="abilityData" :elInfo="abilityData" />
+
+        <!-- Inline edit panel (admin only) -->
+        <div
+          v-if="authState.loggedIn"
+          class="edit-panel"
+          :style="{ borderColor: '#' + elInfo.CPKHexColor }"
+        >
+          <div class="edit-panel-title">Edit {{ elInfo.Symbol }}</div>
+          <form @submit.prevent="handleSubmit">
+            <label class="edit-label">Story</label>
+            <textarea
+              class="edit-textarea"
+              v-model="editStory"
+              rows="5"
+              placeholder="Write the story..."
+            ></textarea>
+            <label class="edit-label">Image (.jpg)</label>
+            <input class="edit-file" type="file" accept=".jpg" ref="imageInput" />
+            <div class="edit-actions">
+              <button class="button" type="submit" :disabled="saving">
+                {{ saving ? 'Saving...' : 'Save' }}
+              </button>
+              <span v-if="saveMsg" :class="saveMsgType" class="save-msg">{{ saveMsg }}</span>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { getElementDetail, getElementAbility } from '../api'
+import { getElementDetail, getElementAbility, updateStory } from '../api'
 import AbilityChart from '../components/AbilityChart.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import { authState } from '../store/auth'
 
 const ABILITIES = [
   { key: 'MeltingPoint', label: 'MeltingPoint (K)' },
@@ -88,6 +115,7 @@ export default {
   props: { symbol: { type: String, required: true } },
   data() {
     return {
+      authState,
       elInfo: null,
       fEl: {},
       bEl: {},
@@ -98,7 +126,12 @@ export default {
       imgFallbackLevel: 0,
       abilityData: null,
       abilities: ABILITIES,
-      loading: false
+      loading: false,
+      // edit
+      editStory: '',
+      saving: false,
+      saveMsg: '',
+      saveMsgType: ''
     }
   },
   computed: {
@@ -119,6 +152,7 @@ export default {
       this.loading = true
       this.elInfo = null
       this.imgFallbackLevel = 0
+      this.saveMsg = ''
       try {
         const [detailRes, abilityRes] = await Promise.all([
           getElementDetail(this.symbol),
@@ -133,6 +167,7 @@ export default {
         this.imgSrc = detail.img_src
         this.imgData = detail.img_data
         this.altImage = detail.alt_image
+        this.editStory = detail.story || ''
 
         this.abilityData = abilityRes.data
       } catch (e) {
@@ -148,6 +183,31 @@ export default {
       if (!this.abilityData || !this.abilityData.abMax) return '0%'
       const value = this.abilityData[key] / this.abilityData.abMax[key] * 100
       return (isNaN(value) ? 0 : value) + '%'
+    },
+    async handleSubmit() {
+      this.saving = true
+      this.saveMsg = ''
+      const formData = new FormData()
+      formData.append('symbol', this.elInfo.Symbol)
+      formData.append('stroy', this.editStory)
+      const imageFile = this.$refs.imageInput?.files[0]
+      if (imageFile) formData.append('image', imageFile)
+
+      try {
+        const res = await updateStory(formData)
+        this.story = this.editStory
+        if (imageFile) {
+          this.imgFallbackLevel = 0
+          await this.loadData()
+        }
+        this.saveMsg = res.data.message
+        this.saveMsgType = 'msg-success'
+      } catch (e) {
+        this.saveMsg = e.response?.data?.message || 'Save failed'
+        this.saveMsgType = 'msg-error'
+      } finally {
+        this.saving = false
+      }
     }
   }
 }
@@ -214,6 +274,67 @@ export default {
   color: #000000;
   transition: width 0.6s ease;
 }
+
+/* ── Inline edit panel ── */
+.edit-panel {
+  margin: 10px auto;
+  padding: 20px;
+  border: solid 2px;
+  border-radius: 4px;
+  background: rgba(228, 251, 255, 0.05);
+  text-align: left;
+}
+
+.edit-panel-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 14px;
+  letter-spacing: 0.05em;
+  color: #e4fbff;
+}
+
+.edit-label {
+  display: block;
+  font-size: 13px;
+  margin: 10px 0 4px;
+  opacity: 0.75;
+}
+
+.edit-textarea {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(228, 251, 255, 0.3);
+  border-radius: 4px;
+  color: #fff;
+  padding: 8px;
+  font-size: 15px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.edit-file {
+  display: block;
+  margin: 4px 0;
+}
+
+.edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.edit-actions .button {
+  min-width: unset;
+  padding: 6px 20px;
+}
+
+.save-msg {
+  font-size: 14px;
+}
+
+.msg-success { color: #6ee76e; }
+.msg-error   { color: #ff6b6b; }
 
 @media only screen and (max-width: 800px) {
   img,
