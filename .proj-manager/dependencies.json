@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-02-23T00:00:00Z",
+  "dependency_sources": [
+    "backend/requirements.txt",
+    "frontend/package.json"
+  ],
+  "runtime_dependencies": {
+    "backend": {
+      "firebase_admin": { "version": "latest", "type": "pip", "purpose": "Firebase Admin SDK 認證與資料庫" },
+      "Flask": { "version": "latest", "type": "pip", "purpose": "Web 框架" },
+      "Flask-Cors": { "version": "latest", "type": "pip", "purpose": "跨域請求支援" },
+      "Flask_Login": { "version": "latest", "type": "pip", "purpose": "使用者登入管理" },
+      "flask_sqlalchemy": { "version": "latest", "type": "pip", "purpose": "ORM 資料庫整合" },
+      "pandas": { "version": "latest", "type": "pip", "purpose": "資料處理 (元素資料)" },
+      "pydantic-settings": { "version": "latest", "type": "pip", "purpose": "環境變數設定管理" },
+      "python-dotenv": { "version": "latest", "type": "pip", "purpose": ".env 檔案載入" },
+      "Pyrebase4": { "version": "latest", "type": "pip", "purpose": "Firebase Client 認證" },
+      "Requests": { "version": "latest", "type": "pip", "purpose": "HTTP 請求" },
+      "SQLAlchemy": { "version": "latest", "type": "pip", "purpose": "資料庫 ORM" },
+      "gunicorn": { "version": "latest", "type": "pip", "purpose": "WSGI 生產伺服器" }
+    },
+    "frontend": {
+      "axios": { "version": "^1.7.0", "type": "npm", "purpose": "HTTP 客戶端" },
+      "echarts": { "version": "^5.5.0", "type": "npm", "purpose": "圖表視覺化" },
+      "vue": { "version": "^3.4.0", "type": "npm", "purpose": "前端框架" },
+      "vue-router": { "version": "^4.3.0", "type": "npm", "purpose": "前端路由" }
+    }
+  },
+  "dev_dependencies": {
+    "frontend": {
+      "@vitejs/plugin-vue": { "version": "^5.0.0", "type": "npm", "purpose": "Vite Vue 插件" },
+      "vite": { "version": "^5.4.0", "type": "npm", "purpose": "前端建置工具" }
+    }
+  }
+}

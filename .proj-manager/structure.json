@@ -1,0 +1,155 @@
+{
+  "generated_at": "2026-02-23T00:00:00Z",
+  "root_path": ".",
+  "directories": {
+    "backend": {
+      "type": "source",
+      "description": "Flask 後端應用",
+      "subdirectories": ["app", "app/routes"]
+    },
+    "backend/app": {
+      "type": "source",
+      "description": "Flask 應用核心模組",
+      "files": [
+        "__init__.py",
+        "auth.py",
+        "color.py",
+        "config.py",
+        "elements.py",
+        "firebase.py",
+        "models.py"
+      ]
+    },
+    "backend/app/routes": {
+      "type": "source",
+      "description": "API 路由定義",
+      "files": ["__init__.py", "public.py", "admin.py"]
+    },
+    "frontend": {
+      "type": "source",
+      "description": "Vue 3 前端應用",
+      "subdirectories": ["src"]
+    },
+    "frontend/src": {
+      "type": "source",
+      "description": "前端原始碼",
+      "subdirectories": ["api", "assets", "components", "router", "views"]
+    },
+    "frontend/src/components": {
+      "type": "source",
+      "description": "可重用 Vue 元件",
+      "files": ["AbilityChart.vue", "GroupBox.vue", "PeriodicTable.vue"]
+    },
+    "frontend/src/views": {
+      "type": "source",
+      "description": "頁面級 Vue 元件",
+      "files": ["AdminView.vue", "HomeView.vue", "StoryView.vue"]
+    }
+  },
+  "key_files": {
+    "backend/run.py": {
+      "type": "entry",
+      "role": "app_entry",
+      "importance": "critical"
+    },
+    "backend/app/__init__.py": {
+      "type": "source",
+      "role": "app_factory",
+      "importance": "critical"
+    },
+    "backend/app/config.py": {
+      "type": "config",
+      "role": "settings_management",
+      "importance": "critical"
+    },
+    "backend/app/models.py": {
+      "type": "source",
+      "role": "database_models",
+      "importance": "high"
+    },
+    "backend/app/firebase.py": {
+      "type": "source",
+      "role": "firebase_integration",
+      "importance": "high"
+    },
+    "backend/app/auth.py": {
+      "type": "source",
+      "role": "authentication",
+      "importance": "high"
+    },
+    "backend/requirements.txt": {
+      "type": "config",
+      "role": "dependency_management",
+      "importance": "critical"
+    },
+    "backend/.env.example": {
+      "type": "config",
+      "role": "env_template",
+      "importance": "high"
+    },
+    "backend/Procfile": {
+      "type": "config",
+      "role": "render_deployment",
+      "importance": "medium",
+      "note": "已被 Docker 部署取代"
+    },
+    "frontend/package.json": {
+      "type": "config",
+      "role": "dependency_management",
+      "importance": "critical"
+    },
+    "frontend/vite.config.js": {
+      "type": "config",
+      "role": "build_config",
+      "importance": "high"
+    },
+    "frontend/src/main.js": {
+      "type": "entry",
+      "role": "app_entry",
+      "importance": "critical"
+    },
+    "frontend/src/App.vue": {
+      "type": "component",
+      "role": "root_component",
+      "importance": "critical"
+    },
+    "frontend/src/api/index.js": {
+      "type": "service",
+      "role": "api_client",
+      "importance": "high"
+    },
+    "docker-compose.yml": {
+      "type": "config",
+      "role": "docker_orchestration",
+      "importance": "critical"
+    },
+    "backend/Dockerfile": {
+      "type": "config",
+      "role": "backend_container",
+      "importance": "critical"
+    },
+    "frontend/Dockerfile": {
+      "type": "config",
+      "role": "frontend_container",
+      "importance": "critical"
+    }
+  },
+  "file_count": {
+    "total": 20,
+    "by_extension": {
+      ".py": 8,
+      ".vue": 6,
+      ".js": 3,
+      ".json": 2,
+      ".txt": 1
+    }
+  },
+  "ignored_patterns": [
+    "node_modules",
+    "__pycache__",
+    ".git",
+    "dist",
+    ".venv",
+    "*.db"
+  ]
+}

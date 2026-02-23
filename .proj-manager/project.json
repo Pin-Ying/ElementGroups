@@ -1,0 +1,36 @@
+{
+  "project_name": "ElementGroups",
+  "version": "1.0.0",
+  "created_at": "2026-02-23T00:00:00Z",
+  "last_updated": "2026-02-23T00:00:00Z",
+  "agent_version": "1.0.0",
+  "project_type": "fullstack",
+  "framework": {
+    "backend": "Flask",
+    "frontend": "Vue 3 + Vite"
+  },
+  "languages": ["Python", "JavaScript"],
+  "entry_points": [
+    "backend/run.py",
+    "frontend/src/main.js"
+  ],
+  "config_files": [
+    "backend/.env",
+    "backend/.env.example",
+    "backend/app/config.py",
+    "frontend/vite.config.js",
+    "frontend/package.json"
+  ],
+  "git_initialized": true,
+  "team_size": 1,
+  "metadata": {
+    "description": "元素週期表分組應用，提供元素資訊、分組管理與視覺化功能，後端使用 Flask + SQLite + Firebase Auth，前端使用 Vue 3 + ECharts",
+    "repository": "local",
+    "deployment": {
+      "current": "Docker",
+      "previous": "Render.com (Procfile)",
+      "backend_port": 8000,
+      "frontend_port": 80
+    }
+  }
+}
