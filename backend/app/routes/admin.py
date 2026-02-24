@@ -1,6 +1,7 @@
 import base64
 import os
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
@@ -68,28 +69,29 @@ def backfill_img_data():
         if not fbDatas:
             return jsonify({"result": "success", "message": "No story data found", "updated": 0})
 
-        updated = 0
-        skipped = 0
-        for symbol, data in fbDatas.items():
-            if symbol == "periodic_table":
-                continue
-            if data.get("img_data"):
-                skipped += 1
-                continue
-            if not data.get("img"):
-                continue
+        pending = [
+            symbol for symbol, data in fbDatas.items()
+            if symbol != "periodic_table" and not data.get("img_data") and data.get("img")
+        ]
 
+        def process_one(symbol):
             img_bytes, _ = get_image_bytes(symbol)
             if img_bytes is None:
-                continue
-
+                return False
             img_data = "data:image/jpeg;base64," + base64.b64encode(img_bytes).decode("utf-8")
             fdb.child(symbol).update({"img_data": img_data})
-            updated += 1
+            return True
+
+        updated = 0
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(process_one, symbol): symbol for symbol in pending}
+            for future in as_completed(futures):
+                if future.result():
+                    updated += 1
 
         return jsonify({
             "result": "success",
-            "message": f"完成！新增 {updated} 筆，{skipped} 筆已有資料略過",
+            "message": f"完成！新增 {updated} 筆",
             "updated": updated
         })
     except Exception as e:
