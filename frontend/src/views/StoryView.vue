@@ -54,51 +54,65 @@
       </div>
 
       <div class="element-story">
-        <div class="element-grid">
-          <img
-            :style="{ borderColor: '#' + elInfo.CPKHexColor }"
-            :src="resolvedImg"
-            :title="elInfo.Name"
-            alt="Still Creating..."
-            @error="onImgError"
-          />
-          <div
-            class="element-grid-info"
-            :style="{
-              borderColor: '#' + elInfo.CPKHexColor,
-              backgroundColor: '#' + elInfo.CPKHexColor + '33'
-            }"
-            id="main-content"
-          >
-            <div class="atomic-title">
-              <span class="title">Atomic NUMBER: {{ elInfo.AtomicNumber }}</span>
-              <button
-                v-if="authState.loggedIn"
-                class="btn-edit"
-                type="button"
-                @click="editing = true; saveMsg = ''"
-              >Edit</button>
-            </div>
-            <div class="subtitle">
-              {{ elInfo.Name }} / {{ elInfo.Symbol }} / {{ elInfo.ElectronConfiguration }}
-            </div>
-            <div>
-              <template v-if="story">
-                <span v-html="story.replace(/\\n/g, '<br>')"></span>
-              </template>
-              <template v-else>Still Creating...</template>
+        <!-- Section tabs -->
+        <div class="group-type-button">
+          <button class="button" :class="{ active: section === 'intro' }" @click="section = 'intro'">介紹</button>
+          <button class="button" :class="{ active: section === 'radar' }" @click="section = 'radar'">雷達圖</button>
+          <button class="button" :class="{ active: section === 'bars' }" @click="section = 'bars'">能力圖</button>
+        </div>
+
+        <transition name="fade" mode="out-in">
+          <!-- 介紹 -->
+          <div v-if="section === 'intro'" key="intro" class="element-grid">
+            <img
+              :style="{ borderColor: '#' + elInfo.CPKHexColor }"
+              :src="resolvedImg"
+              :title="elInfo.Name"
+              alt="Still Creating..."
+              @error="onImgError"
+            />
+            <div
+              class="element-grid-info"
+              :style="{
+                borderColor: '#' + elInfo.CPKHexColor,
+                backgroundColor: '#' + elInfo.CPKHexColor + '33'
+              }"
+              id="main-content"
+            >
+              <div class="atomic-title">
+                <span class="title">Atomic NUMBER: {{ elInfo.AtomicNumber }}</span>
+                <button
+                  v-if="authState.loggedIn"
+                  class="btn-edit"
+                  type="button"
+                  @click="editing = true; saveMsg = ''"
+                >Edit</button>
+              </div>
+              <div class="subtitle">
+                {{ elInfo.Name }} / {{ elInfo.Symbol }} / {{ elInfo.ElectronConfiguration }}
+              </div>
+              <div>
+                <template v-if="story">
+                  <span v-html="story.replace(/\\n/g, '<br>')"></span>
+                </template>
+                <template v-else>Still Creating...</template>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div id="element-ability" :style="{ borderColor: '#' + elInfo.CPKHexColor }">
-          <template v-for="ab in abilities" :key="ab.key">
-            <div>{{ ab.label }}</div>
-            <div class="ability-bar" :style="{ width: abilityWidth(ab.key) }"></div>
-          </template>
-        </div>
+          <!-- 雷達圖 -->
+          <div v-else-if="section === 'radar'" key="radar">
+            <AbilityChart v-if="abilityData" :elInfo="abilityData" />
+          </div>
 
-        <AbilityChart v-if="abilityData" :elInfo="abilityData" />
+          <!-- 能力圖 -->
+          <div v-else key="bars" id="element-ability">
+            <template v-for="ab in abilities" :key="ab.key">
+              <div>{{ ab.label }}</div>
+              <div class="ability-bar" :style="{ width: abilityWidth(ab.key) }"></div>
+            </template>
+          </div>
+        </transition>
       </div>
     </div>
   </div>
@@ -135,6 +149,7 @@ export default {
       imgFallbackLevel: 0,
       abilityData: null,
       abilities: ABILITIES,
+      section: 'intro',
       loading: false,
       editing: false,
       editStory: '',
@@ -160,6 +175,7 @@ export default {
       this.loading = true
       this.elInfo = null
       this.imgFallbackLevel = 0
+      this.section = 'intro'
       this.editing = false
       this.saveMsg = ''
       try {
@@ -232,12 +248,12 @@ export default {
 #element-ability {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  grid-auto-rows: 50px;
-  gap: 5px;
+  grid-auto-rows: 36px;
+  gap: 4px;
   text-align: left;
   width: 100%;
   margin: 5px auto;
-  padding: 20px 10px;
+  padding: 16px 10px;
   border: 1px solid rgba(228, 251, 255, 0.2);
   border-radius: 6px;
   box-shadow: 0 0 24px rgba(80, 0, 160, 0.15), 0 0 48px rgba(0, 100, 200, 0.08);
@@ -405,6 +421,15 @@ export default {
 .save-msg { font-size: 13px; }
 .msg-success { color: #6ee76e; }
 .msg-error   { color: #ff6b6b; }
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 
 @media only screen and (max-width: 800px) {
   img, #element-ability { width: 90%; }
