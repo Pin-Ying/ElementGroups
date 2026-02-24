@@ -23,11 +23,9 @@
     <div v-if="authState.loggedIn" class="admin-box">
       <p class="title">ADMIN</p>
       <div style="margin-bottom: 20px">
-        <router-link class="button" to="/">Back To Index</router-link>
         <button class="button" @click="handleCreateDb">Create db</button>
         <button class="button" @click="handleUpdateDb">Update db</button>
         <button class="button" @click="handleBackfill">Backfill img_data</button>
-        <router-link class="button" to="/admin">Admin Page</router-link>
         <button class="button" @click="handleLogout">Log out</button>
       </div>
       <p v-if="adminMsg" class="label" :class="adminMsgType">{{ adminMsg }}</p>

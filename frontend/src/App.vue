@@ -11,6 +11,7 @@
         <div class="admin-area" style="text-align:left">
           <template v-if="authState.loggedIn">
             <span class="admin-badge">Admin Mode</span>
+            <router-link class="button btn-sm" to="/admin">Admin Page</router-link>
             <button class="button btn-sm" @click="handleLogout">Logout</button>
           </template>
           <template v-else>
