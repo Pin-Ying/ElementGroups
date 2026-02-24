@@ -26,7 +26,6 @@
         <button class="button" @click="handleCreateDb">Create db</button>
         <button class="button" @click="handleUpdateDb">Update db</button>
         <button class="button" @click="handleBackfill">Backfill img_data</button>
-        <button class="button" @click="handleLogout">Log out</button>
       </div>
       <p v-if="adminMsg" class="label" :class="adminMsgType">{{ adminMsg }}</p>
 
