@@ -240,4 +240,87 @@ PeriodicTableGrid 樣式對齊 + 響應式分組備援 + 分組資料快取
 
 ---
 
+## [功能新增] - 2026-02-24 | commit 503cba0
+
+### 變更類型
+新增圖片 proxy API，隱藏 Firebase Storage URL
+
+### 執行動作
+
+**後端**
+- `firebase.py`：新增 `get_image_bytes(symbol)`，從 Storage 下載圖片位元組（`static/img/{symbol}.JPG`），無圖片時 fallback 至 `static/img/Electron.JPG`；引入 `google.cloud.exceptions.NotFound`
+- `routes/public.py`：新增 `GET /api/elements/<symbol>/img` proxy endpoint，回傳圖片 bytes，附加 `Cache-Control: public, max-age=86400`；`get_element_detail()` 移除 `img_src`（Storage 公開 URL）與 `alt_image`（硬編碼 Storage URL）欄位
+
+**前端**
+- `StoryView.vue`：`imgSrc` 改用 `/api/elements/:symbol/img`（不再從 API response 取 URL）；移除 `altImage` 狀態；`resolvedImg` 簡化為 proxy URL → base64 (`img_data`) 兩層 fallback
+
+### 修正問題
+- Firebase Storage 圖片 URL 不再暴露給前端瀏覽器
+- `alt_image` 硬編碼 Storage URL 也一併移除
+
+---
+
+## [功能新增] - 2026-02-24 | commit d23c091
+
+### 變更類型
+新增 backfill-img-data endpoint，補齊舊圖片 base64
+
+### 執行動作
+
+**後端**
+- `routes/admin.py`：新增 `POST /api/admin/backfill-img-data`（需登入），遍歷 Realtime DB 中有 `img` 但無 `img_data` 的元素，使用 `get_image_bytes()` 從 Storage 下載圖片並寫入 base64；已有 `img_data` 者略過，回傳 updated/skipped 計數
+
+**前端**
+- `api/index.js`：新增 `backfillImgData()`
+- `AdminView.vue`：新增「Backfill img_data」按鈕，點擊後顯示成功/失敗訊息
+
+---
+
+## [UI 全面優化] - 2026-02-24 | 多個 commits
+
+### 變更類型
+宇宙主題 UI、StoryView 導覽重構、元素格子優化、響應式改善
+
+### 執行動作
+
+**後端**
+- `routes/public.py`：`/api/elements` 與 `/api/groups` 回傳加入 `Name` 欄位
+- `routes/admin.py`：backfill-img-data 改用 `ThreadPoolExecutor` 並行下載（N 次串行 → 並行，解決 Gunicorn timeout）
+- `routes/admin.py`：移除 Log out 按鈕（已移至 header）
+
+**前端 — 宇宙主題**
+- `style.css`：body 改星雲漸層背景（紫/藍 radial-gradient）
+- `style.css`：header 加星星（20 顆 radial-gradient）+ 銀河光暈，透明度 80%
+- `style.css`：新增宇宙主題 scrollbar（6px，紫→青漸層）
+- `style.css`：`.group-type-button` 改 flex 底線頁籤（active 有 glow 底線）
+- `style.css`：元素格子背景改半透明玻璃效果，hover glow 加強（雙層 box-shadow）
+- `style.css`：加入 `.el-num / .el-sym / .el-name` 三層文字樣式
+- `StoryView.vue`：ability bar 改紫→青漸層；`#element-ability` 邊框改柔邊 + 光暈；`grid-auto-rows` 50px→36px
+- `AbilityChart.vue`：chart 背景改深空黑、雷達線改宇宙藍 `#64b8e8`
+- `LoadingSpinner.vue`：多色軌道邊框 + glow 效果
+- `AdminView.vue`：表單 `.box` 加半透明深紫背景
+
+**前端 — StoryView 導覽**
+- 前後導覽改 `←` / `→` 箭頭（48px，窄螢幕 28px）
+- 首/末元素時箭頭 dim（`nav-arrow--dim`）
+- 新增 `touchstart/touchend` 手勢，滑動 >50px 切換元素
+- 窄螢幕：標題佔滿第一行，箭頭排第二行（`flex-basis: 100%` + `order: -1`）
+
+**前端 — StoryView 頁籤**
+- 介紹→Story、雷達圖→Radar、能力圖→Ability
+- 新增 fade transition
+
+**前端 — 元素格子**
+- 三個元件（PeriodicTable / GroupBox / PeriodicTableGrid）template 改用 `<span>` 結構顯示全名
+- PeriodicTableGrid 格狀視圖隱藏 `.el-name`（格子太小）
+
+**前端 — PeriodicTableGrid**
+- 響應式斷點從固定 700px 改為動態計算：格子寬 < 70px 時切換分組備援
+
+**前端 — App.vue / AdminView.vue**
+- Header 登入後新增 Admin Page 連結（`/admin`）
+- AdminView 移除 Back To Index 和 Log out 按鈕（已整合至 header）
+
+---
+
 *後續變更將自動記錄於此*

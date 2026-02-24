@@ -14,7 +14,7 @@ def get_elements():
     try:
         elements_data = get_periodic_table()
         elements = [
-            {"AtomicNumber": e["AtomicNumber"], "Symbol": e["Symbol"], "CPKHexColor": e["CPKHexColor"]}
+            {"AtomicNumber": e["AtomicNumber"], "Symbol": e["Symbol"], "Name": e.get("Name", ""), "CPKHexColor": e["CPKHexColor"]}
             for e in elements_data
         ]
         groups = get_characteristic()
@@ -31,7 +31,7 @@ def get_groups():
 
     elements_data = get_periodic_table()
     elements = [
-        {"AtomicNumber": e["AtomicNumber"], "Symbol": e["Symbol"], "CPKHexColor": e["CPKHexColor"]}
+        {"AtomicNumber": e["AtomicNumber"], "Symbol": e["Symbol"], "Name": e.get("Name", ""), "CPKHexColor": e["CPKHexColor"]}
         for e in elements_data
     ]
 

@@ -4,7 +4,7 @@
 
 **專案名稱:** ElementGroups
 **建立追蹤時間:** 2026-02-23
-**最後更新:** 2026-02-23
+**最後更新:** 2026-02-24
 **專案類型:** Fullstack Web Application
 **主要技術:** Python Flask (後端) + Vue 3 + Vite (前端)
 
@@ -68,12 +68,14 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 | GET | `/api/elements` | 取得所有元素 |
 | POST | `/api/groups` | 分組資料（cp / vs）|
 | GET | `/api/elements/:symbol` | 元素詳細資料（含 img_data fallback）|
+| GET | `/api/elements/:symbol/img` | 圖片 proxy（從 Storage 下載，fallback Electron.JPG，Cache-Control 1 day）|
 | GET | `/api/elements/:symbol/ability` | 能力數值 + abMax |
 | POST | `/api/auth/login` | 登入 |
 | POST | `/api/auth/logout` | 登出 |
 | GET | `/api/auth/status` | 查詢目前登入狀態（`{"loggedIn": bool}`）|
 | POST | `/api/admin/update-db` | 初始化/更新週期表（已有資料則略過）|
 | GET/POST | `/api/admin/story` | 故事與圖片管理 |
+| POST | `/api/admin/backfill-img-data` | 補齊舊圖片的 base64 img_data（有 img 無 img_data 者）|
 
 ### 前端頁面
 - `HomeView.vue` - 主頁面（週期表 + 分組切換）
@@ -109,15 +111,19 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 ## 待辦事項
 
 - [x] 完成前端 table 版面設計（PeriodicTableGrid.vue，CSS Grid 18×10）
-- [ ] 隱藏 Firebase Storage 圖片 URL，改由後端提供圖片 proxy API（`/api/elements/:symbol/img`），避免直接暴露 Storage URL
+- [x] 隱藏 Firebase Storage 圖片 URL，改由後端提供圖片 proxy API（`/api/elements/:symbol/img`），避免直接暴露 Storage URL
+- [x] 優化整體前端介面（宇宙主題 UI 全面實作）
 - [ ] Flask-Login session 改用 Redis 或 server-side store（支援多 worker）
-- [ ] StoryView 前端串接 img_data fallback 已實作，如需讓舊圖片也有 base64，需重新上傳
+- [x] StoryView 前端串接 img_data fallback 已實作；舊圖片可透過 Admin「Backfill img_data」一鍵補齊
 
 ## Auth 相關注意事項
 
 - `logout()` 不加 `@login_required`，避免 session 過期時無法登出（返回 401）
 - Realtime DB 根節點同時有故事資料（`{Symbol}/img,description`）和 `periodic_table/` 子樹，迭代時需過濾 `periodic_table` 鍵
 - `App.vue` Admin 登入區塊在標題下方（column layout），避免橫排破版
+- **Gunicorn timeout**：backfill-img-data 使用 `ThreadPoolExecutor(max_workers=10)` 並行下載，避免 N 次串行請求超過 30s worker timeout
+- **元素 API**：`/api/elements` 與 `/api/groups` 回傳包含 `Name` 欄位（前端顯示元素全名用）
+- **PeriodicTableGrid 斷點**：動態計算格子寬（`(viewport - 17×3) / 18 < 70px`）決定切換分組備援，不使用固定像素
 - **Auth 狀態唯一來源**：`store/auth.js` 的 `authState`。所有元件（App、AdminView、StoryView）都使用同一個 reactive 物件，嚴禁在元件內建立本地 `loggedIn` 狀態
 - `initAuth()`：App 掛載時呼叫，透過 `GET /api/auth/status` 恢復頁面重整後的登入狀態；只允許設為 true，不覆蓋已登入狀態（防 race condition）
 - `AdminView` 在 `mounted()` 若已登入會自動載入 story 資料

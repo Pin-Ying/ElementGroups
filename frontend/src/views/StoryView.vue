@@ -30,35 +30,29 @@
       </div>
     </div>
 
-    <div v-if="elInfo">
+    <div v-if="elInfo" @touchstart="onTouchStart" @touchend="onTouchEnd">
       <div class="element-btns">
-        <div>
-          <router-link
-            class="button"
-            :to="'/stroy/' + fEl.Symbol"
-            :style="{ borderColor: '#' + fEl.CPKHexColor }"
-          >
-            PREVIOUS ELEMENT
-          </router-link>
-        </div>
+        <router-link
+          class="nav-arrow"
+          :to="'/stroy/' + fEl.Symbol"
+          :class="{ 'nav-arrow--dim': fEl.Symbol === elInfo.Symbol }"
+          :style="{ color: '#' + fEl.CPKHexColor }"
+        >←</router-link>
         <div class="title column">{{ elInfo.Symbol }}'s Story</div>
-        <div>
-          <router-link
-            class="button"
-            :to="'/stroy/' + bEl.Symbol"
-            :style="{ borderColor: '#' + bEl.CPKHexColor }"
-          >
-            NEXT ELEMENT
-          </router-link>
-        </div>
+        <router-link
+          class="nav-arrow"
+          :to="'/stroy/' + bEl.Symbol"
+          :class="{ 'nav-arrow--dim': bEl.Symbol === elInfo.Symbol }"
+          :style="{ color: '#' + bEl.CPKHexColor }"
+        >→</router-link>
       </div>
 
       <div class="element-story">
         <!-- Section tabs -->
         <div class="group-type-button">
-          <button class="button" :class="{ active: section === 'intro' }" @click="section = 'intro'">介紹</button>
-          <button class="button" :class="{ active: section === 'radar' }" @click="section = 'radar'">雷達圖</button>
-          <button class="button" :class="{ active: section === 'bars' }" @click="section = 'bars'">能力圖</button>
+          <button class="button" :class="{ active: section === 'intro' }" @click="section = 'intro'">Story</button>
+          <button class="button" :class="{ active: section === 'radar' }" @click="section = 'radar'">Radar</button>
+          <button class="button" :class="{ active: section === 'bars' }" @click="section = 'bars'">Ability</button>
         </div>
 
         <transition name="fade" mode="out-in">
@@ -150,6 +144,7 @@ export default {
       abilityData: null,
       abilities: ABILITIES,
       section: 'intro',
+      touchStartX: 0,
       loading: false,
       editing: false,
       editStory: '',
@@ -171,6 +166,18 @@ export default {
     }
   },
   methods: {
+    onTouchStart(e) {
+      this.touchStartX = e.touches[0].clientX
+    },
+    onTouchEnd(e) {
+      const dx = e.changedTouches[0].clientX - this.touchStartX
+      if (Math.abs(dx) < 50) return
+      if (dx > 0) {
+        this.$router.push('/stroy/' + this.fEl.Symbol)
+      } else {
+        this.$router.push('/stroy/' + this.bEl.Symbol)
+      }
+    },
     async loadData() {
       this.loading = true
       this.elInfo = null
@@ -259,9 +266,23 @@ export default {
   box-shadow: 0 0 24px rgba(80, 0, 160, 0.15), 0 0 48px rgba(0, 100, 200, 0.08);
 }
 
-.button {
-  border-width: 2px;
-  min-width: 200px;
+.nav-arrow {
+  font-size: 48px;
+  padding: 8px 24px;
+  text-decoration: none;
+  opacity: 0.75;
+  transition: opacity 0.15s, transform 0.15s;
+  user-select: none;
+}
+
+.nav-arrow:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+.nav-arrow--dim {
+  opacity: 0.2;
+  pointer-events: none;
 }
 
 .element-btns {
@@ -433,7 +454,20 @@ export default {
 
 @media only screen and (max-width: 800px) {
   img, #element-ability { width: 90%; }
-  .element-btns { display: block; }
+  .element-btns {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2px;
+  }
+  .element-btns .title {
+    flex-basis: 100%;
+    order: -1;
+  }
+  .element-btns .nav-arrow {
+    font-size: 28px;
+    padding: 4px 16px;
+  }
   .element-grid { grid-template-columns: 1fr; }
   .element-grid-info { width: 90%; }
 }

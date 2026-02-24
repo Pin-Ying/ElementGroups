@@ -41,7 +41,9 @@
             :style="{ borderColor: '#' + elt.CPKHexColor }"
           >
             <router-link :to="'/stroy/' + elt.Symbol">
-              {{ elt.AtomicNumber }}<br />{{ elt.Symbol }}
+              <span class="el-num">{{ elt.AtomicNumber }}</span>
+              <span class="el-sym">{{ elt.Symbol }}</span>
+              <span class="el-name">{{ elt.Name }}</span>
             </router-link>
           </div>
         </div>
@@ -91,7 +93,16 @@ const GROUP_ORDER = [
   'Lanthanides', 'Actinides',
 ]
 
-const MOBILE_BREAKPOINT = 700
+// 當 pt-grid 格子寬小於全域 .element 尺寸（70px）時切換為分組備援
+const ELEMENT_SIZE = 70  // px，對應 style.css .element width
+const GRID_COLS = 18
+const GRID_GAP = 3       // px，對應 pt-grid gap
+
+function shouldGroupFallback() {
+  const gridWidth = Math.min(window.innerWidth, 1320)
+  const cellWidth = (gridWidth - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS
+  return cellWidth < ELEMENT_SIZE
+}
 
 export default {
   props: {
@@ -100,12 +111,12 @@ export default {
   data() {
     return {
       GROUP_ORDER,
-      isMobile: window.innerWidth < MOBILE_BREAKPOINT,
+      isMobile: shouldGroupFallback(),
     }
   },
   mounted() {
     this._onResize = () => {
-      this.isMobile = window.innerWidth < MOBILE_BREAKPOINT
+      this.isMobile = shouldGroupFallback()
     }
     window.addEventListener('resize', this._onResize)
   },
@@ -174,7 +185,12 @@ export default {
   justify-content: center;
   width: 100%;
   height: 100%;
-  line-height: 1.3;
+  gap: 1px;
+}
+
+/* 格狀週期表格子太小，隱藏元素全名 */
+.pt-grid .element .el-name {
+  display: none;
 }
 
 /* 鑭系 / 錒系佔位標示 */

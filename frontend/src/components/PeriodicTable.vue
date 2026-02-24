@@ -7,7 +7,9 @@
       :style="{ borderColor: '#' + elt.CPKHexColor }"
     >
       <router-link :to="'/stroy/' + elt.Symbol">
-        {{ elt.AtomicNumber }}<br />{{ elt.Symbol }}
+        <span class="el-num">{{ elt.AtomicNumber }}</span>
+        <span class="el-sym">{{ elt.Symbol }}</span>
+        <span class="el-name">{{ elt.Name }}</span>
       </router-link>
     </div>
   </div>
