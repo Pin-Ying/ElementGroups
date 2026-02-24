@@ -7,7 +7,7 @@ from flask_login import current_user, login_required
 
 from app import auth as auth_module
 from app.elements import element_info
-from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table
+from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, fdb
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api")
 
@@ -57,6 +57,42 @@ def update_db():
         return jsonify({"result": "success", "message": "update-db finish!"})
     except Exception as e:
         print("update-db error!", e)
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/backfill-img-data", methods=["POST"])
+@login_required
+def backfill_img_data():
+    try:
+        fbDatas = show_fdb()
+        if not fbDatas:
+            return jsonify({"result": "success", "message": "No story data found", "updated": 0})
+
+        updated = 0
+        skipped = 0
+        for symbol, data in fbDatas.items():
+            if symbol == "periodic_table":
+                continue
+            if data.get("img_data"):
+                skipped += 1
+                continue
+            if not data.get("img"):
+                continue
+
+            img_bytes, _ = get_image_bytes(symbol)
+            if img_bytes is None:
+                continue
+
+            img_data = "data:image/jpeg;base64," + base64.b64encode(img_bytes).decode("utf-8")
+            fdb.child(symbol).update({"img_data": img_data})
+            updated += 1
+
+        return jsonify({
+            "result": "success",
+            "message": f"完成！新增 {updated} 筆，{skipped} 筆已有資料略過",
+            "updated": updated
+        })
+    except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 

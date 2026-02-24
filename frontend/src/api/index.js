@@ -51,4 +51,8 @@ export function updateStory(formData) {
   })
 }
 
+export function backfillImgData() {
+  return api.post('/admin/backfill-img-data')
+}
+
 export default api

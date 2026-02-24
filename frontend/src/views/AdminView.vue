@@ -28,6 +28,7 @@
         <router-link class="button" to="/">Back To Index</router-link>
         <button class="button" @click="handleCreateDb">Create db</button>
         <button class="button" @click="handleUpdateDb">Update db</button>
+        <button class="button" @click="handleBackfill">Backfill img_data</button>
         <button class="button" @click="handleLogout">Log out</button>
       </div>
       <p v-if="adminMsg" class="label" :class="adminMsgType">{{ adminMsg }}</p>
@@ -53,7 +54,7 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData } from '../api'
 import { authState, login, logout } from '../store/auth'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
@@ -114,6 +115,20 @@ export default {
       this.adminMsg = ''
       try {
         const res = await createDb()
+        this.adminMsg = res.data.message
+        this.adminMsgType = 'success-msg'
+      } catch (e) {
+        this.adminMsg = e.response?.data?.message || 'Error!'
+        this.adminMsgType = 'error-msg'
+      } finally {
+        this.loading = false
+      }
+    },
+    async handleBackfill() {
+      this.loading = true
+      this.adminMsg = ''
+      try {
+        const res = await backfillImgData()
         this.adminMsg = res.data.message
         this.adminMsgType = 'success-msg'
       } catch (e) {
