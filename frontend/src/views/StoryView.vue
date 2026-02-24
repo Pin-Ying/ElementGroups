@@ -132,7 +132,6 @@ export default {
       story: null,
       imgSrc: null,
       imgData: null,
-      altImage: '',
       imgFallbackLevel: 0,
       abilityData: null,
       abilities: ABILITIES,
@@ -146,9 +145,8 @@ export default {
   },
   computed: {
     resolvedImg() {
-      if (this.imgFallbackLevel === 0) return this.imgSrc || this.imgData || this.altImage
-      if (this.imgFallbackLevel === 1) return this.imgData || this.altImage
-      return this.altImage
+      if (this.imgFallbackLevel === 0) return this.imgSrc
+      return this.imgData || ''
     }
   },
   watch: {
@@ -174,9 +172,8 @@ export default {
         this.fEl = detail.f_el
         this.bEl = detail.b_el
         this.story = detail.story
-        this.imgSrc = detail.img_src
+        this.imgSrc = '/api/elements/' + this.symbol + '/img'
         this.imgData = detail.img_data
-        this.altImage = detail.alt_image
         this.editStory = detail.story || ''
         this.abilityData = abilityRes.data
       } catch (e) {

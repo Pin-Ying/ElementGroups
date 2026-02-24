@@ -1,6 +1,7 @@
 import pyrebase
 import firebase_admin
 from firebase_admin import credentials, storage, db, exceptions
+from google.cloud.exceptions import NotFound
 
 from app.config import settings
 
@@ -74,6 +75,24 @@ def get_element_by_atomic_number(an):
         if element.get('AtomicNumber') == str(an):
             return element
     return None
+
+
+_DEFAULT_IMAGE_PATH = "static/img/Electron.JPG"
+
+
+def get_image_bytes(symbol):
+    """Download element image from Firebase Storage.
+    Returns (bytes, content_type) or (None, None) if not found."""
+    bucket = storage.bucket()
+    blob = bucket.blob(f"static/img/{symbol}.JPG")
+    try:
+        return blob.download_as_bytes(), "image/jpeg"
+    except NotFound:
+        default_blob = bucket.blob(_DEFAULT_IMAGE_PATH)
+        try:
+            return default_blob.download_as_bytes(), "image/jpeg"
+        except NotFound:
+            return None, None
 
 
 def upload_file(from_f, to_f):
