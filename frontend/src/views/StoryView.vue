@@ -238,8 +238,9 @@ export default {
   width: 100%;
   margin: 5px auto;
   padding: 20px 10px;
-  border: #e4fbff solid 2px;
-  border-radius: 2px;
+  border: 1px solid rgba(228, 251, 255, 0.2);
+  border-radius: 6px;
+  box-shadow: 0 0 24px rgba(80, 0, 160, 0.15), 0 0 48px rgba(0, 100, 200, 0.08);
 }
 
 .button {
@@ -275,9 +276,10 @@ export default {
 }
 
 .ability-bar {
-  background-color: #e4fbff;
-  color: #000000;
+  background: linear-gradient(90deg, rgba(90, 0, 160, 0.75), rgba(0, 190, 210, 0.75));
+  border-radius: 2px;
   transition: width 0.6s ease;
+  box-shadow: 0 0 6px rgba(0, 190, 210, 0.3);
 }
 
 /* ── Atomic title row ── */

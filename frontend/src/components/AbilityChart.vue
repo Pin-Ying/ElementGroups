@@ -33,9 +33,9 @@ export default {
       if (!info || !info.abMax) return
 
       const option = {
-        backgroundColor: 'rgb(50, 45, 50)',
+        backgroundColor: 'rgb(8, 3, 20)',
         darkMode: true,
-        textStyle: { color: 'rgb(171, 177, 191)', fontSize: 15 },
+        textStyle: { color: 'rgba(180, 200, 230, 0.85)', fontSize: 15 },
         grid: { top: '10%', bottom: '10%', left: '15%', right: '15%' },
         title: {
           text: 'ABILITY',
@@ -74,8 +74,8 @@ export default {
           {
             name: info.Name,
             type: 'radar',
-            color: '#E0E038',
-            areaStyle: { opacity: 0.5 },
+            color: '#64b8e8',
+            areaStyle: { opacity: 0.35 },
             data: [
               {
                 value: [
@@ -101,8 +101,9 @@ export default {
   min-width: 600px;
   min-height: 80vh;
   margin: 5px auto;
-  border: #e4fbff solid 2px;
-  border-radius: 2px;
+  border: 1px solid rgba(228, 251, 255, 0.15);
+  border-radius: 6px;
+  box-shadow: 0 0 30px rgba(70, 0, 140, 0.2), 0 0 60px rgba(0, 80, 180, 0.1);
 }
 
 @media only screen and (max-width: 800px) {

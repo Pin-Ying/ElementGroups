@@ -199,6 +199,10 @@ export default {
 .box {
   display: inline-block;
   width: 60%;
+  background: rgba(20, 5, 35, 0.5);
+  border: 1px solid rgba(228, 251, 255, 0.1);
+  border-radius: 8px;
+  padding: 20px;
 }
 
 input,

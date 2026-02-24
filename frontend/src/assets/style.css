@@ -1,7 +1,11 @@
 body {
     width: 100%;
     text-align: center;
-    background-color: black;
+    background-color: #03010a;
+    background-image:
+        radial-gradient(ellipse at 20% 45%, rgba(70, 0, 120, 0.35) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 55%, rgba(0, 20, 80, 0.35) 0%, transparent 55%);
+    min-height: 100vh;
     color: #FFFFFF;
     margin-top: 6px;
 }
@@ -20,8 +24,8 @@ a {
 .element-header {
     position: sticky;
     top: 0;
-    background-color: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(6px);
+    background-color: rgba(3, 1, 12, 0.92);
+    backdrop-filter: blur(8px);
     width: 100%;
     margin: 0 auto 20px;
     padding: 8px 20px;
@@ -111,18 +115,47 @@ a {
 .element:hover {
     transform: scale(1.12);
     background-color: rgb(110, 90, 110);
+    box-shadow: 0 0 14px rgba(228, 251, 255, 0.25);
     z-index: 1;
 }
 
-/* ── Group type buttons ── */
+/* ── Group type buttons → Underline tabs ── */
 .group-type-button {
-    display: grid;
-    justify-self: center;
+    display: flex;
     justify-content: center;
-    grid-template-columns: repeat(4, 1fr);
     width: 90%;
-    margin: auto;
-    gap: 10px;
+    margin: 0 auto 24px;
+    border-bottom: 1px solid rgba(228, 251, 255, 0.12);
+}
+
+.group-type-button .button {
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 10px 22px;
+    margin-bottom: -1px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.group-type-button .button:hover {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    border-bottom-color: rgba(228, 251, 255, 0.3);
+}
+
+.group-type-button .button:active {
+    transform: none;
+}
+
+.group-type-button .button.active {
+    color: #e4fbff;
+    border-bottom: 2px solid #e4fbff;
+    box-shadow: 0 2px 10px rgba(228, 251, 255, 0.35);
+    font-weight: 500;
+    background: transparent;
 }
 
 /* ── Responsive ── */
@@ -139,8 +172,15 @@ a {
     }
 
     .group-type-button {
-        width: 90%;
-        align-items: center;
-        grid-template-columns: 1fr 1fr;
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding: 0 10px;
+    }
+
+    .group-type-button .button {
+        white-space: nowrap;
+        padding: 10px 14px;
+        font-size: 13px;
     }
 }
