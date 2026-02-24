@@ -219,4 +219,25 @@ Flask-Login 預設的 session protection 機制：將 `hash(remote_addr + user_a
 
 ---
 
+## [修正 + 優化] - 2026-02-24 | pending commit
+
+### 變更類型
+PeriodicTableGrid 樣式對齊 + 響應式分組備援 + 分組資料快取
+
+### 執行動作
+
+**前端**
+- `PeriodicTableGrid.vue`：
+  - 根本修正：改用與 `PeriodicTable.vue`、`GroupBox.vue` 相同的 `div.element > router-link` 結構
+  - scoped 樣式中 `.pt-grid .element` 僅覆寫 size（`width: 100%; aspect-ratio: 1/1`）和 font（`clamp`），
+    其餘全域樣式（background、border、hover 等）完全繼承，確保外觀一致
+  - 新增響應式邏輯：`window.innerWidth < 700px` 切換至分組備援模式，監聽 `resize` 事件
+  - 分組備援：依週期表欄位產生 CAS 符號（1A/2A/3B.../1B/2B/3A.../8A），鑭系/錒系獨立群組
+  - 備援直接使用全域 `.element`、`.elements-box`、`.group-box`、`#group` 樣式，外觀與其他分組模式一致
+- `HomeView.vue`：
+  - 新增 `groupsCache: {}` 儲存已載入的分組資料
+  - `loadGroups(type)` 優先從 cache 取用，避免重複打 API
+
+---
+
 *後續變更將自動記錄於此*

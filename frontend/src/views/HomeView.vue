@@ -52,6 +52,7 @@ export default {
     return {
       elements: [],
       groups: {},
+      groupsCache: {},
       showMode: 'table',
       loading: false
     }
@@ -71,10 +72,16 @@ export default {
   methods: {
     async loadGroups(type) {
       if (this.showMode === type) return
+      if (this.groupsCache[type]) {
+        this.groups = this.groupsCache[type]
+        this.showMode = type
+        return
+      }
       this.loading = true
       try {
         const res = await getGroups(type)
         this.groups = res.data.groups
+        this.groupsCache[type] = res.data.groups
         this.showMode = type
       } catch (e) {
         console.error('Failed to load groups:', e)
