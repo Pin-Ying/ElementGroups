@@ -17,8 +17,6 @@
         </form>
         <p class="label" style="color: red">{{ msg }}</p>
       </div>
-      <br />
-      <router-link class="button" to="/">Go Back To Index</router-link>
     </div>
 
     <!-- Admin Panel -->
@@ -29,6 +27,7 @@
         <button class="button" @click="handleCreateDb">Create db</button>
         <button class="button" @click="handleUpdateDb">Update db</button>
         <button class="button" @click="handleBackfill">Backfill img_data</button>
+        <router-link class="button" to="/admin">Admin Page</router-link>
         <button class="button" @click="handleLogout">Log out</button>
       </div>
       <p v-if="adminMsg" class="label" :class="adminMsgType">{{ adminMsg }}</p>
