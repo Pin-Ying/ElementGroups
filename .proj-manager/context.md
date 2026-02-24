@@ -81,7 +81,8 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 - `AdminView.vue` - 管理員頁面
 
 ### 前端元件
-- `PeriodicTable.vue` - 週期表格
+- `PeriodicTableGrid.vue` - 標準週期表格排版（18 欄，預設模式）
+- `PeriodicTable.vue` - 簡易流排元素格
 - `GroupBox.vue` - 分組盒子
 - `AbilityChart.vue` - ECharts 雷達圖
 - `LoadingSpinner.vue` - 全域 loading overlay
@@ -107,6 +108,8 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 
 ## 待辦事項
 
+- [x] 完成前端 table 版面設計（PeriodicTableGrid.vue，CSS Grid 18×10）
+- [ ] 隱藏 Firebase Storage 圖片 URL，改由後端提供圖片 proxy API（`/api/elements/:symbol/img`），避免直接暴露 Storage URL
 - [ ] Flask-Login session 改用 Redis 或 server-side store（支援多 worker）
 - [ ] StoryView 前端串接 img_data fallback 已實作，如需讓舊圖片也有 base64，需重新上傳
 

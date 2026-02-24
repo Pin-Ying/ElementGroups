@@ -119,7 +119,7 @@ a {
     display: grid;
     justify-self: center;
     justify-content: center;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(4, 1fr);
     width: 90%;
     margin: auto;
     gap: 10px;
@@ -141,6 +141,6 @@ a {
     .group-type-button {
         width: 90%;
         align-items: center;
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
     }
 }

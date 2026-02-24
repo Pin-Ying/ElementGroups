@@ -195,4 +195,28 @@ Flask-Login 預設的 session protection 機制：將 `hash(remote_addr + user_a
 
 ---
 
+## [功能新增] - 2026-02-23 | pending commit
+
+### 變更類型
+新增週期表（Periodic Table）排版模式，設為首頁預設
+
+### 執行動作
+
+**前端**
+- `components/PeriodicTableGrid.vue`（新建）：
+  - CSS Grid 18 欄 × 10 列，對應 IUPAC 標準週期表位置
+  - row 1–7：主週期；row 8：10px 視覺間隔；row 9–10：鑭系 / 錒系
+  - (6,3) / (7,3) 顯示佔位標示（57–71 / 89–103）
+  - `aspect-ratio: 1/1`，`min-width: 620px` 加 `overflow-x: auto` 支援小螢幕水平捲動
+  - `font-size: clamp(7px, 1vw, 13px)` 響應式字體
+- `HomeView.vue`：
+  - 新增 'table' 模式，設為預設（`showMode: 'table'`）
+  - 加入第一個按鈕「Periodic Table」
+  - 移除 `showNone()` method，改用 inline `@click`
+- `style.css`：
+  - `.group-type-button` 由 3 欄改為 4 欄
+  - mobile 響應式由 1 欄改為 2 欄
+
+---
+
 *後續變更將自動記錄於此*

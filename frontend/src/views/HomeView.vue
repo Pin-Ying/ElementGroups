@@ -5,8 +5,13 @@
     <div class="group-type-button">
       <button
         class="button"
+        :class="{ active: showMode === 'table' }"
+        @click="showMode = 'table'"
+      >Periodic Table</button>
+      <button
+        class="button"
         :class="{ active: showMode === 'none' }"
-        @click="showNone"
+        @click="showMode = 'none'"
       >AtomicNumber</button>
       <button
         class="button"
@@ -21,7 +26,10 @@
     </div>
 
     <transition name="fade" mode="out-in">
-      <div v-if="showMode === 'none'" key="none" id="non-group">
+      <div v-if="showMode === 'table'" key="table">
+        <PeriodicTableGrid :elements="elements" />
+      </div>
+      <div v-else-if="showMode === 'none'" key="none" id="non-group">
         <PeriodicTable :elements="elements" />
       </div>
       <div v-else key="group" id="group">
@@ -33,17 +41,18 @@
 
 <script>
 import { getElements, getGroups } from '../api'
+import PeriodicTableGrid from '../components/PeriodicTableGrid.vue'
 import PeriodicTable from '../components/PeriodicTable.vue'
 import GroupBox from '../components/GroupBox.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
-  components: { PeriodicTable, GroupBox, LoadingSpinner },
+  components: { PeriodicTableGrid, PeriodicTable, GroupBox, LoadingSpinner },
   data() {
     return {
       elements: [],
       groups: {},
-      showMode: 'none',
+      showMode: 'table',
       loading: false
     }
   },
@@ -60,9 +69,6 @@ export default {
     }
   },
   methods: {
-    showNone() {
-      this.showMode = 'none'
-    },
     async loadGroups(type) {
       if (this.showMode === type) return
       this.loading = true
