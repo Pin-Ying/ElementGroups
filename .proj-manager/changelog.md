@@ -323,4 +323,94 @@ PeriodicTableGrid 樣式對齊 + 響應式分組備援 + 分組資料快取
 
 ---
 
+## [功能新增 + 修正] - 2026-06-15 | commits 0f40015 57d18d7 b284b3d
+
+### 變更類型
+Toast 通知系統、元素滾輪導航、Session Cookie 跨域修正、週期表顯示修正、後端冷啟動提示
+
+### 執行動作
+
+**後端**
+- `app/__init__.py`：新增 `SESSION_COOKIE_SAMESITE="None"` 與 `SESSION_COOKIE_SECURE=True`
+  - 解決前後端不同 Render 子域（跨域）時 Session Cookie 無法傳遞導致登入後 401 的問題
+
+**前端 — Toast 通知系統**
+- `src/store/toast.js`（新建）：全域 reactive store，`showToast(message, type, duration)` / `removeToast(id)`
+- `src/components/ToastContainer.vue`（新建）：
+  - `<teleport to="body">` 渲染到 body 層級，不受父層 overflow 影響
+  - `<transition-group name="toast">` 支援堆疊動畫（右側滑入）
+  - 4 種類型：success（綠）/ error（紅）/ warning（黃）/ info（青）
+  - 3500ms 自動消失，可點擊提前關閉
+  - 手機版出現在底部
+- `App.vue`：登入成功/失敗改用 `showToast()`，移除 `errMsg` 資料與 `<span class="err-msg">`
+- `StoryView.vue`：儲存成功/失敗改用 `showToast()`，移除 `saveMsg` / `saveMsgType` 資料
+
+**前端 — 元素滾輪導航（StoryView）**
+- `src/store/elements.js`（新建）：共享 reactive store 快取全部 118 元素，`ensureElements()` lazy 載入
+- `HomeView.vue`：載入元素後同步寫入 `elementsState`，StoryView 不需額外 API call
+- `StoryView.vue`：
+  - 移除舊版 ← → 箭頭 `element-btns` / `nav-arrow` 結構
+  - 新增 `wheelElements` computed：以當前元素為中心取前後各 4 個（共最多 9 個）
+  - 新增 `.nav-wheel-wrap` + `.nav-wheel` 橫向滾動條，顯示鄰近元素 chip（原子序 + 符號）
+  - 當前元素 chip：`.wheel-chip--active`（較大、顏色使用元素本身 CPKHexColor）
+  - `scrollWheelToActive()`：`$nextTick` 後自動將 active chip 捲至置中
+  - `ensureElements()` 加入 `loadData()` 的 `Promise.all`
+
+**前端 — 週期表格狀顯示修正**
+- `PeriodicTableGrid.vue`：
+  - 移除 `shouldGroupFallback()` 與整個分組備援模式（是造成在 1280px 螢幕顯示 1A/2A/3B 群組的根本原因）
+  - 永遠顯示 CSS Grid 18 欄格狀週期表，手機透過 `overflow-x: auto` 橫向捲動
+  - 補上 `:data-name` tooltip 與 `el-num` / `el-sym` span 一致性
+
+**前端 — LoadingSpinner 冷啟動提示**
+- `LoadingSpinner.vue`：
+  - 掛載後啟動兩個 timer（`beforeUnmount` 時清除）
+  - 10 秒後：顯示「Waking up the server…」提示卡（淡入 + 三點 pulse 動畫）
+  - 22 秒後：升級為「Still waking up…」+ Render 免費方案休眠說明
+
+### 修正問題
+- 登入成功後 `GET /api/admin/story` 回 401：Flask `SameSite=Lax`（預設）阻擋跨域 Cookie 傳送
+- Periodic Table 在 1280px 螢幕顯示群組而非格狀：fallback 閾值 70px 計算出格子 68px 而觸發
+- StoryView 上下頁只有 ← → 箭頭：改為顯示多個鄰近元素的滾輪 UI
+
+---
+
+## [修正] - 2026-06-15 | 本次 commit
+
+### 變更類型
+元素滾輪導航修正 + 搜尋欄移出 Periodic Table 限制 + PeriodicTableGrid 分組備援根因說明
+
+### 根本原因
+
+**滾輪不顯示**：
+`ensureElements()` 放在 `Promise.all` 裡 — 任何情況下失敗（網路、後端冷啟動）就會讓整個 `Promise.all` reject，catch block 觸發，`elInfo` 設不進去，整個 StoryView 空白。
+`wheelElements` 因此從未渲染。
+修正：`elements.js` 改為靜態預填 118 個元素（序號 + 符號），確保滾輪在 API 回應之前就有資料可用；`ensureElements()` 改為 fire-and-forget 呼叫（不放進 Promise.all），成功時 enrich 資料，失敗時保留靜態 fallback。
+
+**PeriodicTableGrid 始終顯示 1A/2A/3B 分組備援**：
+原因是 `shouldGroupFallback()` 動態計算閾值設為 70px（對應元素格寬度），但 1280px 螢幕計算出格寬 68.3px < 70px，因此永遠觸發備援。這是 2026-02-24 將固定 700px 斷點改為動態計算時引入的 bug。
+修正：移除整個備援邏輯，永遠顯示 CSS Grid 格狀週期表，手機以 overflow-x: auto 橫向捲動。
+（該分組備援顯示 CAS 欄位群組 1A/2A/3B，與 Chemical Properties / Valence Shell 的化學性質分組無關，屬 PeriodicTableGrid 內部的純展示備援，移除不影響其他模式）
+
+**搜尋欄只在非 Periodic Table 模式顯示**：
+HomeView 搜尋欄有 `v-if="showMode !== 'table'"` 條件，Periodic Table 模式下被隱藏。
+修正：移除條件，所有模式均顯示搜尋欄；PeriodicTableGrid 改用 `filteredElements` prop。
+
+### 執行動作
+
+**`frontend/src/store/elements.js`**
+- 靜態預填 118 個元素的序號 + 符號（公開靜態資料，永不變動）
+- `ensureElements()` 成功時以 API 回應的完整資料（含 Name、CPKHexColor）覆蓋；失敗時靜默保留靜態 fallback
+
+**`frontend/src/views/StoryView.vue`**
+- `ensureElements()` 從 `Promise.all` 移出，改為獨立 fire-and-forget 呼叫
+- 滾輪現在在頁面一開啟就有靜態資料可顯示，API 回應後自動 enrich
+
+**`frontend/src/views/HomeView.vue`**
+- 移除搜尋欄的 `v-if="showMode !== 'table'"` 條件
+- Periodic Table 模式下 `PeriodicTableGrid` 接收 `filteredElements`（而非 `elements`）
+- Periodic Table 模式下也加入 no-results 提示
+
+---
+
 *後續變更將自動記錄於此*

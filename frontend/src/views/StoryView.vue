@@ -202,10 +202,10 @@ export default {
       this.section = 'intro'
       this.editing = false
       try {
+        ensureElements()  // fire-and-forget; static fallback already populated
         const [detailRes, abilityRes] = await Promise.all([
           getElementDetail(this.symbol),
-          getElementAbility(this.symbol),
-          ensureElements()
+          getElementAbility(this.symbol)
         ])
         const detail = detailRes.data
         this.elInfo = detail.el_info

@@ -9,15 +9,15 @@
       <button class="button" :class="{ active: showMode === 'vs' }" @click="loadGroups('vs')">Valence Shell</button>
     </div>
 
-    <!-- 搜尋列（非 Periodic Table 模式才顯示，Table 模式格子太小不適合過濾） -->
-    <div v-if="showMode !== 'table'" class="search-bar">
+    <!-- 搜尋列（所有模式都顯示） -->
+    <div class="search-bar">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input
         class="search-input"
         v-model="query"
-        placeholder="Search by name or symbol…"
+        placeholder="Search by name, symbol or number…"
         autocomplete="off"
         spellcheck="false"
       />
@@ -26,7 +26,8 @@
 
     <transition name="fade" mode="out-in">
       <div v-if="showMode === 'table'" key="table">
-        <PeriodicTableGrid :elements="elements" />
+        <div v-if="filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
+        <PeriodicTableGrid v-else :elements="filteredElements" />
       </div>
       <div v-else-if="showMode === 'none'" key="none" id="non-group">
         <div v-if="filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
