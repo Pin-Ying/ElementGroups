@@ -31,7 +31,8 @@
     <transition v-else name="fade" mode="out-in">
       <div v-if="showMode === 'table'" key="table">
         <div v-if="query && filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
-        <PeriodicTableGrid v-else :elements="filteredElements" />
+        <PeriodicTableGrid v-else-if="!isMobile" :elements="filteredElements" />
+        <GroupBox v-else :elements="filteredElements" :groups="tableGroups" />
       </div>
       <div v-else-if="showMode === 'none'" key="none" id="non-group">
         <div v-if="query && filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
@@ -48,6 +49,7 @@
 <script>
 import { getElements, getGroups } from '../api'
 import { elementsState } from '../store/elements'
+import { buildTableGroups } from '../utils/periodicTableGroups'
 import PeriodicTableGrid from '../components/PeriodicTableGrid.vue'
 import PeriodicTable from '../components/PeriodicTable.vue'
 import GroupBox from '../components/GroupBox.vue'
@@ -62,10 +64,21 @@ export default {
       groupsCache: {},
       showMode: 'table',
       loading: false,
-      query: ''
+      query: '',
+      isMobile: window.innerWidth < 600
     }
   },
+  mounted() {
+    this._onResize = () => { this.isMobile = window.innerWidth < 600 }
+    window.addEventListener('resize', this._onResize)
+  },
+  beforeUnmount() {
+    window.removeEventListener('resize', this._onResize)
+  },
   computed: {
+    tableGroups() {
+      return buildTableGroups(this.elements)
+    },
     filteredElements() {
       const q = this.query.trim().toLowerCase()
       if (!q) return this.elements
