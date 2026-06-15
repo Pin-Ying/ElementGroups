@@ -57,8 +57,7 @@
         <!-- Section tabs -->
         <div class="group-type-button">
           <button class="button" :class="{ active: section === 'intro' }" @click="section = 'intro'">Story</button>
-          <button class="button" :class="{ active: section === 'radar' }" @click="section = 'radar'">Radar</button>
-          <button class="button" :class="{ active: section === 'bars' }" @click="section = 'bars'">Ability</button>
+          <button class="button" :class="{ active: section === 'stats' }" @click="section = 'stats'">Stats</button>
         </div>
 
         <transition name="fade" mode="out-in">
@@ -100,17 +99,19 @@
             </div>
           </div>
 
-          <!-- 雷達圖 -->
-          <div v-else-if="section === 'radar'" key="radar">
-            <AbilityChart v-if="abilityData" :elInfo="abilityData" />
-          </div>
-
-          <!-- 能力圖 -->
-          <div v-else key="bars" id="element-ability">
-            <template v-for="ab in abilities" :key="ab.key">
-              <div>{{ ab.label }}</div>
-              <div class="ability-bar" :style="{ width: abilityWidth(ab.key) }"></div>
-            </template>
+          <!-- Stats：雷達 / 條狀切換 -->
+          <div v-else key="stats">
+            <div class="chart-type-toggle">
+              <button :class="{ active: chartType === 'radar' }" @click="chartType = 'radar'">Radar</button>
+              <button :class="{ active: chartType === 'bars' }" @click="chartType = 'bars'">Bars</button>
+            </div>
+            <AbilityChart v-if="chartType === 'radar' && abilityData" :elInfo="abilityData" />
+            <div v-else-if="chartType === 'bars'" id="element-ability">
+              <template v-for="ab in abilities" :key="ab.key">
+                <div>{{ ab.label }}</div>
+                <div class="ability-bar" :style="{ width: abilityWidth(ab.key) }"></div>
+              </template>
+            </div>
           </div>
         </transition>
       </div>
@@ -153,6 +154,7 @@ export default {
       abilityData: null,
       abilities: ABILITIES,
       section: 'intro',
+      chartType: 'radar',
       touchStartX: 0,
       loading: false,
       editing: false,
@@ -301,6 +303,29 @@ export default {
   border: 1px solid rgba(228, 251, 255, 0.2);
   border-radius: 6px;
   box-shadow: 0 0 24px rgba(80, 0, 160, 0.15), 0 0 48px rgba(0, 100, 200, 0.08);
+}
+
+.chart-type-toggle {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 10px 0 4px;
+}
+.chart-type-toggle button {
+  padding: 4px 18px;
+  border: 1px solid rgba(228, 251, 255, 0.3);
+  border-radius: 20px;
+  background: transparent;
+  color: rgba(228, 251, 255, 0.6);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chart-type-toggle button.active,
+.chart-type-toggle button:hover {
+  background: rgba(228, 251, 255, 0.12);
+  color: rgba(228, 251, 255, 0.95);
+  border-color: rgba(228, 251, 255, 0.6);
 }
 
 /* ── Navigation wheel (identity integrated) ── */
