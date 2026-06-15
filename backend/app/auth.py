@@ -50,12 +50,14 @@ def login(email, password):
 
     except Exception as e:
         error_message = str(e)
-        if "EMAIL_NOT_FOUND" in error_message:
-            return "Error: Email not found"
-        elif "INVALID_PASSWORD" in error_message:
-            return "Error: Incorrect password"
+        if any(k in error_message for k in ("EMAIL_NOT_FOUND", "INVALID_PASSWORD", "INVALID_LOGIN_CREDENTIALS")):
+            return "Incorrect email or password"
+        elif "TOO_MANY_ATTEMPTS_TRY_LATER" in error_message:
+            return "Too many failed attempts, please try again later"
+        elif "USER_DISABLED" in error_message:
+            return "This account has been disabled"
         else:
-            return f"Error: {error_message}"
+            return "Login failed, please try again"
 
 
 def logout():

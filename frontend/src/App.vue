@@ -76,7 +76,8 @@ export default {
           this.errMsg = result.message || 'Login failed'
         }
       } catch (e) {
-        this.errMsg = e.response?.data?.message || 'Login failed'
+        const raw = e.response?.data?.message || 'Login failed'
+        this.errMsg = raw.replace(/^Error:\s*/i, '')
       } finally {
         this.loggingIn = false
       }
