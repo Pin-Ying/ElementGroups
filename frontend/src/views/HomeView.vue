@@ -3,26 +3,25 @@
     <LoadingSpinner v-if="loading" />
 
     <div class="group-type-button">
-      <button
-        class="button"
-        :class="{ active: showMode === 'table' }"
-        @click="showMode = 'table'"
-      >Periodic Table</button>
-      <button
-        class="button"
-        :class="{ active: showMode === 'none' }"
-        @click="showMode = 'none'"
-      >AtomicNumber</button>
-      <button
-        class="button"
-        :class="{ active: showMode === 'cp' }"
-        @click="loadGroups('cp')"
-      >Chemical Properties</button>
-      <button
-        class="button"
-        :class="{ active: showMode === 'vs' }"
-        @click="loadGroups('vs')"
-      >Valence Shell</button>
+      <button class="button" :class="{ active: showMode === 'table' }" @click="showMode = 'table'">Periodic Table</button>
+      <button class="button" :class="{ active: showMode === 'none' }" @click="showMode = 'none'">Atomic Number</button>
+      <button class="button" :class="{ active: showMode === 'cp' }" @click="loadGroups('cp')">Chemical Properties</button>
+      <button class="button" :class="{ active: showMode === 'vs' }" @click="loadGroups('vs')">Valence Shell</button>
+    </div>
+
+    <!-- 搜尋列（非 Periodic Table 模式才顯示，Table 模式格子太小不適合過濾） -->
+    <div v-if="showMode !== 'table'" class="search-bar">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input
+        class="search-input"
+        v-model="query"
+        placeholder="Search by name or symbol…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button v-if="query" class="search-clear" @click="query = ''" title="Clear">✕</button>
     </div>
 
     <transition name="fade" mode="out-in">
@@ -30,10 +29,12 @@
         <PeriodicTableGrid :elements="elements" />
       </div>
       <div v-else-if="showMode === 'none'" key="none" id="non-group">
-        <PeriodicTable :elements="elements" />
+        <div v-if="filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
+        <PeriodicTable v-else :elements="filteredElements" />
       </div>
       <div v-else key="group" id="group">
-        <GroupBox :elements="elements" :groups="groups" />
+        <div v-if="filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
+        <GroupBox v-else :elements="filteredElements" :groups="groups" />
       </div>
     </transition>
   </div>
@@ -54,7 +55,19 @@ export default {
       groups: {},
       groupsCache: {},
       showMode: 'table',
-      loading: false
+      loading: false,
+      query: ''
+    }
+  },
+  computed: {
+    filteredElements() {
+      const q = this.query.trim().toLowerCase()
+      if (!q) return this.elements
+      return this.elements.filter(e =>
+        e.Name?.toLowerCase().includes(q) ||
+        e.Symbol?.toLowerCase().includes(q) ||
+        String(e.AtomicNumber) === q
+      )
     }
   },
   async created() {
@@ -94,6 +107,18 @@ export default {
 </script>
 
 <style scoped>
+.search-clear {
+  background: none;
+  border: none;
+  color: rgba(228, 251, 255, 0.4);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.search-clear:hover { color: rgba(228, 251, 255, 0.9); }
+
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;

@@ -6,6 +6,7 @@
         v-for="elt in groupedElements(groupName)"
         :key="elt.Symbol"
         class="element"
+        :data-name="elt.Name"
         :style="{ borderColor: '#' + elt.CPKHexColor }"
       >
         <router-link :to="'/stroy/' + elt.Symbol">

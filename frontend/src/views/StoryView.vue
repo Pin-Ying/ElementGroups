@@ -38,7 +38,13 @@
           :class="{ 'nav-arrow--dim': fEl.Symbol === elInfo.Symbol }"
           :style="{ color: '#' + fEl.CPKHexColor }"
         >←</router-link>
-        <div class="title column">{{ elInfo.Symbol }}'s Story</div>
+
+        <div class="element-identity">
+          <span class="identity-num">{{ elInfo.AtomicNumber }}</span>
+          <span class="identity-sym" :style="{ color: '#' + elInfo.CPKHexColor }">{{ elInfo.Symbol }}</span>
+          <span class="identity-name">{{ elInfo.Name }}</span>
+        </div>
+
         <router-link
           class="nav-arrow"
           :to="'/stroy/' + bEl.Symbol"
@@ -289,6 +295,36 @@ export default {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
   align-items: center;
+  margin-bottom: 4px;
+}
+
+.element-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+}
+
+.identity-num {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.5;
+  letter-spacing: 0.04em;
+}
+
+.identity-sym {
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.identity-name {
+  font-size: 15px;
+  font-weight: 400;
+  opacity: 0.75;
+  letter-spacing: 0.03em;
 }
 
 .element-story {

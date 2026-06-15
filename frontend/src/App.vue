@@ -3,12 +3,12 @@
     <div class="element-header">
       <div class="header-inner">
         <router-link to="/" class="header-title">
-          <p class="title is-2">Element Groups</p>
-          <p class="title is-4">Explore the components of the world.</p>
+          <p class="header-logo">Element Groups</p>
+          <p class="header-sub">Explore the components of the world.</p>
         </router-link>
 
         <!-- Admin area -->
-        <div class="admin-area" style="text-align:left">
+        <div class="admin-area">
           <template v-if="authState.loggedIn">
             <span class="admin-badge">Admin Mode</span>
             <router-link class="button btn-sm" to="/admin">Admin Page</router-link>
@@ -91,13 +91,32 @@ export default {
 <style scoped>
 .header-inner {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .header-title {
-  text-align: left;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.header-logo {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #e4fbff;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.header-sub {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.45);
+  margin: 0;
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }
 
 .admin-area {
@@ -105,6 +124,7 @@ export default {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .login-form {
@@ -112,35 +132,55 @@ export default {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .login-form .input {
-  width: 160px;
+  width: 150px;
   padding: 4px 8px;
   font-size: 13px;
+  font-family: 'Space Grotesk', sans-serif;
   background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(228, 251, 255, 0.4);
-  border-radius: 4px;
+  border: 1px solid rgba(228, 251, 255, 0.35);
+  border-radius: 5px;
   color: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-form .input:focus {
+  border-color: rgba(228, 251, 255, 0.6);
 }
 
 .btn-sm {
   padding: 4px 12px;
   font-size: 13px;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 .admin-badge {
-  font-size: 12px;
+  font-size: 11px;
   color: #6ee76e;
-  border: 1px solid #6ee76e;
+  border: 1px solid rgba(110, 231, 110, 0.5);
   border-radius: 4px;
   padding: 2px 8px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  background: rgba(110, 231, 110, 0.08);
 }
 
 .err-msg {
   font-size: 12px;
   color: #ff6b6b;
+}
+
+@media (max-width: 600px) {
+  .header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .admin-area { justify-content: flex-start; }
+  .login-form { justify-content: flex-start; }
 }
 </style>
