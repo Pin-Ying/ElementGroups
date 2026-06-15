@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: elementgroups-frontend
+    env: static
+    buildCommand: npm --prefix frontend install && npm --prefix frontend run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
