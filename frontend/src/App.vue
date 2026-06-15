@@ -38,6 +38,17 @@
 import { authState, login, logout, initAuth } from './store/auth'
 import api from './api'
 
+function parseLoginError(raw) {
+  if (!raw) return 'Login failed'
+  if (raw.includes('INVALID_LOGIN_CREDENTIALS') || raw.includes('EMAIL_NOT_FOUND') || raw.includes('INVALID_PASSWORD'))
+    return 'Incorrect email or password'
+  if (raw.includes('TOO_MANY_ATTEMPTS_TRY_LATER'))
+    return 'Too many failed attempts, please try again later'
+  if (raw.includes('USER_DISABLED'))
+    return 'This account has been disabled'
+  return 'Login failed, please try again'
+}
+
 export default {
   data() {
     return {
@@ -76,8 +87,7 @@ export default {
           this.errMsg = result.message || 'Login failed'
         }
       } catch (e) {
-        const raw = e.response?.data?.message || 'Login failed'
-        this.errMsg = raw.replace(/^Error:\s*/i, '')
+        this.errMsg = parseLoginError(e.response?.data?.message)
       } finally {
         this.loggingIn = false
       }
