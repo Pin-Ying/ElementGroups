@@ -1,52 +1,25 @@
 <template>
-  <div>
-    <!-- 標準格狀週期表（寬螢幕） -->
-    <div v-if="!isMobile" class="pt-wrapper">
-      <div class="pt-grid">
-        <!-- 鑭系 / 錒系佔位標示 -->
-        <div class="pt-ref" :style="{ gridRow: 6, gridColumn: 3 }">57–71</div>
-        <div class="pt-ref" :style="{ gridRow: 7, gridColumn: 3 }">89–103</div>
+  <div class="pt-wrapper">
+    <div class="pt-grid">
+      <!-- 鑭系 / 錒系佔位標示 -->
+      <div class="pt-ref" :style="{ gridRow: 6, gridColumn: 3 }">57–71</div>
+      <div class="pt-ref" :style="{ gridRow: 7, gridColumn: 3 }">89–103</div>
 
-        <div
-          v-for="elt in positioned"
-          :key="elt.Symbol"
-          class="element"
-          :style="{
-            gridRow: elt.row,
-            gridColumn: elt.col,
-            borderColor: '#' + elt.CPKHexColor
-          }"
-        >
-          <router-link :to="'/stroy/' + elt.Symbol">
-            {{ elt.AtomicNumber }}<br />{{ elt.Symbol }}
-          </router-link>
-        </div>
-      </div>
-    </div>
-
-    <!-- 分組備援（窄螢幕，< 700px） -->
-    <div v-else id="group">
       <div
-        v-for="label in GROUP_ORDER"
-        :key="label"
-        v-show="groupedElements[label]"
-        class="group-box"
+        v-for="elt in positioned"
+        :key="elt.Symbol"
+        class="element"
+        :data-name="elt.Name"
+        :style="{
+          gridRow: elt.row,
+          gridColumn: elt.col,
+          borderColor: '#' + elt.CPKHexColor
+        }"
       >
-        <div class="group-title">{{ label }}</div>
-        <div class="elements-box">
-          <div
-            v-for="elt in groupedElements[label] || []"
-            :key="elt.Symbol"
-            class="element"
-            :style="{ borderColor: '#' + elt.CPKHexColor }"
-          >
-            <router-link :to="'/stroy/' + elt.Symbol">
-              <span class="el-num">{{ elt.AtomicNumber }}</span>
-              <span class="el-sym">{{ elt.Symbol }}</span>
-              <span class="el-name">{{ elt.Name }}</span>
-            </router-link>
-          </div>
-        </div>
+        <router-link :to="'/stroy/' + elt.Symbol">
+          <span class="el-num">{{ elt.AtomicNumber }}</span>
+          <span class="el-sym">{{ elt.Symbol }}</span>
+        </router-link>
       </div>
     </div>
   </div>
@@ -76,52 +49,9 @@ const POSITION = {
   96: [10,10], 97: [10,11], 98: [10,12], 99: [10,13], 100: [10,14], 101: [10,15], 102: [10,16], 103: [10,17],
 }
 
-// 欄位 → CAS 慣用分組標籤
-const COL_LABEL = {
-  1: '1A', 2: '2A',
-  3: '3B', 4: '4B', 5: '5B', 6: '6B', 7: '7B',
-  8: '8B', 9: '9B', 10: '10B',
-  11: '1B', 12: '2B',
-  13: '3A', 14: '4A', 15: '5A', 16: '6A', 17: '7A', 18: '8A',
-}
-
-const GROUP_ORDER = [
-  '1A', '2A',
-  '3B', '4B', '5B', '6B', '7B', '8B', '9B', '10B',
-  '1B', '2B',
-  '3A', '4A', '5A', '6A', '7A', '8A',
-  'Lanthanides', 'Actinides',
-]
-
-// 當 pt-grid 格子寬小於 36px 時切換為分組備援（行動裝置極小螢幕）
-const ELEMENT_SIZE = 36
-const GRID_COLS = 18
-const GRID_GAP = 3
-
-function shouldGroupFallback() {
-  const gridWidth = Math.min(window.innerWidth, 1320)
-  const cellWidth = (gridWidth - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS
-  return cellWidth < ELEMENT_SIZE
-}
-
 export default {
   props: {
     elements: { type: Array, required: true }
-  },
-  data() {
-    return {
-      GROUP_ORDER,
-      isMobile: shouldGroupFallback(),
-    }
-  },
-  mounted() {
-    this._onResize = () => {
-      this.isMobile = shouldGroupFallback()
-    }
-    window.addEventListener('resize', this._onResize)
-  },
-  beforeUnmount() {
-    window.removeEventListener('resize', this._onResize)
   },
   computed: {
     positioned() {
@@ -132,28 +62,17 @@ export default {
           row: POSITION[Number(e.AtomicNumber)][0],
           col: POSITION[Number(e.AtomicNumber)][1],
         }))
-    },
-    groupedElements() {
-      const map = {}
-      for (const e of this.positioned) {
-        const label = e.row === 9 ? 'Lanthanides'
-                    : e.row === 10 ? 'Actinides'
-                    : COL_LABEL[e.col] || `Group ${e.col}`
-        if (!map[label]) map[label] = []
-        map[label].push(e)
-      }
-      return map
-    },
+    }
   }
 }
 </script>
 
 <style scoped>
-/* ── 寬螢幕：標準格狀 ── */
 .pt-wrapper {
   width: 100%;
   overflow-x: auto;
-  padding: 6px 4px;
+  padding: 6px 4px 16px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .pt-grid {
@@ -161,18 +80,17 @@ export default {
   grid-template-columns: repeat(18, minmax(0, 1fr));
   grid-template-rows: repeat(7, auto) 10px repeat(2, auto);
   gap: 3px;
-  min-width: 620px;
+  min-width: 580px;
   max-width: 1320px;
   width: 100%;
   margin: 0 auto;
 }
 
-/* 覆寫格狀視圖內的 .element 尺寸與字體，維持全域其他樣式（顏色、hover、border...） */
 .pt-grid .element {
   width: 100%;
   height: auto;
   aspect-ratio: 1 / 1;
-  font-size: clamp(7px, 1vw, 13px);
+  font-size: clamp(6px, 1vw, 13px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -186,14 +104,22 @@ export default {
   width: 100%;
   height: 100%;
   gap: 1px;
+  text-decoration: none;
+  color: #fff;
 }
 
-/* 格狀週期表格子太小，隱藏元素全名 */
-.pt-grid .element .el-name {
-  display: none;
+.el-num {
+  font-size: 0.6em;
+  opacity: 0.6;
+  line-height: 1;
 }
 
-/* 鑭系 / 錒系佔位標示 */
+.el-sym {
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .pt-ref {
   display: flex;
   align-items: center;
