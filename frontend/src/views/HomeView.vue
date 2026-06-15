@@ -24,7 +24,11 @@
       <button v-if="query" class="search-clear" @click="query = ''" title="Clear">✕</button>
     </div>
 
-    <transition name="fade" mode="out-in">
+    <div v-if="!loading && elements.length === 0" class="no-results">
+      Unable to load elements. Please refresh the page.
+    </div>
+
+    <transition v-else name="fade" mode="out-in">
       <div v-if="showMode === 'table'" key="table">
         <div v-if="query && filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
         <PeriodicTableGrid v-else :elements="filteredElements" />
