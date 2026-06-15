@@ -221,6 +221,7 @@ export default {
         const res = await updateDb()
         this.adminMsg = res.data.message
         this.adminMsgType = 'success-msg'
+        await this.loadStoryData()
       } catch (e) {
         this.adminMsg = e.response?.data?.message || 'Error!'
         this.adminMsgType = 'error-msg'
@@ -256,15 +257,18 @@ export default {
     async loadStoryData() {
       try {
         const res = await getStoryData()
-        this.elements = res.data.elements
-        this.storyDatas = res.data.storyDatas
-        this.imageDatas = res.data.imageDatas
+        this.elements = res.data.elements || []
+        this.storyDatas = res.data.storyDatas || {}
+        this.imageDatas = res.data.imageDatas || {}
         if (this.elements.length > 0) {
           this.selectedSymbol = this.elements[0]
           this.storyText = this.storyDatas[this.selectedSymbol] || ''
+        } else {
+          showToast('元素清單為空，請先執行 Update DB', 'warning')
         }
       } catch (e) {
         console.error('Failed to load story data:', e)
+        showToast('無法載入元素清單：' + (e.message || 'Network error'), 'error')
       }
     },
     onSymbolChange() {
