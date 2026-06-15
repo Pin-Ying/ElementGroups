@@ -22,7 +22,16 @@ class User(UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return users.get(user_id)
+    if user_id in users:
+        return users[user_id]
+    # Server was restarted (users dict cleared); reconstruct from Firebase
+    try:
+        firebase_user = auth.get_user(user_id)
+        user_obj = User(firebase_user.uid, firebase_user.email)
+        users[firebase_user.uid] = user_obj
+        return user_obj
+    except Exception:
+        return None
 
 
 def login(email, password):

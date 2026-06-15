@@ -16,7 +16,7 @@ def create_app():
     app.config["SESSION_COOKIE_SAMESITE"] = "None"     # 允許跨域攜帶 cookie
     app.config["SESSION_COOKIE_SECURE"] = True          # SameSite=None 必須搭配 Secure
 
-    CORS(app, supports_credentials=True)
+    CORS(app, supports_credentials=True, origins=[settings.FRONTEND_URL])
 
     login_manager.init_app(app)
 

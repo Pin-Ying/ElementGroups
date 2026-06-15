@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     # Flask
     SECRET_KEY: str
     PORT: int = 8000
+    FRONTEND_URL: str = "http://localhost:5173"
 
     # Firebase Admin SDK
     FIREBASE_PROJECT_ID: str
