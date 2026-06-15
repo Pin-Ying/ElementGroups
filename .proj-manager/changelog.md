@@ -413,4 +413,143 @@ HomeView 搜尋欄有 `v-if="showMode !== 'table'"` 條件，Periodic Table 模�
 
 ---
 
+## [Bug 修正] - 2026-06-15 | commit f8d9629
+
+### 變更類型
+SPA 頁面重新整理 404 修正
+
+### 根本原因
+`_redirects` 檔案（`/* /index.html 200`）已正確存在於 `frontend/public/` 且 Vite build 後確認出現於 `frontend/dist/_redirects`，編碼亦正確（LF，非 CRLF）。問題推測為 Render dashboard 上靜態站點「Publish directory」設定有誤（例如設為 `./` 或未對應到 `frontend/dist`），導致 Render CDN 找不到 `_redirects` 而直接回傳 404。
+
+### 執行動作
+
+**`render.yaml`（新增）**
+- 新增於 repo 根目錄
+- 明確宣告靜態站點建置指令與發佈路徑：
+  - `buildCommand: npm --prefix frontend install && npm --prefix frontend run build`
+  - `staticPublishPath: ./frontend/dist`
+- 宣告路由重寫規則：`/* → /index.html`（Render IaC routes rewrite）
+- 讓 Render 透過 Infrastructure as Code 讀取設定，取代依賴 dashboard 手動設定
+
+### 待確認
+Render 對現有服務的 `render.yaml` 支援方式：若服務尚未啟用 IaC，需在 dashboard → Settings 手動連結，或從 repo 建立新服務。
+
+---
+
+## [功能修改] - 2026-06-15 | commits 53c7176 → 4dec939 → 3ba52c9
+
+### 變更類型
+Admin 登入 401 修正（多次嘗試）
+
+### 根本原因分析
+1. **CORS origins 未明確指定**：`CORS(app, supports_credentials=True)` 無 origins 限制，flask-cors 在某些版本可能輸出 `Access-Control-Allow-Origin: *`，瀏覽器拒絕在萬用字元下儲存 session cookie
+2. **`load_user` 依賴 in-memory dict**：Render free-tier 冷啟動後 `users = {}` 被清空，現有 session cookie 的 user_id 無法找到對應 User object → 401
+3. **flask-cors 版本行為差異**：即使明確指定 `origins=[FRONTEND_URL]`，字串完全匹配失敗（如結尾 `/` 差異）時也不套用 CORS header
+
+### 執行動作
+
+**`backend/app/__init__.py`**
+- 移除 flask-cors，改用手動 `@before_request`（處理 OPTIONS preflight）和 `@after_request`（加 CORS headers）
+- 最終改為反射任何 `Origin`（`if origin:`），確保不因 FRONTEND_URL 字串不符而失效
+
+**`backend/app/auth.py`**
+- `load_user` 加入 Firebase fallback：找不到 user 時從 `auth.get_user(uid)` 重建，解決冷啟動後舊 cookie 失效問題
+
+**`backend/app/config.py`**
+- 新增 `FRONTEND_URL: str = "http://localhost:5173"`（正式環境由 Render env var 覆蓋）
+
+---
+
+## [功能新增] - 2026-06-15 | commit 2b32b62
+
+### 變更類型
+Token-based 身份驗證（取代跨域 session cookie）
+
+### 動機
+Session cookie 跨域方案（SameSite=None; Secure + CORS）持續 401，根本原因是瀏覽器對跨域 Set-Cookie 的限制難以完全繞過。改用 Authorization header token 完全規避 cookie 跨域問題。
+
+### 執行動作
+
+**`backend/app/auth.py`（重構）**
+- 新增 `tokens = {}` dict（token → uid 對照）
+- 新增 `@login_manager.request_loader`：從 `Authorization: Bearer <token>` 讀取 token，查找對應 user（in-memory 或 Firebase fallback）
+- `login()` 改回傳 `(token, message)` tuple；成功時用 `secrets.token_urlsafe(32)` 產生隨機 token
+- `logout()` 接受 token 並從 `tokens` dict 刪除
+
+**`backend/app/routes/admin.py`**
+- `/api/auth/login` POST：回傳 `{"result": "success", "token": "<token>"}`
+- `/api/auth/logout` POST：從 Authorization header 取 token 並傳給 `auth_module.logout()`
+
+**`frontend/src/api/index.js`**
+- 移除 `withCredentials: true`
+- 新增 axios request interceptor：從 `localStorage.getItem('auth_token')` 取 token，加入 `Authorization: Bearer <token>` header
+
+**`frontend/src/store/auth.js`**
+- `login()`：成功後將 token 存入 `localStorage('auth_token')`
+- `logout()`：清除 `localStorage('auth_token')`
+- `initAuth()`：只有當 localStorage 有 token 時才查 `/api/auth/status`；失敗時清除 token
+
+---
+
+## [功能修改] - 2026-06-15 | commit 8bcebe1
+
+### 變更類型
+StoryView Stats tab 整合
+
+### 執行動作
+
+**`frontend/src/views/StoryView.vue`**
+- 移除 Radar 和 Ability 兩個獨立 tab
+- 新增單一 **Stats** tab，內含 Radar / Bars 小切換按鈕（pill 樣式）
+- 新增 `chartType: 'radar'` data 屬性
+- 新增 `.chart-type-toggle` CSS
+
+---
+
+## [功能新增] - 2026-06-15 | commit 7635f56
+
+### 變更類型
+預設圖管理功能
+
+### 執行動作
+
+**`backend/app/routes/public.py`**
+- 新增 `GET /api/elements/default-img`：從 Firebase Storage `_default.JPG` 回傳預設圖
+
+**`backend/app/routes/admin.py`**
+- 新增 `GET /api/admin/default-img`：回傳 `_default` 的 base64 img_data（admin 預覽用）
+- 新增 `POST /api/admin/default-img`：上傳新預設圖到 Storage + Realtime DB `_default` key
+
+**`frontend/src/api/index.js`**
+- 新增 `getDefaultImgInfo()` 和 `updateDefaultImg()`
+
+**`frontend/src/views/AdminView.vue`**
+- 新增 "DEFAULT IMAGE" 管理區塊：預覽當前預設圖 + 上傳表單
+
+**`frontend/src/views/StoryView.vue`**
+- `resolvedImg` 改為四層 fallback：Storage URL → imgData base64 → `/api/elements/default-img` → 佔位符
+- `onImgError` 上限從 2 改為 3
+- 新增 `imgBroken` computed
+- 新增 `.img-placeholder` 樣式：以元素顏色和符號呈現無圖狀態
+
+---
+
+## [Bug 修正] - 2026-06-15 | commits 76b0d15 → d17e915
+
+### 變更類型
+首頁冷啟動空白 + 空查詢誤顯 no-results
+
+### 根本原因
+1. `HomeView` 的 `elements` 初始值為 `[]`，後端未回應時週期表空白
+2. no-results `v-if` 條件未排除 `query === ''` 的情況
+
+### 執行動作
+
+**`frontend/src/views/HomeView.vue`**
+- `elements` 初始值改為 `elementsState.elements`（靜態 118 個元素），冷啟動期間立即顯示
+- no-results 條件改為 `v-if="query && filteredElements.length === 0"`
+- 新增 `v-if="!loading && elements.length === 0"` 錯誤提示區塊（真正為空時顯示「Unable to load elements. Please refresh the page.」）
+
+---
+
 *後續變更將自動記錄於此*
