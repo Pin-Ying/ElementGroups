@@ -6,21 +6,24 @@ export const authState = reactive({
 })
 
 export async function initAuth() {
+  const token = localStorage.getItem('auth_token')
+  if (!token) return
   try {
     const res = await getAuthStatus()
-    // 只允許設為 true（恢復頁面重整後的登入狀態）
-    // 不設 false，避免 pending request 在用戶登入後才返回而覆蓋狀態
     if (res.data.loggedIn) {
       authState.loggedIn = true
+    } else {
+      localStorage.removeItem('auth_token')
     }
   } catch {
-    // 忽略，不改變狀態
+    localStorage.removeItem('auth_token')
   }
 }
 
 export async function login(email, password) {
   const res = await apiLogin(email, password)
   if (res.data.result === 'success') {
+    localStorage.setItem('auth_token', res.data.token)
     authState.loggedIn = true
     return { ok: true }
   }
@@ -29,5 +32,6 @@ export async function login(email, password) {
 
 export async function logout() {
   await apiLogout()
+  localStorage.removeItem('auth_token')
   authState.loggedIn = false
 }

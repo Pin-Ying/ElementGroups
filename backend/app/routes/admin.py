@@ -21,16 +21,18 @@ def login():
 
     email = data.get("email")
     password = data.get("password")
-    result = auth_module.login(email, password)
+    token, message = auth_module.login(email, password)
 
-    if result == "Login successful":
-        return jsonify({"result": "success", "message": result})
-    return jsonify({"result": "failure", "message": result}), 401
+    if token:
+        return jsonify({"result": "success", "message": message, "token": token})
+    return jsonify({"result": "failure", "message": message}), 401
 
 
 @admin_bp.route("/auth/logout", methods=["POST"])
 def logout():
-    auth_module.logout()
+    auth_header = request.headers.get('Authorization', '')
+    token = auth_header[7:] if auth_header.startswith('Bearer ') else None
+    auth_module.logout(token)
     return jsonify({"result": "success", "message": "Logged out successfully"})
 
 
