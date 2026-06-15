@@ -30,26 +30,22 @@
     </div>
 
     <div v-if="elInfo" @touchstart="onTouchStart" @touchend="onTouchEnd">
-      <!-- Element identity -->
-      <div class="element-identity-block">
-        <span class="identity-num">{{ elInfo.AtomicNumber }}</span>
-        <span class="identity-sym" :style="{ color: '#' + elInfo.CPKHexColor }">{{ elInfo.Symbol }}</span>
-        <span class="identity-name">{{ elInfo.Name }}</span>
-      </div>
-
-      <!-- Scroll wheel navigation -->
+      <!-- Identity + wheel in one row -->
       <div class="nav-wheel-wrap">
         <div class="nav-wheel" ref="wheelRef">
           <router-link
             v-for="el in wheelElements"
             :key="el.Symbol"
             :to="'/stroy/' + el.Symbol"
-            class="wheel-chip"
-            :class="{ 'wheel-chip--active': el.Symbol === elInfo.Symbol }"
-            :style="el.Symbol === elInfo.Symbol ? { borderColor: '#' + elInfo.CPKHexColor, color: '#' + elInfo.CPKHexColor } : {}"
+            :class="['wheel-chip', 'wheel-chip--d' + el.dist]"
+            :style="el.dist === 0 ? { borderColor: '#' + elInfo.CPKHexColor } : {}"
           >
-            <span class="wheel-num">{{ el.AtomicNumber }}</span>
-            <span class="wheel-sym">{{ el.Symbol }}</span>
+            <span class="chip-num">{{ el.AtomicNumber }}</span>
+            <span
+              class="chip-sym"
+              :style="el.dist === 0 ? { color: '#' + elInfo.CPKHexColor } : {}"
+            >{{ el.Symbol }}</span>
+            <span v-if="el.dist === 0" class="chip-name">{{ elInfo.Name }}</span>
           </router-link>
         </div>
       </div>
@@ -173,7 +169,10 @@ export default {
       if (idx === -1) return []
       const start = Math.max(0, idx - 4)
       const end = Math.min(all.length - 1, idx + 4)
-      return all.slice(start, end + 1)
+      return all.slice(start, end + 1).map((e, i) => ({
+        ...e,
+        dist: Math.abs((start + i) - idx)
+      }))
     }
   },
   watch: {
@@ -226,7 +225,7 @@ export default {
     scrollWheelToActive() {
       const wrap = this.$refs.wheelRef
       if (!wrap) return
-      const active = wrap.querySelector('.wheel-chip--active')
+      const active = wrap.querySelector('.wheel-chip--d0')
       if (!active) return
       const wrapCenter = wrap.offsetWidth / 2
       const chipCenter = active.offsetLeft + active.offsetWidth / 2
@@ -291,72 +290,23 @@ export default {
   box-shadow: 0 0 24px rgba(80, 0, 160, 0.15), 0 0 48px rgba(0, 100, 200, 0.08);
 }
 
-/* ── Element identity block ── */
-.element-identity-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 16px 0 8px;
-}
-
-.identity-num {
-  font-size: 13px;
-  font-weight: 400;
-  opacity: 0.5;
-  letter-spacing: 0.04em;
-}
-
-.identity-sym {
-  font-size: 52px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.identity-name {
-  font-size: 15px;
-  font-weight: 400;
-  opacity: 0.75;
-  letter-spacing: 0.03em;
-}
-
-/* ── Navigation wheel ── */
+/* ── Navigation wheel (identity integrated) ── */
 .nav-wheel-wrap {
-  position: relative;
-  margin: 8px auto 16px;
-  max-width: 680px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 12px 0 8px;
 }
-
-.nav-wheel-wrap::before,
-.nav-wheel-wrap::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 40px;
-  z-index: 2;
-  pointer-events: none;
-}
-.nav-wheel-wrap::before {
-  left: 0;
-  background: linear-gradient(to right, #03010a, transparent);
-}
-.nav-wheel-wrap::after {
-  right: 0;
-  background: linear-gradient(to left, #03010a, transparent);
-}
+.nav-wheel-wrap::-webkit-scrollbar { display: none; }
 
 .nav-wheel {
   display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  scrollbar-width: none;
-  padding: 6px 48px;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: max-content;
+  margin: 0 auto;
+  padding: 0 24px;
 }
-.nav-wheel::-webkit-scrollbar { display: none; }
 
 .wheel-chip {
   display: flex;
@@ -364,45 +314,64 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 48px;
-  height: 52px;
-  border-radius: 6px;
-  border: 1px solid rgba(228, 251, 255, 0.18);
+  border-radius: 7px;
+  border: 1px solid rgba(228, 251, 255, 0.12);
   background: rgba(60, 40, 75, 0.3);
   text-decoration: none;
-  color: rgba(228, 251, 255, 0.45);
-  gap: 1px;
-  transition: all 0.18s ease;
+  color: rgba(228, 251, 255, 0.4);
+  transition: background 0.18s, border-color 0.18s, opacity 0.18s;
+  overflow: hidden;
 }
 
 .wheel-chip:hover {
   background: rgba(100, 70, 120, 0.55);
-  border-color: rgba(228, 251, 255, 0.4);
-  color: #e4fbff;
-  transform: translateY(-2px);
+  border-color: rgba(228, 251, 255, 0.35);
+  color: rgba(228, 251, 255, 0.85);
 }
 
-.wheel-chip--active {
-  width: 60px;
-  height: 64px;
+/* Current element — large with full identity */
+.wheel-chip--d0 {
+  width: 76px;
+  padding: 12px 6px 10px;
   border-width: 1.5px;
-  background: rgba(80, 50, 100, 0.55);
-  color: inherit;
-  transform: none;
+  background: rgba(80, 50, 100, 0.5);
+  color: rgba(228, 251, 255, 0.9);
   pointer-events: none;
+  gap: 3px;
 }
+.wheel-chip--d0:hover { background: rgba(80, 50, 100, 0.5); }
 
-.wheel-num {
-  font-size: 9px;
-  opacity: 0.65;
+/* Neighbouring chips shrink by distance */
+.wheel-chip--d1 { width: 52px; height: 60px; color: rgba(228, 251, 255, 0.65); }
+.wheel-chip--d2 { width: 42px; height: 48px; color: rgba(228, 251, 255, 0.48); opacity: 0.88; }
+.wheel-chip--d3 { width: 33px; height: 38px; color: rgba(228, 251, 255, 0.35); opacity: 0.68; }
+.wheel-chip--d4 { width: 26px; height: 30px; color: rgba(228, 251, 255, 0.25); opacity: 0.48; }
+
+/* Text inside chips */
+.chip-num {
+  font-size: 10px;
+  opacity: 0.55;
   line-height: 1;
 }
+.wheel-chip:not(.wheel-chip--d0) .chip-num { display: none; }
 
-.wheel-sym {
-  font-size: 16px;
+.chip-sym {
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.01em;
+}
+.wheel-chip--d0 .chip-sym { font-size: 34px; }
+.wheel-chip--d1 .chip-sym { font-size: 18px; }
+.wheel-chip--d2 .chip-sym { font-size: 15px; }
+.wheel-chip--d3 .chip-sym { font-size: 12px; }
+.wheel-chip--d4 .chip-sym { font-size: 10px; }
+
+.chip-name {
+  font-size: 11px;
+  opacity: 0.72;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-align: center;
 }
 
 .element-story {
@@ -566,8 +535,11 @@ export default {
   img, #element-ability { width: 90%; }
   .element-grid { grid-template-columns: 1fr; }
   .element-grid-info { width: 90%; }
-  .wheel-chip { width: 42px; height: 46px; }
-  .wheel-chip--active { width: 52px; height: 58px; }
-  .wheel-sym { font-size: 14px; }
+  .wheel-chip--d0 { width: 64px; padding: 10px 4px 8px; }
+  .wheel-chip--d0 .chip-sym { font-size: 28px; }
+  .wheel-chip--d1 { width: 44px; height: 52px; }
+  .wheel-chip--d2 { width: 36px; height: 42px; }
+  .wheel-chip--d3 { width: 28px; height: 34px; }
+  .wheel-chip--d4 { width: 22px; height: 26px; }
 }
 </style>
