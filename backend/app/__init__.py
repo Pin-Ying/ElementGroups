@@ -20,7 +20,7 @@ def create_app():
         if request.method == 'OPTIONS':
             origin = request.headers.get('Origin', '')
             response = make_response()
-            if origin == settings.FRONTEND_URL:
+            if origin:
                 response.headers['Access-Control-Allow-Origin'] = origin
                 response.headers['Access-Control-Allow-Credentials'] = 'true'
                 response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
@@ -30,7 +30,7 @@ def create_app():
     @app.after_request
     def add_cors_headers(response):
         origin = request.headers.get('Origin', '')
-        if origin == settings.FRONTEND_URL:
+        if origin:
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
