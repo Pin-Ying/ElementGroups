@@ -33,20 +33,23 @@
       <!-- Identity + wheel in one row -->
       <div class="nav-wheel-wrap">
         <div class="nav-wheel" ref="wheelRef">
-          <router-link
+          <component
             v-for="el in wheelElements"
             :key="el.Symbol"
-            :to="'/stroy/' + el.Symbol"
-            :class="['wheel-chip', 'wheel-chip--d' + el.dist]"
+            :is="el.empty ? 'div' : 'router-link'"
+            :to="el.empty ? undefined : '/stroy/' + el.Symbol"
+            :class="['wheel-chip', 'wheel-chip--d' + el.dist, { 'wheel-chip--empty': el.empty }]"
             :style="el.dist === 0 ? { borderColor: '#' + elInfo.CPKHexColor } : {}"
           >
-            <span class="chip-num">{{ el.AtomicNumber }}</span>
-            <span
-              class="chip-sym"
-              :style="el.dist === 0 ? { color: '#' + elInfo.CPKHexColor } : {}"
-            >{{ el.Symbol }}</span>
-            <span v-if="el.dist === 0" class="chip-name">{{ elInfo.Name }}</span>
-          </router-link>
+            <template v-if="!el.empty">
+              <span class="chip-num">{{ el.AtomicNumber }}</span>
+              <span
+                class="chip-sym"
+                :style="el.dist === 0 ? { color: '#' + elInfo.CPKHexColor } : {}"
+              >{{ el.Symbol }}</span>
+              <span v-if="el.dist === 0" class="chip-name">{{ elInfo.Name }}</span>
+            </template>
+          </component>
         </div>
       </div>
 
@@ -167,12 +170,22 @@ export default {
       if (!all.length || !this.elInfo) return []
       const idx = all.findIndex(e => e.Symbol === this.elInfo.Symbol)
       if (idx === -1) return []
-      const start = Math.max(0, idx - 4)
-      const end = Math.min(all.length - 1, idx + 4)
-      return all.slice(start, end + 1).map((e, i) => ({
-        ...e,
-        dist: Math.abs((start + i) - idx)
-      }))
+      const WING = 4
+      const result = []
+      for (let d = WING; d >= 1; d--) {
+        const pos = idx - d
+        result.push(pos >= 0
+          ? { ...all[pos], dist: d, empty: false }
+          : { Symbol: `_L${d}`, AtomicNumber: '', dist: d, empty: true })
+      }
+      result.push({ ...all[idx], dist: 0, empty: false })
+      for (let d = 1; d <= WING; d++) {
+        const pos = idx + d
+        result.push(pos < all.length
+          ? { ...all[pos], dist: d, empty: false }
+          : { Symbol: `_R${d}`, AtomicNumber: '', dist: d, empty: true })
+      }
+      return result
     }
   },
   watch: {
@@ -330,6 +343,12 @@ export default {
 }
 
 /* Current element — large with full identity */
+.wheel-chip--empty {
+  background: transparent !important;
+  border-color: transparent !important;
+  pointer-events: none;
+}
+
 .wheel-chip--d0 {
   width: 76px;
   padding: 12px 6px 10px;
