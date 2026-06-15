@@ -64,12 +64,21 @@
           <!-- 介紹 -->
           <div v-if="section === 'intro'" key="intro" class="element-grid">
             <img
+              v-if="!imgBroken"
               :style="{ borderColor: '#' + elInfo.CPKHexColor }"
               :src="resolvedImg"
               :title="elInfo.Name"
               alt="Still Creating..."
               @error="onImgError"
             />
+            <div
+              v-else
+              class="img-placeholder"
+              :style="{ borderColor: '#' + elInfo.CPKHexColor, backgroundColor: '#' + elInfo.CPKHexColor + '18' }"
+            >
+              <span class="img-placeholder-sym" :style="{ color: '#' + elInfo.CPKHexColor }">{{ elInfo.Symbol }}</span>
+              <span class="img-placeholder-label">No image yet</span>
+            </div>
             <div
               class="element-grid-info"
               :style="{
@@ -165,7 +174,12 @@ export default {
   computed: {
     resolvedImg() {
       if (this.imgFallbackLevel === 0) return this.imgSrc
-      return this.imgData || ''
+      if (this.imgFallbackLevel === 1) return this.imgData || '/api/elements/default-img'
+      if (this.imgFallbackLevel === 2) return '/api/elements/default-img'
+      return null
+    },
+    imgBroken() {
+      return this.imgFallbackLevel >= 3
     },
     wheelElements() {
       const all = elementsState.elements
@@ -247,7 +261,7 @@ export default {
       wrap.scrollLeft = chipCenter - wrapCenter
     },
     onImgError() {
-      if (this.imgFallbackLevel < 2) this.imgFallbackLevel++
+      if (this.imgFallbackLevel < 3) this.imgFallbackLevel++
     },
     abilityWidth(key) {
       if (!this.abilityData || !this.abilityData.abMax) return '0%'
@@ -431,6 +445,28 @@ export default {
   justify-items: center;
   gap: 10px;
   margin: 5px auto;
+}
+
+.img-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 2px solid;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.img-placeholder-sym {
+  font-size: clamp(36px, 8vw, 72px);
+  font-weight: 700;
+  line-height: 1;
+}
+.img-placeholder-label {
+  font-size: 12px;
+  opacity: 0.5;
+  letter-spacing: 0.05em;
 }
 
 .element-grid-info {

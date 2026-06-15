@@ -55,4 +55,14 @@ export function backfillImgData() {
   return api.post('/admin/backfill-img-data')
 }
 
+export function getDefaultImgInfo() {
+  return api.get('/admin/default-img')
+}
+
+export function updateDefaultImg(formData) {
+  return api.post('/admin/default-img', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
 export default api

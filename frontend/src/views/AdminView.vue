@@ -29,6 +29,19 @@
       </div>
       <p v-if="adminMsg" class="label" :class="adminMsgType">{{ adminMsg }}</p>
 
+      <!-- Default Image -->
+      <div class="box">
+        <p class="title is-4">DEFAULT IMAGE</p>
+        <p class="label" style="opacity:0.6;font-size:13px">顯示在還沒有圖片的元素上</p>
+        <img v-if="defaultImgData" :src="defaultImgData" class="default-img-preview" alt="Default" />
+        <p v-else class="label" style="opacity:0.5">尚未設定</p>
+        <form @submit.prevent="handleUpdateDefaultImg" style="margin-top:12px">
+          <input class="input" type="file" accept=".jpg" ref="defaultImgInput" required />
+          <button class="button" type="submit" style="margin-top:10px">{{ defaultImgSaving ? 'Uploading...' : 'Upload' }}</button>
+        </form>
+        <p v-if="defaultImgMsg" class="label" :class="defaultImgMsgType">{{ defaultImgMsg }}</p>
+      </div>
+
       <!-- Update Story Form -->
       <div class="box">
         <p class="title is-4">UPDATE STORY</p>
@@ -50,7 +63,7 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg } from '../api'
 import { authState, login, logout } from '../store/auth'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
@@ -71,12 +84,16 @@ export default {
       storyDatas: {},
       imageDatas: {},
       selectedSymbol: '',
-      storyText: ''
+      storyText: '',
+      defaultImgData: '',
+      defaultImgMsg: '',
+      defaultImgMsgType: '',
+      defaultImgSaving: false
     }
   },
   async mounted() {
     if (this.authState.loggedIn) {
-      await this.loadStoryData()
+      await Promise.all([this.loadStoryData(), this.loadDefaultImg()])
     }
   },
   methods: {
@@ -148,6 +165,33 @@ export default {
         this.loading = false
       }
     },
+    async loadDefaultImg() {
+      try {
+        const res = await getDefaultImgInfo()
+        this.defaultImgData = res.data.img_data || ''
+      } catch (e) {
+        console.error('Failed to load default image:', e)
+      }
+    },
+    async handleUpdateDefaultImg() {
+      const imageFile = this.$refs.defaultImgInput?.files[0]
+      if (!imageFile) return
+      const formData = new FormData()
+      formData.append('image', imageFile)
+      this.defaultImgSaving = true
+      this.defaultImgMsg = ''
+      try {
+        const res = await updateDefaultImg(formData)
+        this.defaultImgMsg = res.data.message
+        this.defaultImgMsgType = 'success-msg'
+        await this.loadDefaultImg()
+      } catch (e) {
+        this.defaultImgMsg = e.response?.data?.message || 'Upload failed'
+        this.defaultImgMsgType = 'error-msg'
+      } finally {
+        this.defaultImgSaving = false
+      }
+    },
     async loadStoryData() {
       try {
         const res = await getStoryData()
@@ -194,6 +238,17 @@ export default {
 .admin-box {
   text-align: center;
   padding: 20px;
+}
+
+.default-img-preview {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 6px;
+  border: 1px solid rgba(228, 251, 255, 0.2);
+  margin-top: 8px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .box {

@@ -100,6 +100,19 @@ def get_element_detail(symbol):
         return jsonify({"result": "failure", "exception": str(e)}), 500
 
 
+@public_bp.route("/elements/default-img", methods=["GET"])
+def get_default_image():
+    try:
+        img_bytes, content_type = get_image_bytes("_default")
+        if img_bytes is None:
+            return "", 404
+        response = make_response(send_file(io.BytesIO(img_bytes), mimetype=content_type))
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
 @public_bp.route("/elements/<symbol>/img", methods=["GET"])
 def get_element_image(symbol):
     try:

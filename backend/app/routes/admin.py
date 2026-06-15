@@ -98,6 +98,38 @@ def backfill_img_data():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
+@admin_bp.route("/admin/default-img", methods=["GET", "POST"])
+@login_required
+def manage_default_image():
+    if request.method == "GET":
+        try:
+            data = show_fdb("_default")
+            img_data = data.get("img_data", "") if data else ""
+            return jsonify({"img_data": img_data})
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    # POST
+    try:
+        image = request.files.get("image")
+        if not image or not image.filename:
+            return jsonify({"result": "failure", "message": "No image provided"}), 400
+
+        filename = "static/img/_default.JPG"
+        temp = tempfile.NamedTemporaryFile(delete=False)
+        image.save(temp.name)
+        img = upload_file(temp.name, filename)
+        with open(temp.name, "rb") as f:
+            img_data = "data:image/jpeg;base64," + base64.b64encode(f.read()).decode("utf-8")
+        temp.close()
+        os.remove(temp.name)
+
+        upload_fdb("_default", {"img": img, "img_data": img_data})
+        return jsonify({"result": "success", "message": "Default image updated!"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
 @admin_bp.route("/admin/story", methods=["POST", "GET"])
 @login_required
 def update_story():
