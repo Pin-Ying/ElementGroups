@@ -13,6 +13,8 @@ def create_app():
     app.config["SECRET_KEY"] = settings.SECRET_KEY
     app.config["PERMANENT_SESSION_LIFETIME"] = datetime.timedelta(minutes=10)
     app.config["SESSION_REFRESH_EACH_REQUEST"] = True  # 每次 request 重置過期時間
+    app.config["SESSION_COOKIE_SAMESITE"] = "None"     # 允許跨域攜帶 cookie
+    app.config["SESSION_COOKIE_SECURE"] = True          # SameSite=None 必須搭配 Secure
 
     CORS(app, supports_credentials=True)
 

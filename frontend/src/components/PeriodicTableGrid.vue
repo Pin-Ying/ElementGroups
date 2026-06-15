@@ -93,10 +93,10 @@ const GROUP_ORDER = [
   'Lanthanides', 'Actinides',
 ]
 
-// 當 pt-grid 格子寬小於全域 .element 尺寸（70px）時切換為分組備援
-const ELEMENT_SIZE = 70  // px，對應 style.css .element width
+// 當 pt-grid 格子寬小於 36px 時切換為分組備援（行動裝置極小螢幕）
+const ELEMENT_SIZE = 36
 const GRID_COLS = 18
-const GRID_GAP = 3       // px，對應 pt-grid gap
+const GRID_GAP = 3
 
 function shouldGroupFallback() {
   const gridWidth = Math.min(window.innerWidth, 1320)

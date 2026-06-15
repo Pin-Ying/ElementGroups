@@ -24,33 +24,34 @@
               {{ saving ? 'Saving...' : 'Save' }}
             </button>
             <button class="btn-cancel" type="button" @click="editing = false">Cancel</button>
-            <span v-if="saveMsg" :class="saveMsgType" class="save-msg">{{ saveMsg }}</span>
           </div>
         </form>
       </div>
     </div>
 
     <div v-if="elInfo" @touchstart="onTouchStart" @touchend="onTouchEnd">
-      <div class="element-btns">
-        <router-link
-          class="nav-arrow"
-          :to="'/stroy/' + fEl.Symbol"
-          :class="{ 'nav-arrow--dim': fEl.Symbol === elInfo.Symbol }"
-          :style="{ color: '#' + fEl.CPKHexColor }"
-        >←</router-link>
+      <!-- Element identity -->
+      <div class="element-identity-block">
+        <span class="identity-num">{{ elInfo.AtomicNumber }}</span>
+        <span class="identity-sym" :style="{ color: '#' + elInfo.CPKHexColor }">{{ elInfo.Symbol }}</span>
+        <span class="identity-name">{{ elInfo.Name }}</span>
+      </div>
 
-        <div class="element-identity">
-          <span class="identity-num">{{ elInfo.AtomicNumber }}</span>
-          <span class="identity-sym" :style="{ color: '#' + elInfo.CPKHexColor }">{{ elInfo.Symbol }}</span>
-          <span class="identity-name">{{ elInfo.Name }}</span>
+      <!-- Scroll wheel navigation -->
+      <div class="nav-wheel-wrap">
+        <div class="nav-wheel" ref="wheelRef">
+          <router-link
+            v-for="el in wheelElements"
+            :key="el.Symbol"
+            :to="'/stroy/' + el.Symbol"
+            class="wheel-chip"
+            :class="{ 'wheel-chip--active': el.Symbol === elInfo.Symbol }"
+            :style="el.Symbol === elInfo.Symbol ? { borderColor: '#' + elInfo.CPKHexColor, color: '#' + elInfo.CPKHexColor } : {}"
+          >
+            <span class="wheel-num">{{ el.AtomicNumber }}</span>
+            <span class="wheel-sym">{{ el.Symbol }}</span>
+          </router-link>
         </div>
-
-        <router-link
-          class="nav-arrow"
-          :to="'/stroy/' + bEl.Symbol"
-          :class="{ 'nav-arrow--dim': bEl.Symbol === elInfo.Symbol }"
-          :style="{ color: '#' + bEl.CPKHexColor }"
-        >→</router-link>
       </div>
 
       <div class="element-story">
@@ -85,7 +86,7 @@
                   v-if="authState.loggedIn"
                   class="btn-edit"
                   type="button"
-                  @click="editing = true; saveMsg = ''"
+                  @click="editing = true"
                 >Edit</button>
               </div>
               <div class="subtitle">
@@ -123,6 +124,8 @@ import { getElementDetail, getElementAbility, updateStory } from '../api'
 import AbilityChart from '../components/AbilityChart.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { authState } from '../store/auth'
+import { showToast } from '../store/toast'
+import { elementsState, ensureElements } from '../store/elements'
 
 const ABILITIES = [
   { key: 'MeltingPoint', label: 'MeltingPoint (K)' },
@@ -140,6 +143,7 @@ export default {
   data() {
     return {
       authState,
+      elementsState,
       elInfo: null,
       fEl: {},
       bEl: {},
@@ -154,15 +158,22 @@ export default {
       loading: false,
       editing: false,
       editStory: '',
-      saving: false,
-      saveMsg: '',
-      saveMsgType: ''
+      saving: false
     }
   },
   computed: {
     resolvedImg() {
       if (this.imgFallbackLevel === 0) return this.imgSrc
       return this.imgData || ''
+    },
+    wheelElements() {
+      const all = elementsState.elements
+      if (!all.length || !this.elInfo) return []
+      const idx = all.findIndex(e => e.Symbol === this.elInfo.Symbol)
+      if (idx === -1) return []
+      const start = Math.max(0, idx - 4)
+      const end = Math.min(all.length - 1, idx + 4)
+      return all.slice(start, end + 1)
     }
   },
   watch: {
@@ -190,11 +201,11 @@ export default {
       this.imgFallbackLevel = 0
       this.section = 'intro'
       this.editing = false
-      this.saveMsg = ''
       try {
         const [detailRes, abilityRes] = await Promise.all([
           getElementDetail(this.symbol),
-          getElementAbility(this.symbol)
+          getElementAbility(this.symbol),
+          ensureElements()
         ])
         const detail = detailRes.data
         this.elInfo = detail.el_info
@@ -209,7 +220,17 @@ export default {
         console.error('Failed to load element data:', e)
       } finally {
         this.loading = false
+        this.$nextTick(() => this.scrollWheelToActive())
       }
+    },
+    scrollWheelToActive() {
+      const wrap = this.$refs.wheelRef
+      if (!wrap) return
+      const active = wrap.querySelector('.wheel-chip--active')
+      if (!active) return
+      const wrapCenter = wrap.offsetWidth / 2
+      const chipCenter = active.offsetLeft + active.offsetWidth / 2
+      wrap.scrollLeft = chipCenter - wrapCenter
     },
     onImgError() {
       if (this.imgFallbackLevel < 2) this.imgFallbackLevel++
@@ -221,7 +242,6 @@ export default {
     },
     async handleSubmit() {
       this.saving = true
-      this.saveMsg = ''
       const formData = new FormData()
       formData.append('symbol', this.elInfo.Symbol)
       formData.append('stroy', this.editStory)
@@ -234,11 +254,10 @@ export default {
           this.imgFallbackLevel = 0
           await this.loadData()
         }
-        this.saveMsg = res.data.message
-        this.saveMsgType = 'msg-success'
+        showToast(res.data.message || 'Saved successfully', 'success')
+        this.editing = false
       } catch (e) {
-        this.saveMsg = e.response?.data?.message || 'Save failed'
-        this.saveMsgType = 'msg-error'
+        showToast(e.response?.data?.message || 'Save failed', 'error')
       } finally {
         this.saving = false
       }
@@ -272,38 +291,13 @@ export default {
   box-shadow: 0 0 24px rgba(80, 0, 160, 0.15), 0 0 48px rgba(0, 100, 200, 0.08);
 }
 
-.nav-arrow {
-  font-size: 48px;
-  padding: 8px 24px;
-  text-decoration: none;
-  opacity: 0.75;
-  transition: opacity 0.15s, transform 0.15s;
-  user-select: none;
-}
-
-.nav-arrow:hover {
-  opacity: 1;
-  transform: scale(1.2);
-}
-
-.nav-arrow--dim {
-  opacity: 0.2;
-  pointer-events: none;
-}
-
-.element-btns {
-  display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.element-identity {
+/* ── Element identity block ── */
+.element-identity-block {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 6px 0;
+  padding: 16px 0 8px;
 }
 
 .identity-num {
@@ -325,6 +319,90 @@ export default {
   font-weight: 400;
   opacity: 0.75;
   letter-spacing: 0.03em;
+}
+
+/* ── Navigation wheel ── */
+.nav-wheel-wrap {
+  position: relative;
+  margin: 8px auto 16px;
+  max-width: 680px;
+}
+
+.nav-wheel-wrap::before,
+.nav-wheel-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  z-index: 2;
+  pointer-events: none;
+}
+.nav-wheel-wrap::before {
+  left: 0;
+  background: linear-gradient(to right, #03010a, transparent);
+}
+.nav-wheel-wrap::after {
+  right: 0;
+  background: linear-gradient(to left, #03010a, transparent);
+}
+
+.nav-wheel {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding: 6px 48px;
+  justify-content: flex-start;
+}
+.nav-wheel::-webkit-scrollbar { display: none; }
+
+.wheel-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 52px;
+  border-radius: 6px;
+  border: 1px solid rgba(228, 251, 255, 0.18);
+  background: rgba(60, 40, 75, 0.3);
+  text-decoration: none;
+  color: rgba(228, 251, 255, 0.45);
+  gap: 1px;
+  transition: all 0.18s ease;
+}
+
+.wheel-chip:hover {
+  background: rgba(100, 70, 120, 0.55);
+  border-color: rgba(228, 251, 255, 0.4);
+  color: #e4fbff;
+  transform: translateY(-2px);
+}
+
+.wheel-chip--active {
+  width: 60px;
+  height: 64px;
+  border-width: 1.5px;
+  background: rgba(80, 50, 100, 0.55);
+  color: inherit;
+  transform: none;
+  pointer-events: none;
+}
+
+.wheel-num {
+  font-size: 9px;
+  opacity: 0.65;
+  line-height: 1;
+}
+
+.wheel-sym {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
 }
 
 .element-story {
@@ -475,10 +553,6 @@ export default {
 }
 .btn-cancel:hover { border-color: #aaa; color: #fff; }
 
-.save-msg { font-size: 13px; }
-.msg-success { color: #6ee76e; }
-.msg-error   { color: #ff6b6b; }
-
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
@@ -490,21 +564,10 @@ export default {
 
 @media only screen and (max-width: 800px) {
   img, #element-ability { width: 90%; }
-  .element-btns {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 2px;
-  }
-  .element-btns .title {
-    flex-basis: 100%;
-    order: -1;
-  }
-  .element-btns .nav-arrow {
-    font-size: 28px;
-    padding: 4px 16px;
-  }
   .element-grid { grid-template-columns: 1fr; }
   .element-grid-info { width: 90%; }
+  .wheel-chip { width: 42px; height: 46px; }
+  .wheel-chip--active { width: 52px; height: 58px; }
+  .wheel-sym { font-size: 14px; }
 }
 </style>

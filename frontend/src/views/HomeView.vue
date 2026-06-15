@@ -42,6 +42,7 @@
 
 <script>
 import { getElements, getGroups } from '../api'
+import { elementsState } from '../store/elements'
 import PeriodicTableGrid from '../components/PeriodicTableGrid.vue'
 import PeriodicTable from '../components/PeriodicTable.vue'
 import GroupBox from '../components/GroupBox.vue'
@@ -76,6 +77,8 @@ export default {
       const res = await getElements()
       this.elements = res.data.elements
       this.groups = res.data.groups
+      elementsState.elements = res.data.elements
+      elementsState.loaded = true
     } catch (e) {
       console.error('Failed to load elements:', e)
     } finally {

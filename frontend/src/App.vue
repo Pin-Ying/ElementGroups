@@ -22,8 +22,7 @@
               <button class="button btn-sm" type="submit" :disabled="loggingIn">
                 {{ loggingIn ? '...' : 'Login' }}
               </button>
-              <button class="button btn-sm" type="button" @click="showLogin = false; errMsg = ''">✕</button>
-              <span v-if="errMsg" class="err-msg">{{ errMsg }}</span>
+              <button class="button btn-sm" type="button" @click="showLogin = false">✕</button>
             </form>
           </template>
         </div>
@@ -31,11 +30,14 @@
     </div>
 
     <router-view />
+    <ToastContainer />
   </div>
 </template>
 
 <script>
 import { authState, login, logout, initAuth } from './store/auth'
+import { showToast } from './store/toast'
+import ToastContainer from './components/ToastContainer.vue'
 import api from './api'
 
 function parseLoginError(raw) {
@@ -50,13 +52,13 @@ function parseLoginError(raw) {
 }
 
 export default {
+  components: { ToastContainer },
   data() {
     return {
       authState,
       showLogin: false,
       email: '',
       password: '',
-      errMsg: '',
       loggingIn: false
     }
   },
@@ -76,18 +78,18 @@ export default {
   methods: {
     async handleLogin() {
       this.loggingIn = true
-      this.errMsg = ''
       try {
         const result = await login(this.email, this.password)
         if (result.ok) {
           this.showLogin = false
           this.email = ''
           this.password = ''
+          showToast('Logged in successfully', 'success')
         } else {
-          this.errMsg = result.message || 'Login failed'
+          showToast(result.message || 'Login failed', 'error')
         }
       } catch (e) {
-        this.errMsg = parseLoginError(e.response?.data?.message)
+        showToast(parseLoginError(e.response?.data?.message), 'error')
       } finally {
         this.loggingIn = false
       }
@@ -178,11 +180,6 @@ export default {
   letter-spacing: 0.06em;
   font-weight: 600;
   background: rgba(110, 231, 110, 0.08);
-}
-
-.err-msg {
-  font-size: 12px;
-  color: #ff6b6b;
 }
 
 @media (max-width: 600px) {
