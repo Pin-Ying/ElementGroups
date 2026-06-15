@@ -26,15 +26,15 @@
 
     <transition name="fade" mode="out-in">
       <div v-if="showMode === 'table'" key="table">
-        <div v-if="filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
+        <div v-if="query && filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
         <PeriodicTableGrid v-else :elements="filteredElements" />
       </div>
       <div v-else-if="showMode === 'none'" key="none" id="non-group">
-        <div v-if="filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
+        <div v-if="query && filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
         <PeriodicTable v-else :elements="filteredElements" />
       </div>
       <div v-else key="group" id="group">
-        <div v-if="filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
+        <div v-if="query && filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
         <GroupBox v-else :elements="filteredElements" :groups="groups" />
       </div>
     </transition>
@@ -53,7 +53,7 @@ export default {
   components: { PeriodicTableGrid, PeriodicTable, GroupBox, LoadingSpinner },
   data() {
     return {
-      elements: [],
+      elements: elementsState.elements,
       groups: {},
       groupsCache: {},
       showMode: 'table',
