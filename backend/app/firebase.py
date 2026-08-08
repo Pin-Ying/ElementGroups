@@ -99,7 +99,6 @@ def upload_file(from_f, to_f):
     bucket = storage.bucket()
     blob = bucket.blob(to_f)
     blob.upload_from_filename(from_f)
-    blob.make_public()
     return blob.public_url
 
 
