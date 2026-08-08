@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 from app import auth as auth_module
+from app.config import settings
 from app.elements import element_info
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, fdb
 
@@ -117,14 +118,17 @@ def manage_default_image():
         if not image or not image.filename:
             return jsonify({"result": "failure", "message": "No image provided"}), 400
 
-        filename = "static/img/_default.JPG"
-        temp = tempfile.NamedTemporaryFile(delete=False)
-        image.save(temp.name)
-        img = upload_file(temp.name, filename)
-        with open(temp.name, "rb") as f:
-            img_data = "data:image/jpeg;base64," + base64.b64encode(f.read()).decode("utf-8")
-        temp.close()
-        os.remove(temp.name)
+        image_bytes = image.read()
+        img_data = "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8")
+
+        img = ""
+        if settings.FIREBASE_STORAGE_ENABLED:
+            filename = "static/img/_default.JPG"
+            temp = tempfile.NamedTemporaryFile(delete=False)
+            temp.write(image_bytes)
+            temp.close()
+            img = upload_file(temp.name, filename)
+            os.remove(temp.name)
 
         upload_fdb("_default", {"img": img, "img_data": img_data})
         return jsonify({"result": "success", "message": "Default image updated!"})
@@ -166,14 +170,17 @@ def update_story():
         imageDatas = {data: fbDatas[data].get("img", "") for data in fbDatas if data != "periodic_table"}
 
         if image and image.filename:
-            filename = f"static/img/{symbol}.JPG"
-            temp = tempfile.NamedTemporaryFile(delete=False)
-            image.save(temp.name)
-            img = upload_file(temp.name, filename)
-            with open(temp.name, "rb") as f:
-                img_data = "data:image/jpeg;base64," + base64.b64encode(f.read()).decode("utf-8")
-            temp.close()
-            os.remove(temp.name)
+            image_bytes = image.read()
+            img_data = "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8")
+
+            img = ""
+            if settings.FIREBASE_STORAGE_ENABLED:
+                filename = f"static/img/{symbol}.JPG"
+                temp = tempfile.NamedTemporaryFile(delete=False)
+                temp.write(image_bytes)
+                temp.close()
+                img = upload_file(temp.name, filename)
+                os.remove(temp.name)
         else:
             img = imageDatas.get(symbol, "")
             img_data = fbDatas.get(symbol, {}).get("img_data", "")

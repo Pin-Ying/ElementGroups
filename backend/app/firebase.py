@@ -1,7 +1,8 @@
+import base64
+
 import pyrebase
 import firebase_admin
 from firebase_admin import credentials, storage, db, exceptions
-from google.cloud.exceptions import NotFound
 
 from app.config import settings
 
@@ -77,22 +78,29 @@ def get_element_by_atomic_number(an):
     return None
 
 
-_DEFAULT_IMAGE_PATH = "static/img/Electron.JPG"
-
-
 def get_image_bytes(symbol):
-    """Download element image from Firebase Storage.
+    """Get element image bytes. Uses GCS Storage when FIREBASE_STORAGE_ENABLED
+    (Blaze paid plan), otherwise (or on any Storage failure) falls back to the
+    base64 img_data stored in Realtime DB.
     Returns (bytes, content_type) or (None, None) if not found."""
-    bucket = storage.bucket()
-    blob = bucket.blob(f"static/img/{symbol}.JPG")
-    try:
-        return blob.download_as_bytes(), "image/jpeg"
-    except NotFound:
-        default_blob = bucket.blob(_DEFAULT_IMAGE_PATH)
+    if settings.FIREBASE_STORAGE_ENABLED:
         try:
-            return default_blob.download_as_bytes(), "image/jpeg"
-        except NotFound:
+            bucket = storage.bucket()
+            blob = bucket.blob(f"static/img/{symbol}.JPG")
+            return blob.download_as_bytes(), "image/jpeg"
+        except Exception as e:
+            print(f"GCS read failed for {symbol}, falling back to DB img_data: {e}")
+
+    data = fdb.child(symbol).get()
+    img_data = data.get("img_data") if data else None
+    if not img_data:
+        if symbol == "_default":
             return None, None
+        return get_image_bytes("_default")
+
+    header, _, b64 = img_data.partition(",")
+    content_type = header.split(":")[1].split(";")[0] if header.startswith("data:") else "image/jpeg"
+    return base64.b64decode(b64), content_type
 
 
 def upload_file(from_f, to_f):

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     FIREBASE_CLIENT_EMAIL: str
     FIREBASE_CLIENT_ID: str
     FIREBASE_STORAGE_BUCKET: str
+    FIREBASE_STORAGE_ENABLED: bool = False
     FIREBASE_DATABASE_URL: str
 
     # Firebase Client (Pyrebase)
