@@ -2,7 +2,7 @@ import base64
 
 import pyrebase
 import firebase_admin
-from firebase_admin import credentials, storage, db, exceptions
+from firebase_admin import credentials, storage, db
 
 from app.config import settings
 
@@ -111,17 +111,20 @@ def upload_file(from_f, to_f):
 
 
 def upload_fdb(element, datas):
-    try:
-        fdb.child(element).set(datas)
-    except exceptions.FirebaseError as e:
-        print(f"Failed to upload data to Firebase: {e}")
+    """寫入資料。
+
+    刻意不吞例外：原本失敗時只印 log 就返回，呼叫端無從得知，
+    API 會照常回報成功，使用者以為存好了其實沒有。
+    """
+    fdb.child(element).set(datas)
 
 
 def show_fdb(element=None):
-    try:
-        if element is None:
-            return fdb.get()
-        return fdb.child(element).get()
-    except Exception as e:
-        print(f"Failed to fetch data from Firebase: {e}")
-        return None
+    """讀取資料。找不到節點時回 None，連線或權限錯誤則往上拋。
+
+    同樣不吞例外：讀取失敗回 None 會被上層誤判成「這個元素沒有資料」，
+    接著在寫回時用空字串覆蓋掉既有的圖片與故事。
+    """
+    if element is None:
+        return fdb.get()
+    return fdb.child(element).get()

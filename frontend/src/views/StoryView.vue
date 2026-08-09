@@ -39,7 +39,7 @@
           @click="scrollWheel(-1)"
         >‹</button>
 
-        <div class="nav-wheel" ref="wheelRef">
+        <div class="nav-wheel" ref="wheelRef" @scroll="onWheelScroll">
           <router-link
             v-for="el in wheelElements"
             :key="el.Symbol"
@@ -193,6 +193,14 @@ export default {
       return all.map(el => ({ ...el, current: el.Symbol === this.elInfo.Symbol }))
     }
   },
+  mounted() {
+    this._onWheelResize = () => this.updateWheelDepth()
+    window.addEventListener('resize', this._onWheelResize)
+  },
+  beforeUnmount() {
+    window.removeEventListener('resize', this._onWheelResize)
+    if (this._wheelRaf) cancelAnimationFrame(this._wheelRaf)
+  },
   watch: {
     symbol: {
       immediate: true,
@@ -250,6 +258,29 @@ export default {
       const wrapCenter = wrap.offsetWidth / 2
       const chipCenter = active.offsetLeft + active.offsetWidth / 2
       wrap.scrollLeft = chipCenter - wrapCenter
+      this.updateWheelDepth()
+    },
+    onWheelScroll() {
+      // 捲動事件很密集，用 rAF 節流
+      if (this._wheelRaf) return
+      this._wheelRaf = requestAnimationFrame(() => {
+        this._wheelRaf = null
+        this.updateWheelDepth()
+      })
+    },
+    // 依每個元素距離視窗中央的遠近縮放，保留原本「近的大、遠的小」的滾輪感；
+    // 整列渲染後距離會隨捲動改變，沒辦法像以前那樣用靜態的 class 表示
+    updateWheelDepth() {
+      const wrap = this.$refs.wheelRef
+      if (!wrap) return
+      const center = wrap.scrollLeft + wrap.offsetWidth / 2
+      const reach = wrap.offsetWidth / 2 || 1
+      for (const chip of wrap.children) {
+        const dist = Math.abs(chip.offsetLeft + chip.offsetWidth / 2 - center)
+        const t = Math.min(dist / reach, 1)
+        chip.style.transform = `scale(${(1 - t * 0.4).toFixed(3)})`
+        chip.style.opacity = (1 - t * 0.62).toFixed(3)
+      }
     },
     // 左右箭頭：捲動元素列讓使用者找元素，不是切換到上/下一個元素
     scrollWheel(direction) {
@@ -384,6 +415,9 @@ export default {
   color: rgba(228, 251, 255, 0.6);
   transition: background 0.18s, border-color 0.18s, color 0.18s;
   overflow: hidden;
+  /* transform / opacity 由捲動時的 updateWheelDepth() 設定 */
+  transform-origin: center bottom;
+  will-change: transform, opacity;
 }
 
 .wheel-chip:hover {

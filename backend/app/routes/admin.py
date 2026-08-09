@@ -286,11 +286,9 @@ def update_story():
         symbol = request.form.get("symbol")
         story = request.form.get("stroy")  # kept original field name for compat
         image = request.files.get("image")
-
-        fbDatas = show_fdb()
-        if not fbDatas:
-            fbDatas = {}
-        imageDatas = {data: fbDatas[data].get("img", "") for data in fbDatas if data != "periodic_table"}
+        # 首頁「最近更新」用；UTC ISO 8601
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        has_story = bool((story or "").strip())
 
         if image and image.filename:
             image_bytes = image.read()
@@ -304,19 +302,21 @@ def update_story():
                 temp.close()
                 img = upload_file(temp.name, filename)
                 os.remove(temp.name)
-        else:
-            img = imageDatas.get(symbol, "")
-            img_data = fbDatas.get(symbol, {}).get("img_data", "")
 
-        record = {
-            "img": img,
-            "img_data": img_data,
-            "description": story,
-            # 首頁「最近更新」用；UTC ISO 8601
-            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        }
-        upload_fdb(symbol, record)
-        update_completion(symbol, record)
+            fdb.child(symbol).update({
+                "img": img,
+                "img_data": img_data,
+                "description": story,
+                "updated_at": now,
+            })
+            update_completion(symbol, {"story": has_story, "image": True, "updated_at": now})
+        else:
+            # 沒有選新圖片時完全不碰 img / img_data。
+            # 原本的做法是先把整個 DB 讀回來取出舊圖再整筆覆寫，只要那次
+            # 讀取出問題，既有圖片就會被空字串蓋掉。
+            fdb.child(symbol).update({"description": story, "updated_at": now})
+            update_completion(symbol, {"story": has_story, "updated_at": now})
+
         return jsonify({"result": "success", "message": "Finish!"})
 
     except Exception as e:

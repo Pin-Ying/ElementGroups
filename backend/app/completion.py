@@ -63,9 +63,13 @@ def get_completion():
     return rebuild_completion()
 
 
-def update_completion(symbol, data):
-    """單一元素寫入後同步更新摘要，失敗不影響主要流程。"""
+def update_completion(symbol, entry):
+    """單一元素寫入後同步更新摘要。
+
+    entry 可以只帶部分欄位（例如只更新故事而沒動圖片），用 update 合併，
+    不會把沒帶到的欄位清掉。摘要只是快取，失敗不影響主要流程。
+    """
     try:
-        fdb.child(COMPLETION_NODE).child(symbol).set(entry_for(data))
+        fdb.child(COMPLETION_NODE).child(symbol).update(entry)
     except Exception as e:
         print(f"Failed to update completion for {symbol}: {e}")
