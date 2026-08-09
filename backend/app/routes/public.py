@@ -97,10 +97,14 @@ def get_element_detail(symbol):
         # Firebase story data
         story = None
         img_data = None
+        draft = ""
         query = show_fdb(symbol)
         if query:
             story = query.get("description")
             img_data = query.get("img_data")
+            # 草稿只給登入者，前台一律看已發布的版本
+            if current_user.is_authenticated:
+                draft = query.get("draft") or ""
 
         return jsonify(
             {
@@ -109,6 +113,7 @@ def get_element_detail(symbol):
                 "b_el": {"Symbol": b_el["Symbol"], "CPKHexColor": b_el["CPKHexColor"]},
                 "story": story,
                 "img_data": img_data,
+                "draft": draft,
             }
         )
 

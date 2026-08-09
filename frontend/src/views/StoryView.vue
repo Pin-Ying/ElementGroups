@@ -9,22 +9,18 @@
           <span>Edit {{ elInfo.Symbol }}</span>
           <button class="modal-close" @click="editing = false">✕</button>
         </div>
-        <form @submit.prevent="handleSubmit">
-          <label class="edit-label">Story</label>
-          <textarea
-            class="edit-textarea"
-            v-model="editStory"
-            rows="6"
-            ></textarea>
-          <label class="edit-label">Image (.jpg)</label>
-          <input class="edit-file" type="file" accept=".jpg" ref="imageInput" />
-          <div class="edit-actions">
-            <button class="btn-save" type="submit" :disabled="saving">
-              {{ saving ? 'Saving...' : 'Save' }}
-            </button>
-            <button class="btn-cancel" type="button" @click="editing = false">Cancel</button>
-          </div>
-        </form>
+        <StoryEditor
+          :symbol="elInfo.Symbol"
+          :story="story || ''"
+          :draft="draft"
+          :img-src="resolvedImg"
+          @saved="onStorySaved"
+          @draft-saved="onDraftSaved"
+        >
+          <template #extra-actions>
+            <button class="btn-cancel" type="button" @click="editing = false">關閉</button>
+          </template>
+        </StoryEditor>
       </div>
     </div>
 
@@ -164,6 +160,7 @@ import ElementProfile from '../components/ElementProfile.vue'
 import PokedexFrame from '../components/PokedexFrame.vue'
 import ElementGallery from '../components/ElementGallery.vue'
 import ElementLayers from '../components/ElementLayers.vue'
+import StoryEditor from '../components/StoryEditor.vue'
 import { outerElectronCount } from '../utils/valence'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { siteSettingsState } from '../store/siteSettings'
@@ -172,7 +169,7 @@ import { showToast } from '../store/toast'
 import { elementsState, ensureElements } from '../store/elements'
 
 export default {
-  components: { AbilityChart, AbilityBars, ElementProfile, PokedexFrame, ElementGallery, ElementLayers, LoadingSpinner },
+  components: { AbilityChart, AbilityBars, ElementProfile, PokedexFrame, ElementGallery, ElementLayers, StoryEditor, LoadingSpinner },
   props: { symbol: { type: String, required: true } },
   data() {
     return {
@@ -180,6 +177,7 @@ export default {
       elementsState,
       elInfo: null,
       story: null,
+      draft: '',
       imgSrc: null,
       imgData: null,
       imgFallbackLevel: 0,
@@ -191,7 +189,6 @@ export default {
       chartType: 'bars',
       loading: false,
       editing: false,
-      editStory: '',
       saving: false
     }
   },
@@ -258,7 +255,7 @@ export default {
         this.story = detail.story
         this.imgSrc = apiBase + '/elements/' + this.symbol + '/img'
         this.imgData = detail.img_data
-        this.editStory = detail.story || ''
+        this.draft = detail.draft || ''
         this.abilityData = abilityRes.data
         // 首頁「熱門元素」用的點閱計數；失敗不影響頁面
         recordElementView(this.symbol).catch(() => {})
@@ -318,27 +315,15 @@ export default {
     onImgError() {
       if (this.imgFallbackLevel < 3) this.imgFallbackLevel++
     },
-    async handleSubmit() {
-      this.saving = true
-      const formData = new FormData()
-      formData.append('symbol', this.elInfo.Symbol)
-      formData.append('stroy', this.editStory)
-      const imageFile = this.$refs.imageInput?.files[0]
-      if (imageFile) formData.append('image', imageFile)
-      try {
-        const res = await updateStory(formData)
-        this.story = this.editStory
-        if (imageFile) {
-          this.imgFallbackLevel = 0
-          await this.loadData()
-        }
-        showToast(res.data.message || 'Saved successfully', 'success')
-        this.editing = false
-      } catch (e) {
-        showToast(e.response?.data?.message || 'Save failed', 'error')
-      } finally {
-        this.saving = false
-      }
+    onStorySaved({ story, hasImage }) {
+      this.story = story
+      this.draft = ''
+      this.editing = false
+      // 換過圖片就重新載入，讓畫面取到新圖
+      if (hasImage) this.loadData()
+    },
+    onDraftSaved({ story }) {
+      this.draft = story
     }
   }
 }
