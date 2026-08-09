@@ -16,6 +16,12 @@
         </div>
       </div>
 
+      <nav class="footer-nav">
+        <router-link to="/guide">元素說明書</router-link>
+        <span class="footer-sep">·</span>
+        <router-link to="/links">Connect</router-link>
+      </nav>
+
       <p class="footer-source">
         元素資料來源：<a href="https://pubchem.ncbi.nlm.nih.gov/periodic-table/" target="_blank" rel="noopener noreferrer">PubChem</a>（National Center for Biotechnology Information, NIH）
       </p>
@@ -107,6 +113,27 @@ export default {
   border-color: var(--brand);
   background: color-mix(in srgb, var(--brand) 26%, transparent);
   transform: translateY(-1px);
+}
+
+.footer-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.footer-nav a {
+  color: rgba(228, 251, 255, 0.55);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.footer-nav a:hover {
+  color: #e4fbff;
+}
+
+.footer-sep {
+  color: rgba(228, 251, 255, 0.25);
 }
 
 .footer-source {

@@ -12,7 +12,10 @@
         <span class="stat-value">{{ displayValue(ab) }}</span>
       </div>
     </div>
-    <p class="stat-note">長條長度為該項目在 118 個元素中的相對比例</p>
+    <p class="stat-note">
+      長條長度為該項目在 118 個元素中的相對比例 ·
+      <router-link to="/guide">這些數值代表什麼？</router-link>
+    </p>
   </div>
 </template>
 
@@ -117,9 +120,19 @@ export default {
 
 .stat-note {
   font-size: 11px;
-  opacity: 0.35;
+  opacity: 0.45;
   margin: 14px 0 0;
   text-align: center;
+}
+
+.stat-note a {
+  color: rgba(228, 251, 255, 0.7);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.stat-note a:hover {
+  color: #e4fbff;
 }
 
 @media (max-width: 600px) {
