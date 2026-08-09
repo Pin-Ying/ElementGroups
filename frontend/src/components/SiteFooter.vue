@@ -14,10 +14,14 @@
       </div>
 
       <nav class="footer-nav">
-        <router-link to="/guide">元素說明書</router-link>
-        <span class="footer-sep">·</span>
-        <router-link to="/links">Connect</router-link>
-        <span class="footer-sep">·</span>
+        <template v-for="(item, i) in navItems" :key="item.to">
+          <span v-if="i > 0" class="footer-sep">·</span>
+          <router-link :to="item.to">
+            {{ item.label }}
+            <span v-if="item.draft" class="footer-draft">草稿</span>
+          </router-link>
+        </template>
+        <span v-if="navItems.length" class="footer-sep">·</span>
         <a href="https://pubchem.ncbi.nlm.nih.gov/periodic-table/" target="_blank" rel="noopener noreferrer">資料來源 PubChem</a>
       </nav>
 
@@ -31,19 +35,25 @@ import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
 import SocialLink from './SocialLink.vue'
 import AdminLogin from './AdminLogin.vue'
 import { authState } from '../store/auth'
+import { pagesState, ensurePages, navItemsFor } from '../store/pages'
 
 export default {
   components: { SocialLink, AdminLogin },
   data() {
-    return { creatorLinksState, authState }
+    return { creatorLinksState, authState, pagesState }
   },
   computed: {
     links() {
       return this.creatorLinksState.links
+    },
+    navItems() {
+      // 依賴 pagesState 才能在後台改完設定後即時更新
+      return this.pagesState.loaded || true ? navItemsFor('footer') : []
     }
   },
   created() {
     ensureCreatorLinks()
+    ensurePages()
   }
 }
 </script>
@@ -101,5 +111,14 @@ export default {
 
 .footer-sep {
   color: rgba(228, 251, 255, 0.2);
+}
+
+.footer-draft {
+  font-size: 10px;
+  color: #ffc46b;
+  border: 1px solid rgba(255, 196, 107, 0.4);
+  border-radius: 999px;
+  padding: 0 5px;
+  margin-left: 4px;
 }
 </style>

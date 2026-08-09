@@ -279,9 +279,12 @@
           <div v-if="!electronStyles.length" class="placeholder-text">尚未新增任何電子樣式。</div>
 
           <div v-else class="style-grid">
-            <div v-for="st in electronStyles" :key="st.id" class="style-item">
-              <img :src="st.img_data" alt="" />
-              <span class="style-name">{{ st.name }}</span>
+            <div v-for="st in electronStyles" :key="st.id" class="style-item" :class="{ broken: brokenStyles.includes(st.id) }">
+              <img :src="st.img_data" alt="" @error="markBrokenStyle(st.id)" />
+              <span class="style-name">
+                {{ st.name }}
+                <span v-if="brokenStyles.includes(st.id)" class="broken-tag">圖片損毀</span>
+              </span>
               <button class="icon-button danger" type="button" title="刪除" @click="handleDeleteStyle(st)">✕</button>
             </div>
           </div>
@@ -528,16 +531,16 @@
             <div class="layer-grid">
               <div class="layer-slot">
                 <p class="preview-label">原子核</p>
-                <img v-if="layerForm.nucleus" :src="layerForm.nucleus" alt="" />
-                <p v-else class="avatar-empty">未設定</p>
+                <img v-if="layerForm.nucleus" :src="layerForm.nucleus" alt="" @error="onLayerImgError('nucleus')" />
+                <p v-else class="avatar-empty">{{ layerErrors.nucleus || '未設定' }}</p>
                 <input class="input" type="file" accept="image/*" aria-label="原子核圖層" @change="onLayerFile($event, 'nucleus')" />
                 <button v-if="layerForm.nucleus" class="draft-link" type="button" @click="layerForm.nucleus = ''">移除</button>
               </div>
 
               <div class="layer-slot">
                 <p class="preview-label">手寫元素名</p>
-                <img v-if="layerForm.name_img" :src="layerForm.name_img" alt="" />
-                <p v-else class="avatar-empty">未設定</p>
+                <img v-if="layerForm.name_img" :src="layerForm.name_img" alt="" @error="onLayerImgError('name_img')" />
+                <p v-else class="avatar-empty">{{ layerErrors.name_img || '未設定' }}</p>
                 <input class="input" type="file" accept="image/*" aria-label="手寫元素名圖層" @change="onLayerFile($event, 'name_img')" />
                 <button v-if="layerForm.name_img" class="draft-link" type="button" @click="layerForm.name_img = ''">移除</button>
               </div>
@@ -755,6 +758,8 @@ export default {
       NAV_POSITIONS,
       layerForm: { nucleus: '', name_img: '', electron_style: '', motion: 'orbit' },
       layerSaving: false,
+      layerErrors: { nucleus: '', name_img: '' },
+      brokenStyles: [],
       electronStyles: [],
       newStyleName: '',
       newStyleImg: '',
@@ -1432,6 +1437,7 @@ export default {
         // 圖層要疊在彼此之上，必須保留透明；PNG 壓不掉多少，尺寸給小一點
         const result = await compressImage(file, { keepTransparency: true, maxEdge: 900 })
         this.layerForm[field] = await this.blobToDataUrl(result.blob)
+        this.layerErrors[field] = ''
       } catch (err) {
         showToast(err.message || '圖片處理失敗', 'error')
       }
@@ -1443,6 +1449,15 @@ export default {
         reader.onerror = reject
         reader.readAsDataURL(blob)
       })
+    },
+    onLayerImgError(field) {
+      // 顯示不出來多半是資料在儲存時被截斷，直接清掉並提示重傳
+      this.layerErrors[field] = '圖片損毀，請重新上傳'
+      this.layerForm[field] = ''
+      showToast('圖層圖片載入失敗，請重新上傳', 'error')
+    },
+    markBrokenStyle(id) {
+      if (!this.brokenStyles.includes(id)) this.brokenStyles.push(id)
     },
     async handleSaveLayers() {
       this.layerSaving = true
@@ -2202,6 +2217,15 @@ export default {
   object-fit: contain;
   border: none;
   border-radius: 0;
+}
+
+.style-item.broken { border-color: rgba(255, 107, 107, 0.5); }
+
+.broken-tag {
+  display: block;
+  font-size: 10px;
+  color: #ff6b6b;
+  margin-top: 2px;
 }
 
 .style-name {

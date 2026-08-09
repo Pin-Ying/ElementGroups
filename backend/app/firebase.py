@@ -100,7 +100,14 @@ def get_image_bytes(symbol):
 
     header, _, b64 = img_data.partition(",")
     content_type = header.split(":")[1].split(";")[0] if header.startswith("data:") else "image/jpeg"
-    return base64.b64decode(b64), content_type
+    try:
+        return base64.b64decode(b64), content_type
+    except Exception as e:
+        # 資料損壞時退回預設圖，而不是讓整個請求 500 造成前台破圖
+        print(f"Corrupt img_data for {symbol}: {e}")
+        if symbol == "_default":
+            return None, None
+        return get_image_bytes("_default")
 
 
 def upload_file(from_f, to_f):

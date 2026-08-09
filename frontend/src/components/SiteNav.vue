@@ -22,7 +22,7 @@
 </template>
 
 <script>
-import { pagesState, ensurePages } from '../store/pages'
+import { pagesState, ensurePages, navItemsFor } from '../store/pages'
 
 export default {
   data() {
@@ -30,9 +30,9 @@ export default {
   },
   computed: {
     items() {
-      return this.pagesState.pages
-        .filter(p => p.nav_position === 'sidebar')
-        .map(p => ({ to: `/p/${p.slug}`, label: p.title, draft: !p.published }))
+      // 讀一下 pages 讓 computed 依賴它，後台改完設定才會即時更新
+      this.pagesState.pages.length
+      return navItemsFor('sidebar')
     }
   },
   created() {
@@ -44,9 +44,9 @@ export default {
 <style scoped>
 .site-nav {
   position: fixed;
-  top: 50%;
+  /* 偏上一點，不擋住畫面正中央的內容 */
+  top: 30%;
   left: 0;
-  transform: translateY(-50%);
   z-index: 90;
   display: flex;
   align-items: center;
@@ -135,7 +135,7 @@ export default {
 }
 
 @media (max-width: 700px) {
-  .site-nav { top: auto; bottom: 16px; transform: none; }
+  .site-nav { top: auto; bottom: 16px; }
   .site-nav.open .nav-items { width: 150px; }
   .nav-toggle { padding: 10px 5px; }
 }
