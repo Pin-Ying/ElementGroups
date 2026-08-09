@@ -54,6 +54,21 @@
           </form>
         </div>
 
+        <!-- Creator Links -->
+        <div class="box">
+          <p class="title is-4">CREATOR LINKS</p>
+          <p class="desc">顯示在 /links 頁面的創作者社群連結，留空則該平台按鈕不會顯示</p>
+          <form @submit.prevent="handleUpdateCreatorLinks">
+            <label class="label">Instagram URL</label>
+            <input class="input" type="url" v-model="creatorLinks.instagram" placeholder="https://instagram.com/..." />
+            <label class="label">Threads URL</label>
+            <input class="input" type="url" v-model="creatorLinks.threads" placeholder="https://threads.net/..." />
+            <button class="button" type="submit" :disabled="creatorLinksSaving">
+              {{ creatorLinksSaving ? 'Saving…' : 'Save' }}
+            </button>
+          </form>
+        </div>
+
         <!-- Update Story -->
         <div class="box">
           <p class="title is-4">UPDATE STORY</p>
@@ -131,7 +146,7 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -156,7 +171,9 @@ export default {
       defaultImgData: '',
       defaultImgSaving: false,
       newImagePreviewUrl: '',
-      defaultImgPreviewUrl: ''
+      defaultImgPreviewUrl: '',
+      creatorLinks: { instagram: '', threads: '' },
+      creatorLinksSaving: false
     }
   },
   computed: {
@@ -167,7 +184,7 @@ export default {
   },
   async mounted() {
     if (this.authState.loggedIn) {
-      await Promise.all([this.loadStoryData(), this.loadDefaultImg()])
+      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks()])
     }
   },
   beforeUnmount() {
@@ -203,7 +220,7 @@ export default {
       try {
         const result = await login(this.email, this.password)
         if (result.ok) {
-          await Promise.all([this.loadStoryData(), this.loadDefaultImg()])
+          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks()])
         } else {
           this.msg = result.message || 'Login failed'
         }
@@ -290,6 +307,25 @@ export default {
         showToast(e.response?.data?.message || 'Upload failed', 'error')
       } finally {
         this.defaultImgSaving = false
+      }
+    },
+    async loadCreatorLinks() {
+      try {
+        const res = await getAdminCreatorLinks()
+        this.creatorLinks = { instagram: res.data.instagram || '', threads: res.data.threads || '' }
+      } catch (e) {
+        console.error('Failed to load creator links:', e)
+      }
+    },
+    async handleUpdateCreatorLinks() {
+      this.creatorLinksSaving = true
+      try {
+        const res = await updateCreatorLinks(this.creatorLinks)
+        showToast(res.data.message || 'Saved!', 'success')
+      } catch (e) {
+        showToast(e.response?.data?.message || 'Save failed', 'error')
+      } finally {
+        this.creatorLinksSaving = false
       }
     },
     async loadStoryData() {

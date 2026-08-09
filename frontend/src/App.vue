@@ -7,6 +7,10 @@
           <p class="header-sub">Explore the components of the world.</p>
         </router-link>
 
+        <nav class="header-nav">
+          <router-link class="button btn-sm" to="/links">Connect</router-link>
+        </nav>
+
         <!-- Admin area -->
         <div class="admin-area">
           <template v-if="authState.loggedIn">
@@ -130,6 +134,10 @@ export default {
   margin: 0;
   font-weight: 400;
   letter-spacing: 0.02em;
+}
+
+.header-nav {
+  flex-shrink: 0;
 }
 
 .admin-area {

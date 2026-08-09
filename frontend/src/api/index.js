@@ -66,6 +66,18 @@ export function getDefaultImgInfo() {
   return api.get('/admin/default-img')
 }
 
+export function getCreatorLinks() {
+  return api.get('/creator-links')
+}
+
+export function getAdminCreatorLinks() {
+  return api.get('/admin/creator-links')
+}
+
+export function updateCreatorLinks(data) {
+  return api.post('/admin/creator-links', data)
+}
+
 export function updateDefaultImg(formData) {
   return api.post('/admin/default-img', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }

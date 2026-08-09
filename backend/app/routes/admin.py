@@ -136,6 +136,30 @@ def manage_default_image():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
+@admin_bp.route("/admin/creator-links", methods=["GET", "POST"])
+@login_required
+def manage_creator_links():
+    if request.method == "GET":
+        try:
+            data = show_fdb("_creator_links")
+            return jsonify({
+                "instagram": data.get("instagram", "") if data else "",
+                "threads": data.get("threads", "") if data else ""
+            })
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    # POST
+    try:
+        data = request.get_json() or {}
+        instagram = (data.get("instagram") or "").strip()
+        threads = (data.get("threads") or "").strip()
+        upload_fdb("_creator_links", {"instagram": instagram, "threads": threads})
+        return jsonify({"result": "success", "message": "Creator links updated!"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
 @admin_bp.route("/admin/story", methods=["POST", "GET"])
 @login_required
 def update_story():

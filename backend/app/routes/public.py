@@ -100,6 +100,18 @@ def get_element_detail(symbol):
         return jsonify({"result": "failure", "exception": str(e)}), 500
 
 
+@public_bp.route("/creator-links", methods=["GET"])
+def get_creator_links():
+    try:
+        data = show_fdb("_creator_links")
+        return jsonify({
+            "instagram": data.get("instagram", "") if data else "",
+            "threads": data.get("threads", "") if data else ""
+        })
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
 @public_bp.route("/elements/default-img", methods=["GET"])
 def get_default_image():
     try:
