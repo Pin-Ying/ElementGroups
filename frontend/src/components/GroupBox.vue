@@ -1,34 +1,32 @@
 <template>
   <div v-for="groupName in uniqueGroups" :key="groupName" class="group-box">
     <div class="group-title">{{ groupName.toUpperCase() }}</div>
-    <div class="elements-box">
-      <div
-        v-for="elt in groupedElements(groupName)"
-        :key="elt.Symbol"
-        class="element"
-        :data-name="elt.Name"
-        :style="{ borderColor: '#' + elt.CPKHexColor }"
-      >
-        <router-link :to="'/stroy/' + elt.Symbol">
-          <span class="el-num">{{ elt.AtomicNumber }}</span>
-          <span class="el-sym">{{ elt.Symbol }}</span>
-          <span class="el-name">{{ elt.Name }}</span>
-        </router-link>
-        <CompletionDots v-if="completion" :state="completion[elt.Symbol]" />
-      </div>
-    </div>
+    <ElementListView
+      v-if="viewStyle === 'list'"
+      :elements="groupedElements(groupName)"
+      :groups="groups"
+      :completion="completion"
+    />
+    <ElementIconGrid
+      v-else
+      :elements="groupedElements(groupName)"
+      :size="viewStyle"
+      :completion="completion"
+    />
   </div>
 </template>
 
 <script>
-import CompletionDots from './CompletionDots.vue'
+import ElementIconGrid from './ElementIconGrid.vue'
+import ElementListView from './ElementListView.vue'
 
 export default {
-  components: { CompletionDots },
+  components: { ElementIconGrid, ElementListView },
   props: {
     elements: { type: Array, required: true },
     groups: { type: Object, required: true },
-    // { Symbol: {story, image} }；不傳則不顯示完成度標記
+    // large | small | list
+    viewStyle: { type: String, default: 'large' },
     completion: { type: Object, default: null }
   },
   computed: {

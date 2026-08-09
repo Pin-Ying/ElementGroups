@@ -12,14 +12,23 @@ from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, ge
 public_bp = Blueprint("public", __name__, url_prefix="/api")
 
 
+def _element_summary(e):
+    """首頁各種檢視共用的欄位。詳細清單模式會用到原子量與常溫狀態。"""
+    return {
+        "AtomicNumber": e["AtomicNumber"],
+        "Symbol": e["Symbol"],
+        "Name": e.get("Name", ""),
+        "CPKHexColor": e["CPKHexColor"],
+        "AtomicMass": e.get("AtomicMass", ""),
+        "StandardState": e.get("StandardState", ""),
+    }
+
+
 @public_bp.route("/elements", methods=["GET"])
 def get_elements():
     try:
         elements_data = get_periodic_table()
-        elements = [
-            {"AtomicNumber": e["AtomicNumber"], "Symbol": e["Symbol"], "Name": e.get("Name", ""), "CPKHexColor": e["CPKHexColor"]}
-            for e in elements_data
-        ]
+        elements = [_element_summary(e) for e in elements_data]
         groups = get_characteristic()
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
@@ -33,10 +42,7 @@ def get_groups():
     group_type = body.get("groupType")
 
     elements_data = get_periodic_table()
-    elements = [
-        {"AtomicNumber": e["AtomicNumber"], "Symbol": e["Symbol"], "Name": e.get("Name", ""), "CPKHexColor": e["CPKHexColor"]}
-        for e in elements_data
-    ]
+    elements = [_element_summary(e) for e in elements_data]
 
     try:
         if group_type == "cp":

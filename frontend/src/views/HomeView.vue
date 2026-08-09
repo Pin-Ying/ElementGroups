@@ -2,11 +2,28 @@
   <div>
     <LoadingSpinner v-if="loading" />
 
-    <div class="group-type-button">
-      <button class="button" :class="{ active: showMode === 'table' }" @click="showMode = 'table'">Periodic Table</button>
-      <button class="button" :class="{ active: showMode === 'none' }" @click="showMode = 'none'">Atomic Number</button>
-      <button class="button" :class="{ active: showMode === 'cp' }" @click="loadGroups('cp')">Chemical Properties</button>
-      <button class="button" :class="{ active: showMode === 'vs' }" @click="loadGroups('vs')">Valence Shell</button>
+    <div class="view-controls">
+      <div class="control-group">
+        <label class="control-label" for="group-select">分組</label>
+        <select id="group-select" class="group-select" :value="showMode" @change="onGroupChange">
+          <option v-for="g in GROUP_MODES" :key="g.key" :value="g.key">{{ g.label }}</option>
+        </select>
+      </div>
+
+      <div v-if="showMode !== 'table'" class="control-group">
+        <label class="control-label">檢視</label>
+        <div class="style-switch">
+          <button
+            v-for="s in VIEW_STYLES"
+            :key="s.key"
+            class="style-button"
+            type="button"
+            :class="{ active: viewStyle === s.key }"
+            :title="s.label"
+            @click="setViewStyle(s.key)"
+          >{{ s.icon }}<span class="style-text">{{ s.label }}</span></button>
+        </div>
+      </div>
     </div>
 
     <!-- 搜尋列（所有模式都顯示） -->
@@ -46,17 +63,29 @@
 
     <transition v-else name="fade" mode="out-in">
       <div v-if="showMode === 'table'" key="table">
-        <div v-if="query && filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
+        <div v-if="noMatch" class="no-results">No elements match "{{ query }}"</div>
+        <!-- 週期表格排版是固定的 18 欄，不套用檢視樣式；窄螢幕改以族分組 -->
         <PeriodicTableGrid v-else-if="!isMobile" :elements="filteredElements" :completion="activeCompletion" />
-        <GroupBox v-else :elements="filteredElements" :groups="tableGroups" :completion="activeCompletion" />
+        <GroupBox v-else :elements="filteredElements" :groups="tableGroups" view-style="small" :completion="activeCompletion" />
       </div>
       <div v-else-if="showMode === 'none'" key="none" id="non-group">
-        <div v-if="query && filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
-        <PeriodicTable v-else :elements="filteredElements" :completion="activeCompletion" />
+        <div v-if="noMatch" class="no-results">No elements match "{{ query }}"</div>
+        <ElementListView
+          v-else-if="viewStyle === 'list'"
+          :elements="filteredElements"
+          :groups="groups"
+          :completion="activeCompletion"
+        />
+        <ElementIconGrid
+          v-else
+          :elements="filteredElements"
+          :size="viewStyle"
+          :completion="activeCompletion"
+        />
       </div>
       <div v-else key="group" id="group">
-        <div v-if="query && filteredElements.length === 0" class="no-results">No elements match "{{ query }}"</div>
-        <GroupBox v-else :elements="filteredElements" :groups="groups" :completion="activeCompletion" />
+        <div v-if="noMatch" class="no-results">No elements match "{{ query }}"</div>
+        <GroupBox v-else :elements="filteredElements" :groups="groups" :view-style="viewStyle" :completion="activeCompletion" />
       </div>
     </transition>
 
@@ -68,15 +97,33 @@ import { getElements, getGroups, getElementsCompletion } from '../api'
 import { elementsState } from '../store/elements'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import PeriodicTableGrid from '../components/PeriodicTableGrid.vue'
-import PeriodicTable from '../components/PeriodicTable.vue'
 import GroupBox from '../components/GroupBox.vue'
+import ElementIconGrid from '../components/ElementIconGrid.vue'
+import ElementListView from '../components/ElementListView.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ElementHighlights from '../components/ElementHighlights.vue'
 
+// 分組方式與檢視樣式是兩個獨立的維度，避免選項數量相乘
+const GROUP_MODES = [
+  { key: 'table', label: 'Periodic Table' },
+  { key: 'none', label: 'Atomic Number' },
+  { key: 'cp', label: 'Chemical Properties' },
+  { key: 'vs', label: 'Valence Shell' }
+]
+
+const VIEW_STYLES = [
+  { key: 'large', label: '大圖示', icon: '▦' },
+  { key: 'small', label: '小圖示', icon: '▪' },
+  { key: 'list', label: '詳細清單', icon: '☰' }
+]
+
 export default {
-  components: { PeriodicTableGrid, PeriodicTable, GroupBox, LoadingSpinner, ElementHighlights },
+  components: { PeriodicTableGrid, GroupBox, ElementIconGrid, ElementListView, LoadingSpinner, ElementHighlights },
   data() {
     return {
+      GROUP_MODES,
+      VIEW_STYLES,
+      viewStyle: localStorage.getItem('viewStyle') || 'large',
       elements: elementsState.elements,
       groups: {},
       groupsCache: {},
@@ -107,6 +154,9 @@ export default {
         e.Symbol?.toLowerCase().includes(q) ||
         String(e.AtomicNumber) === q
       )
+    },
+    noMatch() {
+      return !!this.query && this.filteredElements.length === 0
     },
     activeCompletion() {
       return this.showCompletion ? this.completion : null
@@ -144,6 +194,18 @@ export default {
       } catch (e) {
         console.error('Failed to load completion:', e)
       }
+    },
+    onGroupChange(e) {
+      const mode = e.target.value
+      if (mode === 'cp' || mode === 'vs') {
+        this.loadGroups(mode)
+      } else {
+        this.showMode = mode
+      }
+    },
+    setViewStyle(style) {
+      this.viewStyle = style
+      localStorage.setItem('viewStyle', style)
     },
     toggleCompletion() {
       this.showCompletion = !this.showCompletion
@@ -184,6 +246,101 @@ export default {
   transition: color 0.15s;
 }
 .search-clear:hover { color: rgba(228, 251, 255, 0.9); }
+
+/* ── 分組 / 檢視樣式控制列 ── */
+.view-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(228, 251, 255, 0.4);
+}
+
+.group-select {
+  padding: 5px 30px 5px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: rgba(228, 251, 255, 0.92);
+  background-color: rgba(60, 40, 75, 0.5);
+  background-image: linear-gradient(45deg, transparent 50%, rgba(228,251,255,0.6) 50%),
+                    linear-gradient(135deg, rgba(228,251,255,0.6) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  border: 1px solid rgba(228, 251, 255, 0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  appearance: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.group-select:hover,
+.group-select:focus {
+  border-color: rgba(228, 251, 255, 0.55);
+  background-color: rgba(100, 70, 120, 0.55);
+  outline: none;
+}
+
+.group-select option {
+  background: rgb(30, 20, 40);
+  color: #e4fbff;
+}
+
+.style-switch {
+  display: flex;
+  gap: 3px;
+  padding: 2px;
+  border: 1px solid rgba(228, 251, 255, 0.18);
+  border-radius: 8px;
+}
+
+.style-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(228, 251, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.style-button:hover {
+  color: rgba(228, 251, 255, 0.85);
+  background: rgba(228, 251, 255, 0.07);
+}
+
+.style-button.active {
+  background: rgba(228, 251, 255, 0.16);
+  color: #e4fbff;
+}
+
+.style-text {
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .style-text { display: none; }
+  .view-controls { gap: 14px; }
+}
 
 /* ── 完成度圖例 ── */
 .completion-legend {
