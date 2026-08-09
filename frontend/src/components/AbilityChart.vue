@@ -26,31 +26,34 @@ export default {
   },
   methods: {
     handleResize() {
-      if (this.chart) this.chart.resize()
+      if (!this.chart) return
+      this.chart.resize()
+      // 字級跟著容器寬度走，resize 後要重畫
+      this.drawChart()
     },
     drawChart() {
       const info = this.elInfo
       if (!info || !info.abMax) return
 
+      // 依容器寬度縮放字級，窄螢幕才不會被文字擠爆
+      const width = this.$refs.chartEl?.clientWidth || 600
+      const compact = width < 520
+      const baseFont = compact ? 11 : 14
+
       const option = {
         backgroundColor: 'rgb(8, 3, 20)',
         darkMode: true,
-        textStyle: { color: 'rgba(180, 200, 230, 0.85)', fontSize: 15 },
+        textStyle: { color: 'rgba(180, 200, 230, 0.85)', fontSize: baseFont },
         grid: { top: '10%', bottom: '10%', left: '15%', right: '15%' },
-        title: {
-          text: 'ABILITY',
-          top: 5,
-          left: 'center',
-          textStyle: { color: '#fff', fontSize: 30 }
-        },
         legend: {
           bottom: 5,
           data: [info.Name],
           itemGap: 20,
-          textStyle: { color: '#fff', fontSize: 20 }
+          textStyle: { color: '#fff', fontSize: compact ? 13 : 16 }
         },
         radar: {
-          radius: '60%',
+          radius: compact ? '58%' : '65%',
+          axisName: { fontSize: baseFont, color: 'rgba(180, 200, 230, 0.85)' },
           indicator: [
             { name: 'MP(K)', max: info.abMax.MeltingPoint },
             { name: 'BP(K)', max: info.abMax.BoilingPoint },
@@ -61,10 +64,11 @@ export default {
             { name: 'D(g/cm³)', max: info.abMax.Density }
           ],
           splitNumber: 4,
-          nameGap: 25,
+          nameGap: compact ? 12 : 20,
           axisLabel: {
-            show: true,
+            show: !compact,
             hideOverlap: true,
+            fontSize: baseFont - 2,
             formatter(value) {
               return value > 0 ? value.toFixed(1) : ''
             }
@@ -98,18 +102,19 @@ export default {
 <style scoped>
 .ability-chart {
   width: 100%;
-  min-width: 600px;
-  min-height: 80vh;
+  /* 高度隨視窗縮放，但夾在合理範圍內；原本固定 min-width: 600px
+     會讓窄螢幕被迫橫向捲動 */
+  height: clamp(360px, 68vh, 620px);
   margin: 5px auto;
   border: 1px solid rgba(228, 251, 255, 0.15);
   border-radius: 6px;
   box-shadow: 0 0 30px rgba(70, 0, 140, 0.2), 0 0 60px rgba(0, 80, 180, 0.1);
+  box-sizing: border-box;
 }
 
-@media only screen and (max-width: 800px) {
+@media only screen and (max-width: 600px) {
   .ability-chart {
-    min-width: 90%;
-    overflow: auto;
+    height: clamp(300px, 55vh, 420px);
   }
 }
 </style>

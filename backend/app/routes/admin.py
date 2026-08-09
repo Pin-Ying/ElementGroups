@@ -105,22 +105,6 @@ def backfill_img_data():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
-@admin_bp.route("/ai/status", methods=["GET"])
-@login_required
-def ai_status():
-    """前端據此決定要不要顯示 AI 協助介面。"""
-    if not ai.is_enabled():
-        return jsonify({"enabled": False})
-    used, limit = ai.get_usage()
-    return jsonify({
-        "enabled": True,
-        "provider": settings.AI_PROVIDER,
-        "model": settings.AI_MODEL,
-        "used": used,
-        "limit": limit,
-    })
-
-
 @admin_bp.route("/admin/story-suggest", methods=["POST"])
 @login_required
 def story_suggest():

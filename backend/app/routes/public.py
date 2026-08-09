@@ -2,6 +2,10 @@ import io
 import json
 
 from flask import Blueprint, jsonify, make_response, request, send_file
+from flask_login import current_user
+
+from app import ai
+from app.config import settings
 
 from app.elements import get_atomicOrbital, get_characteristic, get_abMax
 from app.links import normalize_creator_links
@@ -176,6 +180,27 @@ def record_element_view(symbol):
     except Exception as e:
         print(f"Failed to record view for {symbol}: {e}")
         return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/ai/status", methods=["GET"])
+def ai_status():
+    """AI 協助是否可用。
+
+    刻意不加登入保護，方便部署後直接確認環境變數有沒有生效；
+    回應只有「有沒有啟用」與模型名稱，用量統計仍需登入才會回傳。
+    """
+    if not ai.is_enabled():
+        return jsonify({"enabled": False})
+
+    result = {
+        "enabled": True,
+        "provider": settings.AI_PROVIDER,
+        "model": settings.AI_MODEL,
+    }
+    if current_user.is_authenticated:
+        used, limit = ai.get_usage()
+        result.update({"used": used, "limit": limit})
+    return jsonify(result)
 
 
 @public_bp.route("/site-settings", methods=["GET"])

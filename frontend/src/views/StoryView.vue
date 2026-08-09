@@ -108,19 +108,20 @@
             </div>
           </div>
 
-          <!-- Stats：雷達 / 條狀切換 -->
-          <div v-else key="stats">
+          <!-- Stats：基本資料 + 能力值 -->
+          <div v-else key="stats" class="stats-section">
+            <ElementProfile v-if="abilityData" :elInfo="abilityData" />
+
             <div class="chart-type-toggle">
-              <button :class="{ active: chartType === 'radar' }" @click="chartType = 'radar'">Radar</button>
-              <button :class="{ active: chartType === 'bars' }" @click="chartType = 'bars'">Bars</button>
+              <button :class="{ active: chartType === 'bars' }" @click="chartType = 'bars'">數值條</button>
+              <button :class="{ active: chartType === 'radar' }" @click="chartType = 'radar'">雷達圖</button>
             </div>
-            <AbilityChart v-if="chartType === 'radar' && abilityData" :elInfo="abilityData" />
-            <div v-else-if="chartType === 'bars'" id="element-ability">
-              <template v-for="ab in abilities" :key="ab.key">
-                <div>{{ ab.label }}</div>
-                <div class="ability-bar" :style="{ width: abilityWidth(ab.key) }"></div>
-              </template>
-            </div>
+            <AbilityBars
+              v-if="chartType === 'bars' && abilityData"
+              :elInfo="abilityData"
+              :color="elInfo.CPKHexColor"
+            />
+            <AbilityChart v-else-if="chartType === 'radar' && abilityData" :elInfo="abilityData" />
           </div>
         </transition>
       </div>
@@ -131,23 +132,15 @@
 <script>
 import { getElementDetail, getElementAbility, updateStory, recordElementView, apiBase } from '../api'
 import AbilityChart from '../components/AbilityChart.vue'
+import AbilityBars from '../components/AbilityBars.vue'
+import ElementProfile from '../components/ElementProfile.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { authState } from '../store/auth'
 import { showToast } from '../store/toast'
 import { elementsState, ensureElements } from '../store/elements'
 
-const ABILITIES = [
-  { key: 'MeltingPoint', label: 'MeltingPoint (K)' },
-  { key: 'BoilingPoint', label: 'BoilingPoint (K)' },
-  { key: 'ElectronAffinity', label: 'ElectronAffinity (eV)' },
-  { key: 'Electronegativity', label: 'Electronegativity (Pauling Scale)' },
-  { key: 'AtomicRadius', label: 'AtomicRadius (van der Waals)' },
-  { key: 'IonizationEnergy', label: 'IonizationEnergy (eV)' },
-  { key: 'Density', label: 'Density (g/cm³)' }
-]
-
 export default {
-  components: { AbilityChart, LoadingSpinner },
+  components: { AbilityChart, AbilityBars, ElementProfile, LoadingSpinner },
   props: { symbol: { type: String, required: true } },
   data() {
     return {
@@ -161,9 +154,8 @@ export default {
       imgData: null,
       imgFallbackLevel: 0,
       abilityData: null,
-      abilities: ABILITIES,
       section: 'intro',
-      chartType: 'radar',
+      chartType: 'bars',
       touchStartX: 0,
       loading: false,
       editing: false,
@@ -266,11 +258,6 @@ export default {
     onImgError() {
       if (this.imgFallbackLevel < 3) this.imgFallbackLevel++
     },
-    abilityWidth(key) {
-      if (!this.abilityData || !this.abilityData.abMax) return '0%'
-      const value = this.abilityData[key] / this.abilityData.abMax[key] * 100
-      return (isNaN(value) ? 0 : value) + '%'
-    },
     async handleSubmit() {
       this.saving = true
       const formData = new FormData()
@@ -308,18 +295,8 @@ export default {
   padding: 20px 10px;
 }
 
-#element-ability {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  grid-auto-rows: 36px;
-  gap: 4px;
-  text-align: left;
+.stats-section {
   width: 100%;
-  margin: 5px auto;
-  padding: 16px 10px;
-  border: 1px solid rgba(228, 251, 255, 0.2);
-  border-radius: 6px;
-  box-shadow: 0 0 24px rgba(80, 0, 160, 0.15), 0 0 48px rgba(0, 100, 200, 0.08);
 }
 
 .chart-type-toggle {
@@ -478,13 +455,6 @@ export default {
   grid-template-rows: 1fr 0.5fr 2.5fr;
 }
 
-.ability-bar {
-  background: linear-gradient(90deg, rgba(90, 0, 160, 0.75), rgba(0, 190, 210, 0.75));
-  border-radius: 2px;
-  transition: width 0.6s ease;
-  box-shadow: 0 0 6px rgba(0, 190, 210, 0.3);
-}
-
 /* ── Atomic title row ── */
 .atomic-title {
   display: flex;
@@ -615,7 +585,7 @@ export default {
 }
 
 @media only screen and (max-width: 800px) {
-  img, #element-ability { width: 90%; }
+  img { width: 90%; }
   .element-grid { grid-template-columns: 1fr; }
   .element-grid-info { width: 90%; }
   .wheel-chip--d0 { width: 64px; padding: 10px 4px 8px; }
