@@ -9,6 +9,7 @@
         v-for="elt in positioned"
         :key="elt.Symbol"
         class="element"
+        :class="{ 'tooltip-below': elt.row === 1 }"
         :data-name="elt.Name"
         :style="{
           gridRow: elt.row,

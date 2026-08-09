@@ -207,6 +207,13 @@ a {
     letter-spacing: 0.03em;
 }
 
+/* 第一列（H、He）上方沒有空間，而 .pt-wrapper 的 overflow-x: auto
+   會讓垂直方向一併被裁切，所以改成往下彈 */
+.element.tooltip-below::after {
+    bottom: auto;
+    top: calc(100% + 6px);
+}
+
 .element:hover::after {
     opacity: 1;
 }
