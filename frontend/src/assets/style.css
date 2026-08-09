@@ -140,47 +140,29 @@ a {
     color: rgba(228, 251, 255, 0.35);
 }
 
-/* ── Group layout ── */
+/* ── Group layout ──
+   每個分組佔滿寬度垂直堆疊。早期是 3 欄並排 + 限高 240px，那是為了
+   舊的小方格排版；改用大圖示卡片與詳細清單後，1/3 寬度會讓卡片擠成
+   一直行、表格被迫橫向捲動。 */
 #group {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    margin: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    margin: 10px auto;
     padding: 5px;
-    gap: 10px;
+    max-width: 1120px;
 }
 
 .group-title {
-    align-content: center;
     font-weight: 600;
     font-size: 12px;
-    letter-spacing: 0.08em;
-    opacity: 0.7;
+    letter-spacing: 0.1em;
+    opacity: 0.55;
     text-transform: uppercase;
-}
-
-.group-box {
-    display: grid;
-    grid-template-rows: 1fr 3fr;
-    max-height: 240px;
-}
-
-/* ── Element grid ── */
-.elements-box {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-    width: 90%;
-    height: 100%;
-    margin: 1% auto;
-    overflow: auto;
-}
-
-.elements {
-    display: block;
-    margin: 0 auto;
-    width: 20%;
-    height: 20%;
+    text-align: left;
+    padding: 0 10px 7px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(228, 251, 255, 0.1);
 }
 
 /* ── Element card ── */

@@ -2,7 +2,6 @@
   <footer class="site-footer">
     <div class="footer-inner">
       <div v-if="links.length" class="footer-social">
-        <router-link class="footer-label" to="/links">Connect</router-link>
         <div class="social-list">
           <a
             v-for="(link, i) in links"
@@ -20,11 +19,9 @@
         <router-link to="/guide">元素說明書</router-link>
         <span class="footer-sep">·</span>
         <router-link to="/links">Connect</router-link>
+        <span class="footer-sep">·</span>
+        <a href="https://pubchem.ncbi.nlm.nih.gov/periodic-table/" target="_blank" rel="noopener noreferrer">資料來源 PubChem</a>
       </nav>
-
-      <p class="footer-source">
-        元素資料來源：<a href="https://pubchem.ncbi.nlm.nih.gov/periodic-table/" target="_blank" rel="noopener noreferrer">PubChem</a>（National Center for Biotechnology Information, NIH）
-      </p>
     </div>
   </footer>
 </template>
@@ -74,19 +71,6 @@ export default {
   justify-content: center;
 }
 
-.footer-label {
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(228, 251, 255, 0.4);
-  text-decoration: none;
-  transition: color 0.18s;
-}
-
-.footer-label:hover {
-  color: rgba(228, 251, 255, 0.85);
-}
-
 .social-list {
   display: flex;
   gap: 8px;
@@ -118,12 +102,14 @@ export default {
 .footer-nav {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  font-size: 13px;
+  flex-wrap: wrap;
+  font-size: 12px;
 }
 
 .footer-nav a {
-  color: rgba(228, 251, 255, 0.55);
+  color: rgba(228, 251, 255, 0.45);
   text-decoration: none;
   transition: color 0.15s;
 }
@@ -133,21 +119,6 @@ export default {
 }
 
 .footer-sep {
-  color: rgba(228, 251, 255, 0.25);
-}
-
-.footer-source {
-  margin: 0;
-  font-size: 12px;
-  color: rgba(228, 251, 255, 0.32);
-  text-align: center;
-}
-
-.footer-source a {
-  color: rgba(228, 251, 255, 0.5);
-}
-
-.footer-source a:hover {
-  color: #e4fbff;
+  color: rgba(228, 251, 255, 0.2);
 }
 </style>

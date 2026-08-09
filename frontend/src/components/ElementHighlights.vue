@@ -11,7 +11,7 @@
       >{{ tab.label }}</button>
     </div>
 
-    <div class="highlight-row">
+    <div v-if="current.length" class="highlight-row">
       <router-link
         v-for="el in current"
         :key="el.Symbol"
@@ -26,6 +26,7 @@
         <span v-else-if="el.updated_at" class="hc-meta">{{ relativeTime(el.updated_at) }}</span>
       </router-link>
     </div>
+    <p v-else class="highlight-empty">{{ emptyHint }}</p>
   </div>
 </template>
 
@@ -37,21 +38,28 @@ export default {
     return {
       mode: 'recent',
       recent: [],
-      popular: []
+      popular: [],
+      loaded: false
     }
   },
   computed: {
     availableTabs() {
-      const tabs = []
-      if (this.recent.length) tabs.push({ key: 'recent', label: '最近更新' })
-      if (this.popular.length) tabs.push({ key: 'popular', label: '熱門元素' })
-      return tabs
+      return [
+        { key: 'recent', label: '最近更新' },
+        { key: 'popular', label: '熱門元素' }
+      ]
     },
     hasAny() {
-      return this.availableTabs.length > 0
+      // 兩邊 API 都失敗（例如後端未部署）時整區隱藏
+      return this.loaded
     },
     current() {
       return this.mode === 'popular' ? this.popular : this.recent
+    },
+    emptyHint() {
+      return this.mode === 'popular'
+        ? '還沒有瀏覽記錄，點進任一元素後就會開始統計'
+        : '還沒有更新記錄，在後台儲存任一元素的故事後就會出現在這裡'
     }
   },
   async created() {
@@ -62,6 +70,7 @@ export default {
     ])
     if (recentRes.status === 'fulfilled') this.recent = recentRes.value.data.elements || []
     if (popularRes.status === 'fulfilled') this.popular = popularRes.value.data.elements || []
+    this.loaded = recentRes.status === 'fulfilled' || popularRes.status === 'fulfilled'
 
     // 若沒有最近更新資料，預設切到有資料的那個分頁
     if (!this.recent.length && this.popular.length) this.mode = 'popular'
@@ -170,5 +179,12 @@ export default {
   font-size: 10px;
   opacity: 0.45;
   margin-top: 2px;
+}
+
+.highlight-empty {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.35);
+  text-align: center;
+  margin: 10px 0 4px;
 }
 </style>

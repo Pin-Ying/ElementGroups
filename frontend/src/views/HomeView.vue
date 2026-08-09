@@ -2,6 +2,8 @@
   <div>
     <LoadingSpinner v-if="loading" />
 
+    <ElementHighlights />
+
     <div class="view-controls">
       <div class="control-group">
         <label class="control-label" for="group-select">分組</label>
@@ -40,8 +42,6 @@
       />
       <button v-if="query" class="search-clear" @click="query = ''" title="Clear">✕</button>
     </div>
-
-    <ElementHighlights />
 
     <!-- 完成度圖例（#5）：一眼看出哪些元素已經有圖片/故事 -->
     <div v-if="completionCount.total > 0" class="completion-legend">
