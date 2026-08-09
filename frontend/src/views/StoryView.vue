@@ -32,25 +32,36 @@
     <div v-if="elInfo" @touchstart="onTouchStart" @touchend="onTouchEnd">
       <!-- Identity + wheel in one row -->
       <div class="nav-wheel-wrap">
+        <button
+          class="wheel-arrow"
+          type="button"
+          title="往前捲動元素"
+          @click="scrollWheel(-1)"
+        >‹</button>
+
         <div class="nav-wheel" ref="wheelRef">
-          <component
+          <router-link
             v-for="el in wheelElements"
             :key="el.Symbol"
-            :is="el.empty ? 'div' : 'router-link'"
-            :to="el.empty ? undefined : '/stroy/' + el.Symbol"
-            :class="['wheel-chip', 'wheel-chip--d' + el.dist, { 'wheel-chip--empty': el.empty }]"
-            :style="el.dist === 0 ? { borderColor: '#' + elInfo.CPKHexColor } : {}"
+            :to="'/stroy/' + el.Symbol"
+            :class="['wheel-chip', { 'wheel-chip--current': el.current }]"
+            :style="el.current ? { borderColor: '#' + elInfo.CPKHexColor } : {}"
           >
-            <template v-if="!el.empty">
-              <span class="chip-num">{{ el.AtomicNumber }}</span>
-              <span
-                class="chip-sym"
-                :style="el.dist === 0 ? { color: '#' + elInfo.CPKHexColor } : {}"
-              >{{ el.Symbol }}</span>
-              <span v-if="el.dist === 0" class="chip-name">{{ elInfo.Name }}</span>
-            </template>
-          </component>
+            <span class="chip-num">{{ el.AtomicNumber }}</span>
+            <span
+              class="chip-sym"
+              :style="el.current ? { color: '#' + elInfo.CPKHexColor } : {}"
+            >{{ el.Symbol }}</span>
+            <span v-if="el.current" class="chip-name">{{ elInfo.Name }}</span>
+          </router-link>
         </div>
+
+        <button
+          class="wheel-arrow"
+          type="button"
+          title="往後捲動元素"
+          @click="scrollWheel(1)"
+        >›</button>
       </div>
 
       <div class="element-story">
@@ -174,27 +185,12 @@ export default {
     imgBroken() {
       return this.imgFallbackLevel >= 3
     },
+    // 整列 118 個元素都渲染，讓左右箭頭可以一路捲動瀏覽並直接點選，
+    // 而不只是看到目前元素的前後幾個
     wheelElements() {
       const all = elementsState.elements
       if (!all.length || !this.elInfo) return []
-      const idx = all.findIndex(e => e.Symbol === this.elInfo.Symbol)
-      if (idx === -1) return []
-      const WING = 4
-      const result = []
-      for (let d = WING; d >= 1; d--) {
-        const pos = idx - d
-        result.push(pos >= 0
-          ? { ...all[pos], dist: d, empty: false }
-          : { Symbol: `_L${d}`, AtomicNumber: '', dist: d, empty: true })
-      }
-      result.push({ ...all[idx], dist: 0, empty: false })
-      for (let d = 1; d <= WING; d++) {
-        const pos = idx + d
-        result.push(pos < all.length
-          ? { ...all[pos], dist: d, empty: false }
-          : { Symbol: `_R${d}`, AtomicNumber: '', dist: d, empty: true })
-      }
-      return result
+      return all.map(el => ({ ...el, current: el.Symbol === this.elInfo.Symbol }))
     }
   },
   watch: {
@@ -249,11 +245,17 @@ export default {
     scrollWheelToActive() {
       const wrap = this.$refs.wheelRef
       if (!wrap) return
-      const active = wrap.querySelector('.wheel-chip--d0')
+      const active = wrap.querySelector('.wheel-chip--current')
       if (!active) return
       const wrapCenter = wrap.offsetWidth / 2
       const chipCenter = active.offsetLeft + active.offsetWidth / 2
       wrap.scrollLeft = chipCenter - wrapCenter
+    },
+    // 左右箭頭：捲動元素列讓使用者找元素，不是切換到上/下一個元素
+    scrollWheel(direction) {
+      const wrap = this.$refs.wheelRef
+      if (!wrap) return
+      wrap.scrollBy({ left: direction * wrap.offsetWidth * 0.7, behavior: 'smooth' })
     },
     onImgError() {
       if (this.imgFallbackLevel < 3) this.imgFallbackLevel++
@@ -324,21 +326,48 @@ export default {
 
 /* ── Navigation wheel (identity integrated) ── */
 .nav-wheel-wrap {
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 12px 0 8px;
-}
-.nav-wheel-wrap::-webkit-scrollbar { display: none; }
-
-.nav-wheel {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-width: max-content;
+  gap: 6px;
+  padding: 12px 8px 8px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 0 24px;
 }
+
+.wheel-arrow {
+  flex-shrink: 0;
+  width: 30px;
+  height: 46px;
+  border: 1px solid rgba(228, 251, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(60, 40, 75, 0.4);
+  color: rgba(228, 251, 255, 0.6);
+  font-size: 22px;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.wheel-arrow:hover {
+  background: rgba(100, 70, 120, 0.7);
+  border-color: rgba(228, 251, 255, 0.45);
+  color: #e4fbff;
+}
+
+.nav-wheel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+
+.nav-wheel::-webkit-scrollbar { display: none; }
 
 .wheel-chip {
   display: flex;
@@ -346,63 +375,48 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 46px;
+  height: 52px;
   border-radius: 7px;
   border: 1px solid rgba(228, 251, 255, 0.12);
   background: rgba(60, 40, 75, 0.3);
   text-decoration: none;
-  color: rgba(228, 251, 255, 0.4);
-  transition: background 0.18s, border-color 0.18s, opacity 0.18s;
+  color: rgba(228, 251, 255, 0.6);
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
   overflow: hidden;
 }
 
 .wheel-chip:hover {
-  background: rgba(100, 70, 120, 0.55);
-  border-color: rgba(228, 251, 255, 0.35);
-  color: rgba(228, 251, 255, 0.85);
+  background: rgba(100, 70, 120, 0.6);
+  border-color: rgba(228, 251, 255, 0.4);
+  color: rgba(228, 251, 255, 0.95);
 }
 
-/* Current element — large with full identity */
-.wheel-chip--empty {
-  background: transparent !important;
-  border-color: transparent !important;
-  pointer-events: none;
-}
-
-.wheel-chip--d0 {
+/* 目前所在的元素：放大並顯示全名 */
+.wheel-chip--current {
   width: 76px;
-  padding: 12px 6px 10px;
+  height: 66px;
   border-width: 1.5px;
-  background: rgba(80, 50, 100, 0.5);
-  color: rgba(228, 251, 255, 0.9);
+  background: rgba(80, 50, 100, 0.6);
+  color: rgba(228, 251, 255, 0.95);
   pointer-events: none;
-  gap: 3px;
+  gap: 2px;
 }
-.wheel-chip--d0:hover { background: rgba(80, 50, 100, 0.5); }
 
-/* Neighbouring chips shrink by distance */
-.wheel-chip--d1 { width: 52px; height: 60px; color: rgba(228, 251, 255, 0.65); }
-.wheel-chip--d2 { width: 42px; height: 48px; color: rgba(228, 251, 255, 0.48); opacity: 0.88; }
-.wheel-chip--d3 { width: 33px; height: 38px; color: rgba(228, 251, 255, 0.35); opacity: 0.68; }
-.wheel-chip--d4 { width: 26px; height: 30px; color: rgba(228, 251, 255, 0.25); opacity: 0.48; }
-
-/* Text inside chips */
 .chip-num {
   font-size: 10px;
-  opacity: 0.55;
+  opacity: 0.5;
   line-height: 1;
 }
-.wheel-chip:not(.wheel-chip--d0) .chip-num { display: none; }
 
 .chip-sym {
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.01em;
+  font-size: 17px;
 }
-.wheel-chip--d0 .chip-sym { font-size: 34px; }
-.wheel-chip--d1 .chip-sym { font-size: 18px; }
-.wheel-chip--d2 .chip-sym { font-size: 15px; }
-.wheel-chip--d3 .chip-sym { font-size: 12px; }
-.wheel-chip--d4 .chip-sym { font-size: 10px; }
+
+.wheel-chip--current .chip-sym { font-size: 28px; }
 
 .chip-name {
   font-size: 11px;
@@ -588,11 +602,10 @@ export default {
   img { width: 90%; }
   .element-grid { grid-template-columns: 1fr; }
   .element-grid-info { width: 90%; }
-  .wheel-chip--d0 { width: 64px; padding: 10px 4px 8px; }
-  .wheel-chip--d0 .chip-sym { font-size: 28px; }
-  .wheel-chip--d1 { width: 44px; height: 52px; }
-  .wheel-chip--d2 { width: 36px; height: 42px; }
-  .wheel-chip--d3 { width: 28px; height: 34px; }
-  .wheel-chip--d4 { width: 22px; height: 26px; }
+  .wheel-chip { width: 40px; height: 46px; }
+  .wheel-chip .chip-sym { font-size: 15px; }
+  .wheel-chip--current { width: 64px; height: 58px; }
+  .wheel-chip--current .chip-sym { font-size: 24px; }
+  .wheel-arrow { width: 26px; height: 40px; font-size: 19px; }
 }
 </style>
