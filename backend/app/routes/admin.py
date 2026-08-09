@@ -426,6 +426,10 @@ def update_story():
             }
             elements_data = get_periodic_table()
             elements = [e["Symbol"] for e in elements_data]
+            # 圖層設定要依電子組態算出最外層電子數
+            configurations = {
+                e["Symbol"]: e.get("ElectronConfiguration", "") for e in elements_data
+            }
             return jsonify(
                 {
                     "elements": elements,
@@ -433,6 +437,7 @@ def update_story():
                     "storyDatas": storyDatas,
                     "draftDatas": draftDatas,
                     "hasImage": hasImage,
+                    "configurations": configurations,
                 }
             )
         except Exception as e:

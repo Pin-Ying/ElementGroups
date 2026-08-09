@@ -268,6 +268,41 @@
           </form>
         </div>
 
+        <!-- 圖層素材：共用的電子樣式庫 -->
+        <div v-if="section === 'electrons'" class="box">
+          <p class="title is-4">ELECTRON STYLES</p>
+          <p class="desc">
+            電子的畫法可以套用到任何元素，所以集中管理在這裡。<br>
+            在「元素故事」的圖片分層區選擇要用哪一種；每個元素放幾顆由電子組態自動決定。
+          </p>
+
+          <div v-if="!electronStyles.length" class="placeholder-text">尚未新增任何電子樣式。</div>
+
+          <div v-else class="style-grid">
+            <div v-for="st in electronStyles" :key="st.id" class="style-item">
+              <img :src="st.img_data" alt="" />
+              <span class="style-name">{{ st.name }}</span>
+              <button class="icon-button danger" type="button" title="刪除" @click="handleDeleteStyle(st)">✕</button>
+            </div>
+          </div>
+
+          <label class="label">新增樣式</label>
+          <p class="field-hint">建議使用去背的 PNG，正方形構圖，電子會等比縮放後疊在原子核上。</p>
+          <div class="style-upload">
+            <input class="input" type="text" v-model="newStyleName" aria-label="樣式名稱" />
+            <input class="input" type="file" accept="image/*" ref="styleInput" aria-label="樣式圖片" @change="onStyleFile" />
+          </div>
+          <div v-if="newStyleImg" class="preview-new">
+            <p class="preview-label">預覽（尚未儲存）</p>
+            <img :src="newStyleImg" class="img-preview" alt="" style="max-width:80px" />
+          </div>
+          <div class="link-actions">
+            <button class="button" type="button" :disabled="styleSaving || !newStyleImg" @click="handleSaveStyle">
+              {{ styleSaving ? 'Saving…' : '新增樣式' }}
+            </button>
+          </div>
+        </div>
+
         <!-- Creator Links -->
         <div v-if="section === 'links'" class="box">
           <p class="title is-4">CREATOR LINKS</p>
@@ -481,6 +516,67 @@
             </div>
           </form>
 
+          <!-- 圖片分層 -->
+          <div class="gallery-admin">
+            <p class="label">圖片分層</p>
+            <p class="field-hint">
+              把代表圖拆成原子核、電子、手寫元素名三層。<br>
+              <strong>設定原子核之後才會啟用分層呈現</strong>，在那之前一律沿用上面的代表圖。
+            </p>
+
+            <div class="layer-grid">
+              <div class="layer-slot">
+                <p class="preview-label">原子核</p>
+                <img v-if="layerForm.nucleus" :src="layerForm.nucleus" alt="" />
+                <p v-else class="avatar-empty">未設定</p>
+                <input class="input" type="file" accept="image/*" aria-label="原子核圖層" @change="onLayerFile($event, 'nucleus')" />
+                <button v-if="layerForm.nucleus" class="draft-link" type="button" @click="layerForm.nucleus = ''">移除</button>
+              </div>
+
+              <div class="layer-slot">
+                <p class="preview-label">手寫元素名</p>
+                <img v-if="layerForm.name_img" :src="layerForm.name_img" alt="" />
+                <p v-else class="avatar-empty">未設定</p>
+                <input class="input" type="file" accept="image/*" aria-label="手寫元素名圖層" @change="onLayerFile($event, 'name_img')" />
+                <button v-if="layerForm.name_img" class="draft-link" type="button" @click="layerForm.name_img = ''">移除</button>
+              </div>
+
+              <div class="layer-slot">
+                <p class="preview-label">電子（{{ outerElectrons }} 顆）</p>
+                <div v-if="electronStyles.length" class="electron-picker">
+                  <button
+                    v-for="st in electronStyles"
+                    :key="st.id"
+                    class="electron-option"
+                    type="button"
+                    :class="{ active: layerForm.electron_style === st.id }"
+                    :title="st.name"
+                    @click="layerForm.electron_style = layerForm.electron_style === st.id ? '' : st.id"
+                  >
+                    <img :src="st.img_data" alt="" />
+                  </button>
+                </div>
+                <p v-else class="avatar-empty">尚無樣式，請先到「圖層素材」新增</p>
+
+                <label class="label ai-label">運動方式</label>
+                <select class="select" v-model="layerForm.motion" aria-label="電子運動方式">
+                  <option value="orbit">繞著原子核轉</option>
+                  <option value="free">自由飄動</option>
+                  <option value="static">靜止排開</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="link-actions">
+              <button class="button" type="button" :disabled="layerSaving || !selectedSymbol" @click="handleSaveLayers">
+                {{ layerSaving ? 'Saving…' : '儲存圖層' }}
+              </button>
+              <span class="ai-quota">
+                最外層 {{ outerElectrons }} 個電子（由電子組態 {{ selectedConfig }} 推算）
+              </span>
+            </div>
+          </div>
+
           <!-- 其他樣貌（gallery） -->
           <div class="gallery-admin">
             <p class="label">其他樣貌</p>
@@ -571,7 +667,7 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, apiBase } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -583,6 +679,7 @@ import PokedexFrame, { FRAME_STYLES } from '../components/PokedexFrame.vue'
 import ImageCropper from '../components/ImageCropper.vue'
 import MarkdownContent from '../components/MarkdownContent.vue'
 import { BUILTIN_PAGES } from '../utils/builtinPages'
+import { outerElectronCount } from '../utils/valence'
 
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
@@ -610,6 +707,7 @@ const SECTIONS = [
   { key: 'pages', label: '頁面管理', icon: '▤' },
   { key: 'site', label: '網站設定', icon: '⚙' },
   { key: 'default-img', label: '預設圖片', icon: '▣' },
+  { key: 'electrons', label: '圖層素材', icon: '◌' },
   { key: 'links', label: '社群連結', icon: '⚯' },
   { key: 'maintenance', label: '維護工具', icon: '⚒' }
 ]
@@ -633,6 +731,7 @@ export default {
       elements: [],
       storyDatas: {},
       draftDatas: {},
+      elementConfigs: {},
       imageDatas: {},
       hasImageMap: {},
       selectedSymbol: '',
@@ -653,6 +752,12 @@ export default {
       FRAME_STYLES,
       GALLERY_MAX,
       NAV_POSITIONS,
+      layerForm: { nucleus: '', name_img: '', electron_style: '', motion: 'orbit' },
+      layerSaving: false,
+      electronStyles: [],
+      newStyleName: '',
+      newStyleImg: '',
+      styleSaving: false,
       pageList: [],
       pageForm: EMPTY_PAGE(),
       pageSaving: false,
@@ -708,6 +813,12 @@ export default {
         .filter(([slug]) => !existing.has(slug))
         .map(([slug, p]) => ({ slug, title: p.title }))
     },
+    selectedConfig() {
+      return this.elementConfigs[this.selectedSymbol] || ''
+    },
+    outerElectrons() {
+      return outerElectronCount(this.selectedConfig)
+    },
     hasDraft() {
       return !!(this.draftDatas[this.selectedSymbol] || '').trim()
     },
@@ -720,7 +831,7 @@ export default {
   },
   async mounted() {
     if (this.authState.loggedIn) {
-      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages()])
+      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(), this.loadElectronStyles()])
     }
   },
   beforeUnmount() {
@@ -824,7 +935,7 @@ export default {
       try {
         const result = await login(this.email, this.password)
         if (result.ok) {
-          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages()])
+          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(), this.loadElectronStyles()])
         } else {
           this.msg = result.message || 'Login failed'
         }
@@ -1267,12 +1378,14 @@ export default {
         this.elements = res.data.elements || []
         this.storyDatas = res.data.storyDatas || {}
         this.draftDatas = res.data.draftDatas || {}
+        this.elementConfigs = res.data.configurations || {}
         this.imageDatas = res.data.imageDatas || {}
         this.hasImageMap = res.data.hasImage || {}
         if (this.elements.length > 0) {
           this.selectedSymbol = this.elements[0]
           this.storyText = this.storyDatas[this.selectedSymbol] || ''
           this.loadGallery()
+          this.loadLayers()
         } else {
           showToast('元素清單為空，請先執行 Update DB', 'warning')
         }
@@ -1286,6 +1399,7 @@ export default {
       this.storyText = this.draftDatas[this.selectedSymbol]
         || this.storyDatas[this.selectedSymbol] || ''
       this.loadGallery()
+      this.loadLayers()
       // AI 的方向、參考資料與建議都是針對前一個元素寫的，換元素時一併清掉，
       // 否則會把上一個元素的設定帶到下一個
       this.aiDirection = ''
@@ -1293,6 +1407,97 @@ export default {
       this.aiSuggestion = ''
       this.revokeImagePreview()
       if (this.$refs.imageInput) this.$refs.imageInput.value = ''
+    },
+    // ── 圖片分層 ──
+    async loadLayers() {
+      if (!this.selectedSymbol) return
+      try {
+        const res = await getAdminLayers(this.selectedSymbol)
+        this.layerForm = {
+          nucleus: res.data.nucleus || '',
+          name_img: res.data.name_img || '',
+          electron_style: res.data.electron_style || '',
+          motion: res.data.motion || 'orbit'
+        }
+      } catch (e) {
+        console.error('Failed to load layers:', e)
+      }
+    },
+    async onLayerFile(e, field) {
+      const file = e.target.files[0]
+      e.target.value = ''
+      if (!file) return
+      try {
+        const result = await compressImage(file)
+        this.layerForm[field] = await this.blobToDataUrl(result.blob)
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+      }
+    },
+    blobToDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+    },
+    async handleSaveLayers() {
+      this.layerSaving = true
+      try {
+        const res = await updateLayers(this.selectedSymbol, this.layerForm)
+        showToast(res.data.message || '已儲存', 'success')
+      } catch (e) {
+        showToast(e.response?.data?.message || '儲存失敗', 'error')
+      } finally {
+        this.layerSaving = false
+      }
+    },
+    // ── 電子樣式庫 ──
+    async loadElectronStyles() {
+      try {
+        const res = await getElectronStyles()
+        this.electronStyles = res.data.styles || []
+      } catch (e) {
+        console.error('Failed to load electron styles:', e)
+      }
+    },
+    async onStyleFile(e) {
+      const file = e.target.files[0]
+      if (!file) return
+      try {
+        const result = await compressImage(file)
+        this.newStyleImg = await this.blobToDataUrl(result.blob)
+        if (!this.newStyleName) this.newStyleName = file.name.replace(/\.[^.]+$/, '')
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+      }
+    },
+    async handleSaveStyle() {
+      this.styleSaving = true
+      try {
+        const res = await saveElectronStyle({ name: this.newStyleName, img_data: this.newStyleImg })
+        showToast(res.data.message || '已新增', 'success')
+        this.newStyleName = ''
+        this.newStyleImg = ''
+        if (this.$refs.styleInput) this.$refs.styleInput.value = ''
+        await this.loadElectronStyles()
+      } catch (e) {
+        showToast(e.response?.data?.message || '新增失敗', 'error')
+      } finally {
+        this.styleSaving = false
+      }
+    },
+    async handleDeleteStyle(style) {
+      try {
+        const res = await deleteElectronStyle(style.id)
+        showToast(res.data.message || '已刪除', 'success')
+        // 有元素正在用這個樣式的話，選取狀態一併清掉
+        if (this.layerForm.electron_style === style.id) this.layerForm.electron_style = ''
+        await this.loadElectronStyles()
+      } catch (e) {
+        showToast(e.response?.data?.message || '刪除失敗', 'error')
+      }
     },
     loadDraft() {
       this.storyText = this.draftDatas[this.selectedSymbol] || ''
@@ -1903,6 +2108,115 @@ export default {
 
 .site-desc {
   min-height: 60px;
+}
+
+/* ── 圖片分層 ── */
+.layer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 10px 0 14px;
+}
+
+.layer-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(3, 1, 12, 0.4);
+}
+
+.layer-slot > img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  border: none;
+  border-radius: 5px;
+  background: rgba(60, 40, 75, 0.35);
+}
+
+.layer-slot .input { margin: 0; font-size: 11px; }
+.layer-slot .select { margin: 0; }
+
+.electron-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+
+.electron-option {
+  width: 42px;
+  height: 42px;
+  padding: 4px;
+  border: 1px solid rgba(228, 251, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(60, 40, 75, 0.35);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.electron-option:hover { border-color: rgba(228, 251, 255, 0.5); }
+
+.electron-option.active {
+  border-color: #6ee76e;
+  background: rgba(110, 231, 110, 0.15);
+}
+
+.electron-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: none;
+  border-radius: 0;
+  display: block;
+}
+
+/* ── 電子樣式庫 ── */
+.style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 10px 0 18px;
+}
+
+.style-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(3, 1, 12, 0.4);
+}
+
+.style-item img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border: none;
+  border-radius: 0;
+}
+
+.style-name {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.7);
+  text-align: center;
+  word-break: break-word;
+}
+
+.style-upload {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+@media (max-width: 700px) {
+  .style-upload { grid-template-columns: 1fr; }
 }
 
 /* ── 內建頁面匯入提示 ── */

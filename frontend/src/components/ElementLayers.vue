@@ -19,6 +19,15 @@
 </template>
 
 <script>
+// 電子的寬度佔容器的百分比，必須與 CSS 的 .electron { width } 一致。
+// translateX 的百分比是相對元素「自身」寬度，所以要把「距離容器中心多少
+// 百分比」換算成電子自身的倍數，否則電子會全部擠在中心。
+const ELECTRON_SIZE_PCT = 16
+
+function orbitRadius(containerPct) {
+  return `${(containerPct / ELECTRON_SIZE_PCT) * 100}%`
+}
+
 export default {
   props: {
     nucleus: { type: String, required: true },
@@ -41,7 +50,7 @@ export default {
             '--angle': `${angle}deg`,
             '--delay': `${delay}s`,
             // free 模式各自用不同的軌跡半徑與速度，看起來比較自然
-            '--radius': this.motion === 'free' ? `${34 + (i % 3) * 9}%` : '38%',
+            '--radius': orbitRadius(this.motion === 'free' ? 32 + (i % 3) * 7 : 36),
             '--duration': this.motion === 'free' ? `${7 + (i % 4) * 2.5}s` : '8s'
           }
         }
@@ -84,6 +93,7 @@ export default {
   position: absolute;
   top: 50%;
   left: 50%;
+  /* 這個 16% 必須與 script 的 ELECTRON_SIZE_PCT 一致 */
   width: 16%;
   height: 16%;
   margin: -8% 0 0 -8%;
@@ -106,8 +116,8 @@ export default {
 }
 
 @keyframes orbit {
-  from { transform: rotate(var(--angle)) translateX(var(--radius, 38%)) rotate(calc(-1 * var(--angle))); }
-  to   { transform: rotate(calc(var(--angle) + 360deg)) translateX(var(--radius, 38%)) rotate(calc(-1 * var(--angle) - 360deg)); }
+  from { transform: rotate(var(--angle)) translateX(var(--radius, 225%)) rotate(calc(-1 * var(--angle))); }
+  to   { transform: rotate(calc(var(--angle) + 360deg)) translateX(var(--radius, 225%)) rotate(calc(-1 * var(--angle) - 360deg)); }
 }
 
 /* ── 自由飄動：繞行之外再疊一層上下浮動 ── */
@@ -125,14 +135,14 @@ export default {
 
 /* ── 靜止：只按角度排開，不動 ── */
 .layers--static .electron {
-  transform: rotate(var(--angle)) translateX(var(--radius, 38%)) rotate(calc(-1 * var(--angle)));
+  transform: rotate(var(--angle)) translateX(var(--radius, 225%)) rotate(calc(-1 * var(--angle)));
 }
 
 @media (prefers-reduced-motion: reduce) {
   .electron { animation: none !important; }
   .layers--orbit .electron,
   .layers--free .electron {
-    transform: rotate(var(--angle)) translateX(var(--radius, 38%)) rotate(calc(-1 * var(--angle)));
+    transform: rotate(var(--angle)) translateX(var(--radius, 225%)) rotate(calc(-1 * var(--angle)));
   }
 }
 </style>
