@@ -4,21 +4,16 @@
     <div class="box">
       <p class="desc">追蹤創作者的社群帳號</p>
 
-      <div v-if="links.instagram || links.threads" class="link-list">
+      <div v-if="links.length" class="link-list">
         <a
-          v-if="links.instagram"
-          class="button link-button"
-          :href="links.instagram"
+          v-for="(link, i) in links"
+          :key="link.platform + i"
+          class="link-button"
+          :style="{ '--brand': platformInfo(link.platform).color }"
+          :href="link.url"
           target="_blank"
           rel="noopener noreferrer"
-        >Instagram</a>
-        <a
-          v-if="links.threads"
-          class="button link-button"
-          :href="links.threads"
-          target="_blank"
-          rel="noopener noreferrer"
-        >Threads</a>
+        >{{ link.label }}</a>
       </div>
       <p v-else class="placeholder-text">尚未設定任何連結</p>
     </div>
@@ -26,22 +21,22 @@
 </template>
 
 <script>
-import { getCreatorLinks } from '../api'
+import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
+import { platformInfo } from '../utils/socialPlatforms'
 
 export default {
   data() {
-    return {
-      links: { instagram: '', threads: '' }
+    return { creatorLinksState }
+  },
+  computed: {
+    links() {
+      return this.creatorLinksState.links
     }
   },
-  async created() {
-    try {
-      const res = await getCreatorLinks()
-      this.links = { instagram: res.data.instagram || '', threads: res.data.threads || '' }
-    } catch (e) {
-      console.error('Failed to load creator links:', e)
-    }
-  }
+  created() {
+    ensureCreatorLinks()
+  },
+  methods: { platformInfo }
 }
 </script>
 
@@ -82,6 +77,23 @@ export default {
 }
 
 .link-button {
+  --brand: #64b8e8;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 22px;
+  font-size: 14px;
+  border-radius: 999px;
   text-decoration: none;
+  color: rgba(228, 251, 255, 0.9);
+  border: 1px solid color-mix(in srgb, var(--brand) 50%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s;
+}
+
+.link-button:hover {
+  color: #fff;
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 28%, transparent);
+  transform: translateY(-1px);
 }
 </style>

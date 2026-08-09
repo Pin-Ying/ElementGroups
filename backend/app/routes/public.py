@@ -4,6 +4,7 @@ import json
 from flask import Blueprint, jsonify, make_response, request, send_file
 
 from app.elements import get_atomicOrbital, get_characteristic, get_abMax
+from app.links import normalize_creator_links
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
 public_bp = Blueprint("public", __name__, url_prefix="/api")
@@ -104,10 +105,7 @@ def get_element_detail(symbol):
 def get_creator_links():
     try:
         data = show_fdb("_creator_links")
-        return jsonify({
-            "instagram": data.get("instagram", "") if data else "",
-            "threads": data.get("threads", "") if data else ""
-        })
+        return jsonify({"links": normalize_creator_links(data)})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 

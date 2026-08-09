@@ -57,15 +57,47 @@
         <!-- Creator Links -->
         <div class="box">
           <p class="title is-4">CREATOR LINKS</p>
-          <p class="desc">顯示在 /links 頁面的創作者社群連結，留空則該平台按鈕不會顯示</p>
+          <p class="desc">
+            設定要對外顯示的社群連結，數量不限。<br>
+            儲存後會出現在每一頁最下方的頁尾，以及 /links 頁面；網址留空的項目會被忽略。
+          </p>
+
           <form @submit.prevent="handleUpdateCreatorLinks">
-            <label class="label">Instagram URL</label>
-            <input class="input" type="url" v-model="creatorLinks.instagram" placeholder="https://instagram.com/..." />
-            <label class="label">Threads URL</label>
-            <input class="input" type="url" v-model="creatorLinks.threads" placeholder="https://threads.net/..." />
-            <button class="button" type="submit" :disabled="creatorLinksSaving">
-              {{ creatorLinksSaving ? 'Saving…' : 'Save' }}
-            </button>
+            <div v-if="!creatorLinks.length" class="placeholder-text">
+              尚未新增任何連結，點下方「＋ 新增連結」開始。
+            </div>
+
+            <div v-for="(link, i) in creatorLinks" :key="i" class="link-row">
+              <div class="link-row-fields">
+                <select class="select link-platform" v-model="link.platform" @change="onPlatformChange(link)">
+                  <option v-for="p in platforms" :key="p.key" :value="p.key">{{ p.label }}</option>
+                </select>
+                <input
+                  class="input link-label"
+                  type="text"
+                  v-model="link.label"
+                  placeholder="顯示名稱"
+                />
+                <input
+                  class="input link-url"
+                  type="url"
+                  v-model="link.url"
+                  :placeholder="platformInfo(link.platform).placeholder"
+                />
+              </div>
+              <div class="link-row-actions">
+                <button class="icon-button" type="button" title="上移" :disabled="i === 0" @click="moveLink(i, -1)">↑</button>
+                <button class="icon-button" type="button" title="下移" :disabled="i === creatorLinks.length - 1" @click="moveLink(i, 1)">↓</button>
+                <button class="icon-button danger" type="button" title="刪除" @click="removeLink(i)">✕</button>
+              </div>
+            </div>
+
+            <div class="link-actions">
+              <button class="button secondary" type="button" @click="addLink">＋ 新增連結</button>
+              <button class="button" type="submit" :disabled="creatorLinksSaving">
+                {{ creatorLinksSaving ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -162,6 +194,8 @@
 import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
+import { setCreatorLinks } from '../store/creatorLinks'
+import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
@@ -186,8 +220,9 @@ export default {
       defaultImgSaving: false,
       newImagePreviewUrl: '',
       defaultImgPreviewUrl: '',
-      creatorLinks: { instagram: '', threads: '' },
-      creatorLinksSaving: false
+      creatorLinks: [],
+      creatorLinksSaving: false,
+      platforms: PLATFORMS
     }
   },
   computed: {
@@ -338,19 +373,52 @@ export default {
         this.defaultImgSaving = false
       }
     },
+    platformInfo,
+    addLink() {
+      const used = new Set(this.creatorLinks.map(l => l.platform))
+      const next = PLATFORMS.find(p => !used.has(p.key)) || PLATFORMS[0]
+      this.creatorLinks.push({ platform: next.key, label: next.label, url: '' })
+    },
+    removeLink(i) {
+      this.creatorLinks.splice(i, 1)
+    },
+    moveLink(i, delta) {
+      const target = i + delta
+      if (target < 0 || target >= this.creatorLinks.length) return
+      const [item] = this.creatorLinks.splice(i, 1)
+      this.creatorLinks.splice(target, 0, item)
+    },
+    onPlatformChange(link) {
+      // 顯示名稱還是預設值時，跟著平台一起換；使用者自訂過就不動它
+      const isDefaultLabel = PLATFORMS.some(p => p.label === link.label)
+      if (!link.label || isDefaultLabel) link.label = platformInfo(link.platform).label
+    },
     async loadCreatorLinks() {
       try {
         const res = await getAdminCreatorLinks()
-        this.creatorLinks = { instagram: res.data.instagram || '', threads: res.data.threads || '' }
+        this.creatorLinks = (res.data.links || []).map(l => ({
+          platform: l.platform || 'website',
+          label: l.label || '',
+          url: l.url || ''
+        }))
       } catch (e) {
         console.error('Failed to load creator links:', e)
       }
     },
     async handleUpdateCreatorLinks() {
+      const links = this.creatorLinks
+        .filter(l => (l.url || '').trim())
+        .map(l => ({
+          platform: l.platform,
+          label: (l.label || '').trim() || platformInfo(l.platform).label,
+          url: l.url.trim()
+        }))
       this.creatorLinksSaving = true
       try {
-        const res = await updateCreatorLinks(this.creatorLinks)
+        const res = await updateCreatorLinks({ links })
         showToast(res.data.message || 'Saved!', 'success')
+        // 讓頁尾與 /links 立刻反映這次儲存的結果
+        setCreatorLinks(links)
       } catch (e) {
         showToast(e.response?.data?.message || 'Save failed', 'error')
       } finally {
@@ -442,6 +510,82 @@ export default {
   opacity: 0.55;
   margin: 2px 0 14px;
   line-height: 1.5;
+}
+
+/* ── Creator links 動態列 ── */
+.link-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(228, 251, 255, 0.07);
+}
+
+.link-row:last-of-type {
+  border-bottom: none;
+}
+
+.link-row-fields {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 130px 150px 1fr;
+  gap: 8px;
+  min-width: 0;
+}
+
+.link-row-fields .input,
+.link-row-fields .select {
+  margin: 0;
+}
+
+.link-row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.icon-button {
+  width: 28px;
+  height: 30px;
+  border: 1px solid rgba(228, 251, 255, 0.2);
+  border-radius: 5px;
+  background: rgba(228, 251, 255, 0.05);
+  color: rgba(228, 251, 255, 0.7);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: rgba(228, 251, 255, 0.15);
+  border-color: rgba(228, 251, 255, 0.45);
+  color: #e4fbff;
+}
+
+.icon-button:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.icon-button.danger:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.18);
+  border-color: rgba(255, 107, 107, 0.6);
+  color: #ff6b6b;
+}
+
+.link-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+@media (max-width: 700px) {
+  .link-row-fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 .progress-summary {

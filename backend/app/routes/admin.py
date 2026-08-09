@@ -9,6 +9,7 @@ from flask_login import current_user, login_required
 from app import auth as auth_module
 from app.config import settings
 from app.elements import element_info
+from app.links import normalize_creator_links, serialize_creator_links
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, fdb
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api")
@@ -142,19 +143,15 @@ def manage_creator_links():
     if request.method == "GET":
         try:
             data = show_fdb("_creator_links")
-            return jsonify({
-                "instagram": data.get("instagram", "") if data else "",
-                "threads": data.get("threads", "") if data else ""
-            })
+            return jsonify({"links": normalize_creator_links(data)})
         except Exception as e:
             return jsonify({"result": "failure", "message": str(e)}), 500
 
     # POST
     try:
-        data = request.get_json() or {}
-        instagram = (data.get("instagram") or "").strip()
-        threads = (data.get("threads") or "").strip()
-        upload_fdb("_creator_links", {"instagram": instagram, "threads": threads})
+        payload = serialize_creator_links(request.get_json() or {})
+        # upload_fdb 是整個覆寫，admin 刪掉的連結與舊格式欄位都會一併消失
+        upload_fdb("_creator_links", payload)
         return jsonify({"result": "success", "message": "Creator links updated!"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500

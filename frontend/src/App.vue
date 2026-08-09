@@ -7,10 +7,6 @@
           <p class="header-sub">Explore the components of the world.</p>
         </router-link>
 
-        <nav class="header-nav">
-          <router-link class="button btn-sm" to="/links">Connect</router-link>
-        </nav>
-
         <!-- Admin area -->
         <div class="admin-area">
           <template v-if="authState.loggedIn">
@@ -34,6 +30,7 @@
     </div>
 
     <router-view />
+    <SiteFooter />
     <ToastContainer />
   </div>
 </template>
@@ -42,6 +39,7 @@
 import { authState, login, logout, initAuth } from './store/auth'
 import { showToast } from './store/toast'
 import ToastContainer from './components/ToastContainer.vue'
+import SiteFooter from './components/SiteFooter.vue'
 import api from './api'
 
 function parseLoginError(raw) {
@@ -56,7 +54,7 @@ function parseLoginError(raw) {
 }
 
 export default {
-  components: { ToastContainer },
+  components: { ToastContainer, SiteFooter },
   data() {
     return {
       authState,
@@ -134,10 +132,6 @@ export default {
   margin: 0;
   font-weight: 400;
   letter-spacing: 0.02em;
-}
-
-.header-nav {
-  flex-shrink: 0;
 }
 
 .admin-area {
