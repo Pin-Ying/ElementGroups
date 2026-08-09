@@ -204,6 +204,11 @@ import ElementGallery from '../components/ElementGallery.vue'
 import ElementLayers from '../components/ElementLayers.vue'
 import StoryEditor from '../components/StoryEditor.vue'
 import { outerElectronCount, outerElectronOrbitals } from '../utils/valence'
+
+// 圖層與圖庫資料在同一次瀏覽中不會變，快取起來：切換動態／靜態只是換
+// 顯示方式，來回看元素也不必重打 API。
+const layerCache = new Map()
+const galleryCache = new Map()
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { siteSettingsState } from '../store/siteSettings'
 import { authState } from '../store/auth'
@@ -314,8 +319,8 @@ export default {
     async loadData() {
       this.loading = true
       this.elInfo = null
-      this.gallery = []
-      this.layers = null
+      this.gallery = galleryCache.get(this.symbol) || []
+      this.layers = layerCache.has(this.symbol) ? layerCache.get(this.symbol) : null
       this.imgFallbackLevel = 0
       this.section = 'intro'
       this.editing = false
@@ -335,13 +340,8 @@ export default {
         // 首頁「熱門元素」用的點閱計數；失敗不影響頁面
         recordElementView(this.symbol).catch(() => {})
         // 其他樣貌是附加內容，獨立載入，沒有或失敗都不影響主要畫面
-        getElementGallery(this.symbol)
-          .then(res => { this.gallery = res.data.images || [] })
-          .catch(() => { this.gallery = [] })
-        // 圖層是選用的，沒設定就沿用靜態圖
-        getElementLayers(this.symbol)
-          .then(res => { this.layers = res.data })
-          .catch(() => { this.layers = null })
+        this.loadGallery(this.symbol)
+        this.loadLayers(this.symbol)
       } catch (e) {
         console.error('Failed to load element data:', e)
       } finally {
@@ -358,6 +358,35 @@ export default {
       const chipCenter = active.offsetLeft + active.offsetWidth / 2
       wrap.scrollLeft = chipCenter - wrapCenter
       this.updateWheelDepth()
+    },
+    // 其他樣貌與圖層都是附加內容，載入失敗不影響主要畫面
+    loadGallery(symbol) {
+      if (galleryCache.has(symbol)) {
+        this.gallery = galleryCache.get(symbol)
+        return
+      }
+      getElementGallery(symbol)
+        .then(res => {
+          const images = res.data.images || []
+          galleryCache.set(symbol, images)
+          if (this.symbol === symbol) this.gallery = images
+        })
+        .catch(() => { if (this.symbol === symbol) this.gallery = [] })
+    },
+    loadLayers(symbol) {
+      if (layerCache.has(symbol)) {
+        this.layers = layerCache.get(symbol)
+        return
+      }
+      getElementLayers(symbol)
+        .then(res => {
+          layerCache.set(symbol, res.data)
+          if (this.symbol === symbol) this.layers = res.data
+        })
+        .catch(() => {
+          layerCache.set(symbol, null)
+          if (this.symbol === symbol) this.layers = null
+        })
     },
     setPreferLayers(value) {
       this.preferLayers = value
