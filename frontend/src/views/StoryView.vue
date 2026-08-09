@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <div v-if="elInfo" @touchstart="onTouchStart" @touchend="onTouchEnd">
+    <div v-if="elInfo">
       <!-- Identity + wheel in one row -->
       <div class="nav-wheel-wrap">
         <button
@@ -167,8 +167,6 @@ export default {
       authState,
       elementsState,
       elInfo: null,
-      fEl: {},
-      bEl: {},
       story: null,
       imgSrc: null,
       imgData: null,
@@ -178,7 +176,6 @@ export default {
       gallery: [],
       section: 'intro',
       chartType: 'bars',
-      touchStartX: 0,
       loading: false,
       editing: false,
       editStory: '',
@@ -222,18 +219,6 @@ export default {
     }
   },
   methods: {
-    onTouchStart(e) {
-      this.touchStartX = e.touches[0].clientX
-    },
-    onTouchEnd(e) {
-      const dx = e.changedTouches[0].clientX - this.touchStartX
-      if (Math.abs(dx) < 50) return
-      if (dx > 0) {
-        this.$router.push('/stroy/' + this.fEl.Symbol)
-      } else {
-        this.$router.push('/stroy/' + this.bEl.Symbol)
-      }
-    },
     async loadData() {
       this.loading = true
       this.elInfo = null
@@ -249,8 +234,6 @@ export default {
         ])
         const detail = detailRes.data
         this.elInfo = detail.el_info
-        this.fEl = detail.f_el
-        this.bEl = detail.b_el
         this.story = detail.story
         this.imgSrc = apiBase + '/elements/' + this.symbol + '/img'
         this.imgData = detail.img_data
@@ -418,6 +401,15 @@ export default {
   scroll-behavior: smooth;
   scrollbar-width: none;
   padding: 2px 0;
+  /* 手機上直接滑這條列即可瀏覽元素（原本的整頁滑動切換手勢已移除，
+     那個容易在捲動頁面時誤觸）；帶慣性並貼齊到元素 */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+}
+
+.nav-wheel > * {
+  scroll-snap-align: center;
 }
 
 .nav-wheel::-webkit-scrollbar { display: none; }

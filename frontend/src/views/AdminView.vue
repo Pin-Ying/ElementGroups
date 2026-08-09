@@ -453,7 +453,18 @@
               </div>
             </div>
 
-            <button class="button" type="submit" :disabled="loading">Submit</button>
+            <div v-if="hasDraft" class="draft-notice">
+              這個元素有未發布的草稿。
+              <button class="draft-link" type="button" @click="loadDraft">載入草稿</button>
+              <button class="draft-link" type="button" @click="loadPublished">改看已發布內容</button>
+            </div>
+
+            <div class="link-actions">
+              <button class="button" type="submit" :disabled="loading">發布</button>
+              <button class="button secondary" type="button" :disabled="loading" @click="handleSaveStoryDraft">
+                存成草稿
+              </button>
+            </div>
           </form>
 
           <!-- 其他樣貌（gallery） -->
@@ -606,6 +617,7 @@ export default {
       adminMsgType: '',
       elements: [],
       storyDatas: {},
+      draftDatas: {},
       imageDatas: {},
       hasImageMap: {},
       selectedSymbol: '',
@@ -673,6 +685,9 @@ export default {
         const marks = (hasStory ? ' ✓' : '') + (hasImage ? ' ▣' : '')
         return { symbol: sym, hasStory, hasImage, label: sym + marks }
       })
+    },
+    hasDraft() {
+      return !!(this.draftDatas[this.selectedSymbol] || '').trim()
     },
     storyProgress() {
       return this.elementOptions.filter(o => o.hasStory).length
@@ -1219,6 +1234,7 @@ export default {
         const res = await getStoryData()
         this.elements = res.data.elements || []
         this.storyDatas = res.data.storyDatas || {}
+        this.draftDatas = res.data.draftDatas || {}
         this.imageDatas = res.data.imageDatas || {}
         this.hasImageMap = res.data.hasImage || {}
         if (this.elements.length > 0) {
@@ -1234,7 +1250,9 @@ export default {
       }
     },
     onSymbolChange() {
-      this.storyText = this.storyDatas[this.selectedSymbol] || ''
+      // 有未發布的草稿就優先帶出來，避免使用者以為之前寫的東西不見了
+      this.storyText = this.draftDatas[this.selectedSymbol]
+        || this.storyDatas[this.selectedSymbol] || ''
       this.loadGallery()
       // AI 的方向、參考資料與建議都是針對前一個元素寫的，換元素時一併清掉，
       // 否則會把上一個元素的設定帶到下一個
@@ -1243,6 +1261,29 @@ export default {
       this.aiSuggestion = ''
       this.revokeImagePreview()
       if (this.$refs.imageInput) this.$refs.imageInput.value = ''
+    },
+    loadDraft() {
+      this.storyText = this.draftDatas[this.selectedSymbol] || ''
+      showToast('已載入草稿，按「發布」才會對外顯示', 'success')
+    },
+    loadPublished() {
+      this.storyText = this.storyDatas[this.selectedSymbol] || ''
+    },
+    async handleSaveStoryDraft() {
+      const formData = new FormData()
+      formData.append('symbol', this.selectedSymbol)
+      formData.append('stroy', this.storyText)
+      formData.append('draft', '1')
+      this.loading = true
+      try {
+        const res = await updateStory(formData)
+        showToast(res.data.message || '草稿已儲存', 'success')
+        this.draftDatas[this.selectedSymbol] = this.storyText
+      } catch (e) {
+        showToast(e.response?.data?.message || '儲存失敗', 'error')
+      } finally {
+        this.loading = false
+      }
     },
     async handleUpdateStory() {
       const formData = new FormData()
@@ -1255,6 +1296,8 @@ export default {
         const res = await updateStory(formData)
         showToast(res.data.message || 'Saved!', 'success')
         this.storyDatas[this.selectedSymbol] = this.storyText
+        // 已正式發布，草稿不再需要
+        delete this.draftDatas[this.selectedSymbol]
         // 讓下拉選單的完成度標記立即反映這次儲存的結果
         if (imageBlob) this.hasImageMap[this.selectedSymbol] = true
         if (this.$refs.imageInput) this.$refs.imageInput.value = ''
@@ -1829,6 +1872,35 @@ export default {
 .site-desc {
   min-height: 60px;
 }
+
+/* ── 元素故事草稿 ── */
+.draft-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 4px;
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 196, 107, 0.35);
+  border-radius: 7px;
+  background: rgba(255, 196, 107, 0.08);
+  font-size: 13px;
+  color: rgba(255, 196, 107, 0.9);
+}
+
+.draft-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: #ffc46b;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.draft-link:hover { color: #fff; }
 
 /* ── 頁面管理 ── */
 .page-list {

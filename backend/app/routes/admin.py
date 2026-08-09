@@ -352,6 +352,11 @@ def update_story():
             symbols = [d for d in fbDatas if d != "periodic_table" and not d.startswith("_")]
             imageDatas = {data: fbDatas[data].get("img", "") for data in symbols}
             storyDatas = {data: fbDatas[data].get("description", "") for data in symbols}
+            # 未發布的草稿；前台不會讀到，只有後台編輯時會帶出來
+            draftDatas = {
+                data: fbDatas[data].get("draft", "")
+                for data in symbols if fbDatas[data].get("draft")
+            }
             # Storage 關閉時圖片只存在 img_data(base64)，兩者任一有值就算已上傳
             hasImage = {
                 data: bool(fbDatas[data].get("img") or fbDatas[data].get("img_data"))
@@ -364,6 +369,7 @@ def update_story():
                     "elements": elements,
                     "imageDatas": imageDatas,
                     "storyDatas": storyDatas,
+                    "draftDatas": draftDatas,
                     "hasImage": hasImage,
                 }
             )
@@ -375,9 +381,16 @@ def update_story():
         symbol = request.form.get("symbol")
         story = request.form.get("stroy")  # kept original field name for compat
         image = request.files.get("image")
+        # 草稿：內容存起來但不對外顯示，前台仍看到上一次發布的版本
+        is_draft = request.form.get("draft") == "1"
         # 首頁「最近更新」用；UTC ISO 8601
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
         has_story = bool((story or "").strip())
+
+        if is_draft:
+            # 只寫進 draft 欄位，不動 description 與圖片
+            fdb.child(symbol).update({"draft": story, "draft_updated_at": now})
+            return jsonify({"result": "success", "message": "草稿已儲存"})
 
         if image and image.filename:
             image_bytes = image.read()
@@ -397,13 +410,19 @@ def update_story():
                 "img_data": img_data,
                 "description": story,
                 "updated_at": now,
+                # 已正式發布，草稿不再需要
+                "draft": "",
+                "draft_updated_at": "",
             })
             update_completion(symbol, {"story": has_story, "image": True, "updated_at": now})
         else:
             # 沒有選新圖片時完全不碰 img / img_data。
             # 原本的做法是先把整個 DB 讀回來取出舊圖再整筆覆寫，只要那次
             # 讀取出問題，既有圖片就會被空字串蓋掉。
-            fdb.child(symbol).update({"description": story, "updated_at": now})
+            fdb.child(symbol).update({
+                "description": story, "updated_at": now,
+                "draft": "", "draft_updated_at": ""
+            })
             update_completion(symbol, {"story": has_story, "updated_at": now})
 
         return jsonify({"result": "success", "message": "Finish!"})
