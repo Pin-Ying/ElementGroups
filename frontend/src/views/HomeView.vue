@@ -43,6 +43,10 @@
         <GroupBox v-else :elements="filteredElements" :groups="groups" />
       </div>
     </transition>
+
+    <p class="data-source">
+      元素資料來源：<a href="https://pubchem.ncbi.nlm.nih.gov/periodic-table/" target="_blank" rel="noopener noreferrer">PubChem</a>（National Center for Biotechnology Information, NIH）
+    </p>
   </div>
 </template>
 
@@ -147,5 +151,18 @@ export default {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.data-source {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.35);
+}
+.data-source a {
+  color: rgba(228, 251, 255, 0.55);
+}
+.data-source a:hover {
+  color: #e4fbff;
 }
 </style>
