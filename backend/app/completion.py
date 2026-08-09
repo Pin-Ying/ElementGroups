@@ -24,12 +24,17 @@ def _is_element_node(symbol, data):
 
 
 def entry_for(data):
-    """從單一元素的資料算出完成度項目。"""
+    """從單一元素的資料算出完成度項目。
+
+    updated_at 是首頁「最近更新」用的時間戳；舊資料沒有這個欄位，
+    會以空字串表示，排序時會被排除。
+    """
     if not isinstance(data, dict):
-        return {"story": False, "image": False}
+        return {"story": False, "image": False, "updated_at": ""}
     return {
         "story": bool((data.get("description") or "").strip()),
         "image": bool(data.get("img") or data.get("img_data")),
+        "updated_at": data.get("updated_at") or "",
     }
 
 

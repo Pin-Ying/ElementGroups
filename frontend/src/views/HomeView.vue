@@ -24,6 +24,8 @@
       <button v-if="query" class="search-clear" @click="query = ''" title="Clear">✕</button>
     </div>
 
+    <ElementHighlights />
+
     <!-- 完成度圖例（#5）：一眼看出哪些元素已經有圖片/故事 -->
     <div v-if="completionCount.total > 0" class="completion-legend">
       <button
@@ -69,9 +71,10 @@ import PeriodicTableGrid from '../components/PeriodicTableGrid.vue'
 import PeriodicTable from '../components/PeriodicTable.vue'
 import GroupBox from '../components/GroupBox.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import ElementHighlights from '../components/ElementHighlights.vue'
 
 export default {
-  components: { PeriodicTableGrid, PeriodicTable, GroupBox, LoadingSpinner },
+  components: { PeriodicTableGrid, PeriodicTable, GroupBox, LoadingSpinner, ElementHighlights },
   data() {
     return {
       elements: elementsState.elements,

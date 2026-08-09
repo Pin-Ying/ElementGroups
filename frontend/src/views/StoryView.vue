@@ -129,7 +129,7 @@
 </template>
 
 <script>
-import { getElementDetail, getElementAbility, updateStory, apiBase } from '../api'
+import { getElementDetail, getElementAbility, updateStory, recordElementView, apiBase } from '../api'
 import AbilityChart from '../components/AbilityChart.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { authState } from '../store/auth'
@@ -245,6 +245,8 @@ export default {
         this.imgData = detail.img_data
         this.editStory = detail.story || ''
         this.abilityData = abilityRes.data
+        // 首頁「熱門元素」用的點閱計數；失敗不影響頁面
+        recordElementView(this.symbol).catch(() => {})
       } catch (e) {
         console.error('Failed to load element data:', e)
       } finally {

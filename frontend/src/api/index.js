@@ -92,6 +92,18 @@ export function suggestStory(payload) {
   return api.post('/admin/story-suggest', payload)
 }
 
+export function getRecentElements(limit = 8) {
+  return api.get('/elements/recent', { params: { limit } })
+}
+
+export function getPopularElements(limit = 8) {
+  return api.get('/elements/popular', { params: { limit } })
+}
+
+export function recordElementView(symbol) {
+  return api.post(`/elements/${symbol}/view`)
+}
+
 export function getElementsCompletion() {
   return api.get('/elements/completion')
 }

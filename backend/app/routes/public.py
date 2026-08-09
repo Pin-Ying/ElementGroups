@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, make_response, request, send_file
 from app.elements import get_atomicOrbital, get_characteristic, get_abMax
 from app.links import normalize_creator_links
 from app.completion import get_completion
+from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
 public_bp = Blueprint("public", __name__, url_prefix="/api")
@@ -99,6 +100,75 @@ def get_element_detail(symbol):
         )
 
     except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+def _element_cards(symbols):
+    """把 symbol 清單轉成首頁卡片需要的最小欄位。"""
+    cards = []
+    for symbol in symbols:
+        el = get_element_by_symbol(symbol)
+        if not el:
+            continue
+        cards.append({
+            "Symbol": el.get("Symbol"),
+            "Name": el.get("Name", ""),
+            "AtomicNumber": el.get("AtomicNumber"),
+            "CPKHexColor": el.get("CPKHexColor", ""),
+        })
+    return cards
+
+
+@public_bp.route("/elements/recent", methods=["GET"])
+def get_recent_elements():
+    """最近更新過故事/圖片的元素。"""
+    try:
+        limit = min(int(request.args.get("limit", 8)), 20)
+        completion = get_completion() or {}
+        dated = [
+            (symbol, entry.get("updated_at"))
+            for symbol, entry in completion.items()
+            if isinstance(entry, dict) and entry.get("updated_at")
+        ]
+        dated.sort(key=lambda item: item[1], reverse=True)
+        symbols = [symbol for symbol, _ in dated[:limit]]
+
+        updated_map = dict(dated)
+        cards = _element_cards(symbols)
+        for card in cards:
+            card["updated_at"] = updated_map.get(card["Symbol"], "")
+        return jsonify({"elements": cards})
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/elements/popular", methods=["GET"])
+def get_popular_elements():
+    """依點閱次數排序的熱門元素。"""
+    try:
+        limit = min(int(request.args.get("limit", 8)), 20)
+        views = get_all_views()
+        ranked = sorted(views.items(), key=lambda item: item[1], reverse=True)[:limit]
+
+        cards = _element_cards([symbol for symbol, _ in ranked])
+        view_map = dict(ranked)
+        for card in cards:
+            card["views"] = view_map.get(card["Symbol"], 0)
+        return jsonify({"elements": cards})
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/elements/<symbol>/view", methods=["POST"])
+def record_element_view(symbol):
+    """元素頁載入時累加點閱。失敗不影響前台，回 200 即可。"""
+    try:
+        if not get_element_by_symbol(symbol):
+            return jsonify({"result": "failure", "exception": "Element not found"}), 404
+        views = record_view(symbol)
+        return jsonify({"result": "success", "views": views})
+    except Exception as e:
+        print(f"Failed to record view for {symbol}: {e}")
         return jsonify({"result": "failure", "exception": str(e)}), 500
 
 

@@ -1,4 +1,5 @@
 import base64
+import datetime
 import os
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -323,7 +324,13 @@ def update_story():
             img = imageDatas.get(symbol, "")
             img_data = fbDatas.get(symbol, {}).get("img_data", "")
 
-        record = {"img": img, "img_data": img_data, "description": story}
+        record = {
+            "img": img,
+            "img_data": img_data,
+            "description": story,
+            # 首頁「最近更新」用；UTC ISO 8601
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
         upload_fdb(symbol, record)
         update_completion(symbol, record)
         return jsonify({"result": "success", "message": "Finish!"})
