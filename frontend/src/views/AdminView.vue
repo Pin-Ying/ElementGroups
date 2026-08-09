@@ -82,6 +82,20 @@
             <button class="page-item page-item--new" type="button" @click="newPage">＋ 新增頁面</button>
           </div>
 
+          <div v-if="importablePages.length" class="import-hint">
+            <span>內建頁面尚未轉成可編輯：</span>
+            <button
+              v-for="b in importablePages"
+              :key="b.slug"
+              class="draft-link"
+              type="button"
+              @click="importBuiltin(b.slug)"
+            >載入「{{ b.title }}」</button>
+            <p class="field-hint">
+              載入後即可自由編輯，儲存前不影響現有頁面；發布後該頁就改用你編輯的版本。
+            </p>
+          </div>
+
           <form class="page-form" @submit.prevent="handleSavePage">
             <div class="page-form-row">
               <div>
@@ -568,6 +582,7 @@ import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils
 import PokedexFrame, { FRAME_STYLES } from '../components/PokedexFrame.vue'
 import ImageCropper from '../components/ImageCropper.vue'
 import MarkdownContent from '../components/MarkdownContent.vue'
+import { BUILTIN_PAGES } from '../utils/builtinPages'
 
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
@@ -685,6 +700,13 @@ export default {
         const marks = (hasStory ? ' ✓' : '') + (hasImage ? ' ▣' : '')
         return { symbol: sym, hasStory, hasImage, label: sym + marks }
       })
+    },
+    // 內建頁面中尚未存進資料庫的，提供一鍵載入
+    importablePages() {
+      const existing = new Set(this.pageList.map(p => p.slug))
+      return Object.entries(BUILTIN_PAGES)
+        .filter(([slug]) => !existing.has(slug))
+        .map(([slug, p]) => ({ slug, title: p.title }))
     },
     hasDraft() {
       return !!(this.draftDatas[this.selectedSymbol] || '').trim()
@@ -904,6 +926,16 @@ export default {
       } catch (e) {
         console.error('Failed to load pages:', e)
       }
+    },
+    importBuiltin(slug) {
+      const b = BUILTIN_PAGES[slug]
+      if (!b) return
+      this.pageForm = {
+        original_slug: '', slug, title: b.title, content: b.content,
+        // 這兩頁本來就有自己的路由，不需要再出現在導覽列
+        nav_position: 'none', nav_order: 0, published: true
+      }
+      showToast(`已載入「${b.title}」的內建內容，編輯後按發布即可套用`, 'success')
     },
     selectPage(p) {
       this.pageForm = {
@@ -1871,6 +1903,26 @@ export default {
 
 .site-desc {
   min-height: 60px;
+}
+
+/* ── 內建頁面匯入提示 ── */
+.import-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid rgba(157, 140, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(90, 70, 160, 0.12);
+  font-size: 13px;
+  color: rgba(228, 251, 255, 0.7);
+}
+
+.import-hint .field-hint {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 /* ── 元素故事草稿 ── */

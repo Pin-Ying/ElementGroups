@@ -1,39 +1,42 @@
 <template>
   <div class="links-box">
-    <p class="title">CONNECT</p>
+    <p class="title">{{ page.title }}</p>
     <div class="box">
-      <p v-if="state.description" class="links-desc">{{ state.description }}</p>
-
-      <div v-if="links.length" class="link-list">
-        <SocialLink
-          v-for="(link, i) in links"
-          :key="link.platform + i"
-          :link="link"
-          :shape="state.avatar_shape"
-          size="md"
-        />
-      </div>
-      <p v-else class="placeholder-text">尚未設定任何連結</p>
+      <!-- 後台若在 CREATOR LINKS 填了描述，優先顯示那一段 -->
+      <p v-if="!fromDatabase && state.description" class="links-desc">{{ state.description }}</p>
+      <MarkdownContent :source="page.content" />
     </div>
   </div>
 </template>
 
 <script>
+// 同 GuideView：資料庫的 `links` 頁面優先，沒有才用內建內容。
+// 內建內容裡的 :::links 區塊會渲染成目前設定的社群連結。
+import { getPage } from '../api'
+import { builtinPage } from '../utils/builtinPages'
 import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
-import SocialLink from '../components/SocialLink.vue'
+import MarkdownContent from '../components/MarkdownContent.vue'
 
 export default {
-  components: { SocialLink },
+  components: { MarkdownContent },
   data() {
-    return { state: creatorLinksState }
-  },
-  computed: {
-    links() {
-      return this.state.links
+    return {
+      state: creatorLinksState,
+      page: builtinPage('links'),
+      fromDatabase: false
     }
   },
-  created() {
+  async created() {
     ensureCreatorLinks()
+    try {
+      const res = await getPage('links')
+      if (res.data?.content) {
+        this.page = { title: res.data.title, content: res.data.content }
+        this.fromDatabase = true
+      }
+    } catch {
+      // 沒有自訂版本就沿用內建內容
+    }
   }
 }
 </script>
@@ -59,19 +62,7 @@ export default {
   font-size: 14px;
   line-height: 1.85;
   color: rgba(228, 251, 255, 0.72);
-  margin: 0 0 18px;
+  margin: 0 0 12px;
   white-space: pre-wrap;
-}
-
-.placeholder-text {
-  font-size: 13px;
-  opacity: 0.4;
-  margin: 8px 0;
-}
-
-.link-list {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
 }
 </style>

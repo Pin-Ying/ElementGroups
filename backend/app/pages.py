@@ -12,8 +12,10 @@ PAGES_NODE = "_pages"
 NAV_POSITIONS = ("header", "sidebar", "footer", "none")
 DEFAULT_NAV = "sidebar"
 
-# 保留給既有路由，避免使用者建出蓋掉功能頁的 slug
-RESERVED_SLUGS = {"admin", "links", "guide", "stroy", "api", "p"}
+# 保留給既有路由，避免使用者建出蓋掉功能頁的 slug。
+# guide 與 links 刻意不列入：那兩頁的內容本來就開放後台覆寫，
+# 前端會以資料庫版本優先，沒有才回退到內建內容。
+RESERVED_SLUGS = {"admin", "stroy", "api", "p"}
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
