@@ -10,6 +10,7 @@ from app import auth as auth_module
 from app.config import settings
 from app.elements import element_info
 from app.links import normalize_creator_links, serialize_creator_links
+from app.completion import update_completion, rebuild_completion
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, fdb
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api")
@@ -97,6 +98,22 @@ def backfill_img_data():
             "result": "success",
             "message": f"完成！新增 {updated} 筆",
             "updated": updated
+        })
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/rebuild-completion", methods=["POST"])
+@login_required
+def rebuild_completion_summary():
+    """重新掃描所有元素，重建首頁用的完成度摘要。
+    正常情況下寫入故事/圖片時已自動同步，這裡是資料被外部改動後的補救。"""
+    try:
+        completion = rebuild_completion()
+        return jsonify({
+            "result": "success",
+            "message": f"完成！已重建 {len(completion)} 筆",
+            "count": len(completion)
         })
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -214,7 +231,9 @@ def update_story():
             img = imageDatas.get(symbol, "")
             img_data = fbDatas.get(symbol, {}).get("img_data", "")
 
-        upload_fdb(symbol, {"img": img, "img_data": img_data, "description": story})
+        record = {"img": img, "img_data": img_data, "description": story}
+        upload_fdb(symbol, record)
+        update_completion(symbol, record)
         return jsonify({"result": "success", "message": "Finish!"})
 
     except Exception as e:

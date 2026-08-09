@@ -20,6 +20,7 @@
           <span class="el-num">{{ elt.AtomicNumber }}</span>
           <span class="el-sym">{{ elt.Symbol }}</span>
         </router-link>
+        <CompletionDots v-if="completion" :state="completion[elt.Symbol]" />
       </div>
     </div>
   </div>
@@ -49,9 +50,14 @@ const POSITION = {
   96: [10,10], 97: [10,11], 98: [10,12], 99: [10,13], 100: [10,14], 101: [10,15], 102: [10,16], 103: [10,17],
 }
 
+import CompletionDots from './CompletionDots.vue'
+
 export default {
+  components: { CompletionDots },
   props: {
-    elements: { type: Array, required: true }
+    elements: { type: Array, required: true },
+    // { Symbol: {story, image} }；不傳則不顯示完成度標記
+    completion: { type: Object, default: null }
   },
   computed: {
     positioned() {

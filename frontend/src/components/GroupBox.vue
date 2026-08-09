@@ -14,16 +14,22 @@
           <span class="el-sym">{{ elt.Symbol }}</span>
           <span class="el-name">{{ elt.Name }}</span>
         </router-link>
+        <CompletionDots v-if="completion" :state="completion[elt.Symbol]" />
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import CompletionDots from './CompletionDots.vue'
+
 export default {
+  components: { CompletionDots },
   props: {
     elements: { type: Array, required: true },
-    groups: { type: Object, required: true }
+    groups: { type: Object, required: true },
+    // { Symbol: {story, image} }；不傳則不顯示完成度標記
+    completion: { type: Object, default: null }
   },
   computed: {
     uniqueGroups() {

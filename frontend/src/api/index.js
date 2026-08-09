@@ -70,6 +70,14 @@ export function getDefaultImgInfo() {
   return api.get('/admin/default-img')
 }
 
+export function getElementsCompletion() {
+  return api.get('/elements/completion')
+}
+
+export function rebuildCompletion() {
+  return api.post('/admin/rebuild-completion')
+}
+
 export function getCreatorLinks() {
   return api.get('/creator-links')
 }

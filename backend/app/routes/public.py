@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, make_response, request, send_file
 
 from app.elements import get_atomicOrbital, get_characteristic, get_abMax
 from app.links import normalize_creator_links
+from app.completion import get_completion
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
 public_bp = Blueprint("public", __name__, url_prefix="/api")
@@ -97,6 +98,15 @@ def get_element_detail(symbol):
             }
         )
 
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/elements/completion", methods=["GET"])
+def get_elements_completion():
+    """首頁用：哪些元素已經有故事/圖片。"""
+    try:
+        return jsonify({"completion": get_completion() or {}})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 

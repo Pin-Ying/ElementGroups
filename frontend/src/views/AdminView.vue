@@ -182,6 +182,14 @@
             <button class="button" @click="handleBackfill">執行</button>
           </div>
 
+          <div class="maintenance-item">
+            <div class="maintenance-info">
+              <p class="maintenance-title">重建完成度摘要</p>
+              <p class="desc">重新掃描所有元素，更新首頁用來標示「已上傳圖片／已寫故事」的摘要資料。<br>正常情況下儲存故事時已自動同步，只有直接從 Firebase 後台改過資料才需要執行。</p>
+            </div>
+            <button class="button" @click="handleRebuildCompletion">執行</button>
+          </div>
+
           <p v-if="adminMsg" class="msg" :class="adminMsgType">{{ adminMsg }}</p>
         </div>
 
@@ -191,7 +199,7 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, apiBase } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -323,6 +331,20 @@ export default {
       this.adminMsg = ''
       try {
         const res = await backfillImgData()
+        this.adminMsg = res.data.message
+        this.adminMsgType = 'success-msg'
+      } catch (e) {
+        this.adminMsg = e.response?.data?.message || 'Error!'
+        this.adminMsgType = 'error-msg'
+      } finally {
+        this.loading = false
+      }
+    },
+    async handleRebuildCompletion() {
+      this.loading = true
+      this.adminMsg = ''
+      try {
+        const res = await rebuildCompletion()
         this.adminMsg = res.data.message
         this.adminMsgType = 'success-msg'
       } catch (e) {
