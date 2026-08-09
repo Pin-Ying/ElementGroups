@@ -311,14 +311,11 @@
           <p class="title is-4">CREATOR LINKS</p>
           <p class="desc">
             設定要對外顯示的社群連結，數量不限。<br>
-            儲存後會出現在每一頁最下方的頁尾，以及 /links 頁面；網址留空的項目會被忽略。
+            儲存後會出現在每一頁最下方的頁尾，以及 /links 頁面；網址留空的項目會被忽略。<br>
+            /links 頁面的說明文字請到「頁面管理」編輯。
           </p>
 
           <form @submit.prevent="handleUpdateCreatorLinks">
-            <label class="label">Connect 頁描述</label>
-            <p class="field-hint">顯示在 /links 頁面連結上方的說明文字，留空則不顯示。</p>
-            <textarea class="textarea site-desc" v-model="creatorMeta.description" rows="2"></textarea>
-
             <label class="label">頭像形狀</label>
             <div class="shape-picker">
               <button
@@ -1688,19 +1685,20 @@ export default {
     position: static;
     flex-direction: row;
     align-items: center;
+    flex-wrap: wrap;
     gap: 4px;
-    overflow-x: auto;
     padding: 8px;
-    scrollbar-width: none;
   }
-
-  .admin-nav::-webkit-scrollbar { display: none; }
 
   .nav-title { display: none; }
 
+  /* 改為換行而不是橫向捲動：七個功能全部一次看得到，
+     不必左右滑才知道後面還有什麼 */
   .nav-list {
     flex-direction: row;
+    flex-wrap: wrap;
     gap: 4px;
+    flex: 1;
   }
 
   .nav-item {
@@ -1719,6 +1717,16 @@ export default {
     margin-left: 4px;
     padding-left: 12px;
   }
+}
+
+/* 更窄的螢幕：選單再縮一級，圖示與文字都收小 */
+@media (max-width: 480px) {
+  .admin-layout { padding: 10px 8px 28px; }
+  .admin-nav { padding: 6px; gap: 3px; }
+  .nav-item { padding: 6px 9px; font-size: 12px; gap: 6px; }
+  .nav-icon { width: 13px; }
+  .admin-content .box { padding: 16px 14px; }
+  .content-title { font-size: 12px; }
 }
 
 .admin-header {

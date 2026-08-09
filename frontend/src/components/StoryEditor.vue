@@ -25,7 +25,9 @@
       >✧ AI 協助</button>
     </div>
 
-    <textarea class="textarea" v-model="storyText" :rows="rows" aria-label="故事內容"></textarea>
+    <!-- 開著 AI 面板時，寬螢幕改為編輯框與建議左右並排 -->
+    <div class="editor-main" :class="{ 'editor-main--split': ai.enabled && aiPanelOpen }">
+      <textarea class="textarea" v-model="storyText" :rows="rows" aria-label="故事內容"></textarea>
 
     <!-- AI 故事協助（只有後端設定了 API key 才會出現） -->
     <div v-if="ai.enabled && aiPanelOpen" class="ai-panel">
@@ -56,6 +58,7 @@
           <button class="button secondary" type="button" @click="aiSuggestion = ''">捨棄</button>
         </div>
       </div>
+    </div>
     </div>
 
     <label class="label">Image</label>
@@ -406,6 +409,31 @@ export default {
   background: rgba(157, 140, 255, 0.25);
   border-color: rgba(157, 140, 255, 0.8);
   color: #fff;
+}
+
+/* 寬螢幕時編輯框與 AI 建議並排，兩邊等高才好對照 */
+.editor-main--split {
+  display: grid;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .editor-main--split {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .editor-main--split .textarea {
+    height: 100%;
+    min-height: 320px;
+    margin-bottom: 0;
+  }
+
+  .editor-main--split .ai-panel {
+    margin: 0;
+    max-height: 520px;
+    overflow-y: auto;
+  }
 }
 
 .ai-panel {

@@ -2,8 +2,6 @@
   <div class="links-box">
     <p class="title">{{ page.title }}</p>
     <div class="box">
-      <!-- 後台若在 CREATOR LINKS 填了描述，優先顯示那一段 -->
-      <p v-if="!fromDatabase && state.description" class="links-desc">{{ state.description }}</p>
       <MarkdownContent :source="page.content" />
     </div>
   </div>
@@ -56,13 +54,5 @@ export default {
   padding: 24px 28px;
   margin-bottom: 20px;
   text-align: left;
-}
-
-.links-desc {
-  font-size: 14px;
-  line-height: 1.85;
-  color: rgba(228, 251, 255, 0.72);
-  margin: 0 0 12px;
-  white-space: pre-wrap;
 }
 </style>
