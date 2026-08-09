@@ -244,7 +244,7 @@ def get_elements_completion():
 def get_creator_links():
     try:
         data = show_fdb("_creator_links")
-        return jsonify({"links": normalize_creator_links(data)})
+        return jsonify(normalize_creator_links(data))
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 

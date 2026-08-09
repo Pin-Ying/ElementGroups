@@ -2,18 +2,16 @@
   <div class="links-box">
     <p class="title">CONNECT</p>
     <div class="box">
-      <p class="desc">追蹤創作者的社群帳號</p>
+      <p v-if="state.description" class="links-desc">{{ state.description }}</p>
 
       <div v-if="links.length" class="link-list">
-        <a
+        <SocialLink
           v-for="(link, i) in links"
           :key="link.platform + i"
-          class="link-button"
-          :style="{ '--brand': platformInfo(link.platform).color }"
-          :href="link.url"
-          target="_blank"
-          rel="noopener noreferrer"
-        >{{ link.label }}</a>
+          :link="link"
+          :shape="state.avatar_shape"
+          size="md"
+        />
       </div>
       <p v-else class="placeholder-text">尚未設定任何連結</p>
     </div>
@@ -22,21 +20,21 @@
 
 <script>
 import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
-import { platformInfo } from '../utils/socialPlatforms'
+import SocialLink from '../components/SocialLink.vue'
 
 export default {
+  components: { SocialLink },
   data() {
-    return { creatorLinksState }
+    return { state: creatorLinksState }
   },
   computed: {
     links() {
-      return this.creatorLinksState.links
+      return this.state.links
     }
   },
   created() {
     ensureCreatorLinks()
-  },
-  methods: { platformInfo }
+  }
 }
 </script>
 
@@ -57,11 +55,12 @@ export default {
   text-align: left;
 }
 
-.desc {
-  font-size: 13px;
-  opacity: 0.55;
-  margin: 2px 0 14px;
-  line-height: 1.5;
+.links-desc {
+  font-size: 14px;
+  line-height: 1.85;
+  color: rgba(228, 251, 255, 0.72);
+  margin: 0 0 18px;
+  white-space: pre-wrap;
 }
 
 .placeholder-text {
@@ -74,26 +73,5 @@ export default {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.link-button {
-  --brand: #64b8e8;
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 22px;
-  font-size: 14px;
-  border-radius: 999px;
-  text-decoration: none;
-  color: rgba(228, 251, 255, 0.9);
-  border: 1px solid color-mix(in srgb, var(--brand) 50%, transparent);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s;
-}
-
-.link-button:hover {
-  color: #fff;
-  border-color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 28%, transparent);
-  transform: translateY(-1px);
 }
 </style>

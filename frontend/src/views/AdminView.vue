@@ -165,6 +165,25 @@
           </p>
 
           <form @submit.prevent="handleUpdateCreatorLinks">
+            <label class="label">Connect 頁描述</label>
+            <p class="field-hint">顯示在 /links 頁面連結上方的說明文字，留空則不顯示。</p>
+            <textarea class="textarea site-desc" v-model="creatorMeta.description" rows="2"></textarea>
+
+            <label class="label">頭像形狀</label>
+            <div class="shape-picker">
+              <button
+                v-for="sh in AVATAR_SHAPES"
+                :key="sh.key"
+                class="shape-option"
+                type="button"
+                :class="{ active: creatorMeta.avatar_shape === sh.key }"
+                @click="creatorMeta.avatar_shape = sh.key"
+              >
+                <i class="shape-demo" :class="'shape-demo--' + sh.key"></i>
+                {{ sh.label }}
+              </button>
+            </div>
+
             <div v-if="!creatorLinks.length" class="placeholder-text">
               尚未新增任何連結，點下方「＋ 新增連結」開始。
             </div>
@@ -197,6 +216,33 @@
                 <button class="icon-button" type="button" title="上移" :disabled="i === 0" @click="moveLink(i, -1)">↑</button>
                 <button class="icon-button" type="button" title="下移" :disabled="i === creatorLinks.length - 1" @click="moveLink(i, 1)">↓</button>
                 <button class="icon-button danger" type="button" title="刪除" @click="removeLink(i)">✕</button>
+              </div>
+
+              <div class="link-extras">
+                <div class="link-avatar">
+                  <span
+                    v-if="link.avatar"
+                    class="avatar-preview"
+                    :class="'avatar-preview--' + creatorMeta.avatar_shape"
+                  >
+                    <img :src="link.avatar" alt="" />
+                  </span>
+                  <span v-else class="avatar-empty">無頭像</span>
+                  <input
+                    class="input avatar-input"
+                    type="file"
+                    accept="image/*"
+                    :aria-label="link.label + ' 頭像'"
+                    @change="onAvatarChange($event, link)"
+                  />
+                  <button v-if="link.avatar" class="icon-button danger" type="button" title="移除頭像" @click="link.avatar = ''">✕</button>
+                </div>
+
+                <label class="link-color">
+                  顏色
+                  <input type="color" :value="link.color || platformInfo(link.platform).color" @input="link.color = $event.target.value" />
+                  <button v-if="link.color" class="reset-color" type="button" @click="link.color = ''">用平台預設</button>
+                </label>
               </div>
             </div>
 
@@ -415,6 +461,11 @@ import ImageCropper from '../components/ImageCropper.vue'
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
 
+const AVATAR_SHAPES = [
+  { key: 'circle', label: '圓形' },
+  { key: 'square', label: '方形' }
+]
+
 // 後台功能區塊。一次只顯示一項，避免所有表單疊在同一頁要一路往下滑。
 const SECTIONS = [
   { key: 'story', label: '元素故事', icon: '✎' },
@@ -455,6 +506,8 @@ export default {
       defaultImgBlob: null,
       defaultImgInfo: null,
       creatorLinks: [],
+      creatorMeta: { description: '', avatar_shape: 'circle' },
+      AVATAR_SHAPES,
       creatorLinksSaving: false,
       platforms: PLATFORMS,
       FRAME_STYLES,
@@ -915,7 +968,7 @@ export default {
     addLink() {
       const used = new Set(this.creatorLinks.map(l => l.platform))
       const next = PLATFORMS.find(p => !used.has(p.key)) || PLATFORMS[0]
-      this.creatorLinks.push({ platform: next.key, label: next.label, url: '' })
+      this.creatorLinks.push({ platform: next.key, label: next.label, url: '', color: '', avatar: '' })
     },
     removeLink(i) {
       this.creatorLinks.splice(i, 1)
@@ -931,14 +984,37 @@ export default {
       const isDefaultLabel = PLATFORMS.some(p => p.label === link.label)
       if (!link.label || isDefaultLabel) link.label = platformInfo(link.platform).label
     },
+    async onAvatarChange(e, link) {
+      const file = e.target.files[0]
+      e.target.value = ''
+      if (!file) return
+      try {
+        // 頭像顯示尺寸很小，壓縮流程已足夠，不需要另外裁切
+        const result = await compressImage(file)
+        link.avatar = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(result.blob)
+        })
+      } catch (err) {
+        showToast(err.message || '頭像處理失敗', 'error')
+      }
+    },
     async loadCreatorLinks() {
       try {
         const res = await getAdminCreatorLinks()
         this.creatorLinks = (res.data.links || []).map(l => ({
           platform: l.platform || 'website',
           label: l.label || '',
-          url: l.url || ''
+          url: l.url || '',
+          color: l.color || '',
+          avatar: l.avatar || ''
         }))
+        this.creatorMeta = {
+          description: res.data.description || '',
+          avatar_shape: res.data.avatar_shape || 'circle'
+        }
       } catch (e) {
         console.error('Failed to load creator links:', e)
       }
@@ -949,14 +1025,17 @@ export default {
         .map(l => ({
           platform: l.platform,
           label: (l.label || '').trim() || platformInfo(l.platform).label,
-          url: l.url.trim()
+          url: l.url.trim(),
+          color: l.color || '',
+          avatar: l.avatar || ''
         }))
+      const payload = { ...this.creatorMeta, links }
       this.creatorLinksSaving = true
       try {
-        const res = await updateCreatorLinks({ links })
+        const res = await updateCreatorLinks(payload)
         showToast(res.data.message || 'Saved!', 'success')
         // 讓頁尾與 /links 立刻反映這次儲存的結果
-        setCreatorLinks(links)
+        setCreatorLinks(payload)
       } catch (e) {
         showToast(e.response?.data?.message || 'Save failed', 'error')
       } finally {
@@ -985,6 +1064,11 @@ export default {
     onSymbolChange() {
       this.storyText = this.storyDatas[this.selectedSymbol] || ''
       this.loadGallery()
+      // AI 的方向、參考資料與建議都是針對前一個元素寫的，換元素時一併清掉，
+      // 否則會把上一個元素的設定帶到下一個
+      this.aiDirection = ''
+      this.aiReference = ''
+      this.aiSuggestion = ''
       this.revokeImagePreview()
       if (this.$refs.imageInput) this.$refs.imageInput.value = ''
     },
@@ -1214,10 +1298,132 @@ export default {
 .link-row {
   display: flex;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 0;
   border-bottom: 1px solid rgba(228, 251, 255, 0.07);
 }
+
+/* 頭像與自訂色：放在該連結底下的第二行 */
+.link-extras {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-left: 2px;
+}
+
+.link-avatar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.avatar-preview {
+  display: block;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid rgba(228, 251, 255, 0.25);
+}
+
+.avatar-preview--circle { border-radius: 50%; }
+.avatar-preview--square { border-radius: 6px; }
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+  border-radius: 0;
+  display: block;
+}
+
+.avatar-empty {
+  font-size: 11px;
+  color: rgba(228, 251, 255, 0.3);
+  width: 32px;
+  text-align: center;
+}
+
+.avatar-input {
+  margin: 0;
+  font-size: 11px;
+  max-width: 190px;
+}
+
+.link-color {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.55);
+}
+
+.link-color input[type="color"] {
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(228, 251, 255, 0.25);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.reset-color {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid rgba(228, 251, 255, 0.2);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(228, 251, 255, 0.5);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.reset-color:hover {
+  color: #e4fbff;
+  border-color: rgba(228, 251, 255, 0.5);
+}
+
+/* 頭像形狀選擇 */
+.shape-picker {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+
+.shape-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border: 1px solid rgba(228, 251, 255, 0.18);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(228, 251, 255, 0.6);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.shape-option.active {
+  border-color: #6ee76e;
+  background: rgba(110, 231, 110, 0.1);
+  color: #e4fbff;
+}
+
+.shape-demo {
+  width: 16px;
+  height: 16px;
+  background: rgba(228, 251, 255, 0.45);
+  display: inline-block;
+}
+
+.shape-demo--circle { border-radius: 50%; }
+.shape-demo--square { border-radius: 4px; }
 
 .link-row:last-of-type {
   border-bottom: none;

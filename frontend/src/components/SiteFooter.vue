@@ -3,15 +3,13 @@
     <div class="footer-inner">
       <div v-if="links.length" class="footer-social">
         <div class="social-list">
-          <a
+          <SocialLink
             v-for="(link, i) in links"
             :key="link.platform + i"
-            class="social-chip"
-            :style="{ '--brand': platformInfo(link.platform).color }"
-            :href="link.url"
-            target="_blank"
-            rel="noopener noreferrer"
-          >{{ link.label }}</a>
+            :link="link"
+            :shape="creatorLinksState.avatar_shape"
+            size="sm"
+          />
         </div>
       </div>
 
@@ -28,9 +26,10 @@
 
 <script>
 import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
-import { platformInfo } from '../utils/socialPlatforms'
+import SocialLink from './SocialLink.vue'
 
 export default {
+  components: { SocialLink },
   data() {
     return { creatorLinksState }
   },
@@ -41,8 +40,7 @@ export default {
   },
   created() {
     ensureCreatorLinks()
-  },
-  methods: { platformInfo }
+  }
 }
 </script>
 
@@ -76,27 +74,6 @@ export default {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
-}
-
-.social-chip {
-  --brand: #64b8e8;
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 16px;
-  font-size: 13px;
-  border-radius: 999px;
-  text-decoration: none;
-  color: rgba(228, 251, 255, 0.85);
-  border: 1px solid color-mix(in srgb, var(--brand) 45%, transparent);
-  background: color-mix(in srgb, var(--brand) 10%, transparent);
-  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s;
-}
-
-.social-chip:hover {
-  color: #fff;
-  border-color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 26%, transparent);
-  transform: translateY(-1px);
 }
 
 .footer-nav {

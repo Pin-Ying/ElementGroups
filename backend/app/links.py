@@ -1,11 +1,14 @@
 """創作者社群連結的資料正規化。
 
-`_creator_links` node 早期只存固定的 {instagram, threads} 兩個欄位，
-後來改成不限數量的 links 陣列。這裡統一把兩種格式讀成同一種結構，
-讓既有資料不用手動搬遷。
+`_creator_links` 經歷過三種格式，這裡統一讀成同一種結構，讓既有資料
+不用手動搬遷：
+
+1. 最早：{instagram: url, threads: url}
+2. 其次：{links: [{platform, label, url}]}
+3. 現在：{description, avatar_shape, links: [{platform, label, url, color, avatar}]}
 """
 
-# 舊格式僅有這兩個平台
+# 最早期的格式僅有這兩個平台
 LEGACY_PLATFORMS = ("instagram", "threads")
 
 LEGACY_LABELS = {
@@ -13,30 +16,30 @@ LEGACY_LABELS = {
     "threads": "Threads",
 }
 
+AVATAR_SHAPES = ("circle", "square")
+DEFAULT_SHAPE = "circle"
 
-def normalize_creator_links(data):
-    """把 `_creator_links` 的原始內容轉成 [{platform, label, url}] 陣列。
 
-    無資料時回傳空陣列。
-    """
-    if not data:
-        return []
+def _clean_link(item):
+    """整理單筆連結；沒有網址的視為無效。"""
+    if not isinstance(item, dict):
+        return None
+    url = (item.get("url") or "").strip()
+    if not url:
+        return None
+    platform = (item.get("platform") or "website").strip() or "website"
+    return {
+        "platform": platform,
+        "label": (item.get("label") or "").strip() or platform.title(),
+        "url": url,
+        # 自訂顏色，留空則沿用前端的平台預設色
+        "color": (item.get("color") or "").strip(),
+        # 頭像 base64，留空則顯示文字
+        "avatar": (item.get("avatar") or "").strip(),
+    }
 
-    links = data.get("links")
-    if isinstance(links, list):
-        result = []
-        for item in links:
-            if not isinstance(item, dict):
-                continue
-            url = (item.get("url") or "").strip()
-            if not url:
-                continue
-            platform = (item.get("platform") or "website").strip()
-            label = (item.get("label") or "").strip() or platform.title()
-            result.append({"platform": platform, "label": label, "url": url})
-        return result
 
-    # 舊格式：{instagram: "...", threads: "..."}
+def _legacy_links(data):
     result = []
     for platform in LEGACY_PLATFORMS:
         url = (data.get(platform) or "").strip()
@@ -45,25 +48,46 @@ def normalize_creator_links(data):
                 "platform": platform,
                 "label": LEGACY_LABELS[platform],
                 "url": url,
+                "color": "",
+                "avatar": "",
             })
     return result
 
 
+def normalize_creator_links(data):
+    """回傳 {description, avatar_shape, links}。無資料時給空的預設值。"""
+    if not data:
+        return {"description": "", "avatar_shape": DEFAULT_SHAPE, "links": []}
+
+    raw_links = data.get("links")
+    if isinstance(raw_links, list):
+        links = [c for c in (_clean_link(i) for i in raw_links) if c]
+    else:
+        links = _legacy_links(data)
+
+    shape = (data.get("avatar_shape") or DEFAULT_SHAPE).strip()
+    if shape not in AVATAR_SHAPES:
+        shape = DEFAULT_SHAPE
+
+    return {
+        "description": (data.get("description") or "").strip(),
+        "avatar_shape": shape,
+        "links": links,
+    }
+
+
 def serialize_creator_links(payload):
     """把前端送來的 payload 整理成要寫進 DB 的結構。"""
-    links = payload.get("links")
-    if not isinstance(links, list):
-        links = []
+    raw_links = payload.get("links")
+    if not isinstance(raw_links, list):
+        raw_links = []
 
-    cleaned = []
-    for item in links:
-        if not isinstance(item, dict):
-            continue
-        url = (item.get("url") or "").strip()
-        if not url:
-            continue
-        platform = (item.get("platform") or "website").strip() or "website"
-        label = (item.get("label") or "").strip() or platform.title()
-        cleaned.append({"platform": platform, "label": label, "url": url})
+    shape = (payload.get("avatar_shape") or DEFAULT_SHAPE).strip()
+    if shape not in AVATAR_SHAPES:
+        shape = DEFAULT_SHAPE
 
-    return {"links": cleaned}
+    return {
+        "description": (payload.get("description") or "").strip(),
+        "avatar_shape": shape,
+        "links": [c for c in (_clean_link(i) for i in raw_links) if c],
+    }
