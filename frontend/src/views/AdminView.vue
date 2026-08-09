@@ -214,6 +214,32 @@
               </button>
             </div>
 
+            <label class="label">分層圖底色</label>
+            <p class="field-hint">
+              原子核、電子、手寫元素名都是去背 PNG，需要一個底色才看得清楚。
+              預設白色，與原本的靜態圖一致。
+            </p>
+            <div class="bg-picker">
+              <input type="color" v-model="siteForm.layer_bg" aria-label="分層圖底色" />
+              <input class="input bg-hex" type="text" v-model="siteForm.layer_bg" aria-label="色碼" />
+              <button class="draft-link" type="button" @click="siteForm.layer_bg = '#ffffff'">還原白色</button>
+              <span class="bg-sample" :style="{ background: siteForm.layer_bg }"></span>
+            </div>
+
+            <label class="label">電子大小</label>
+            <p class="field-hint">
+              電子在元素圖上的直徑，佔圖片寬度的百分比。電子數多的元素會自動再縮小一些避免重疊。
+            </p>
+            <div class="size-picker">
+              <input type="range" min="10" max="40" step="1" v-model.number="siteForm.electron_size" aria-label="電子大小" />
+              <span class="size-value">{{ siteForm.electron_size }}%</span>
+              <span class="size-demo">
+                <span class="size-demo-nucleus"></span>
+                <span class="size-demo-electron" :style="{ width: siteForm.electron_size + '%', height: siteForm.electron_size + '%' }"></span>
+              </span>
+              <button class="draft-link" type="button" @click="siteForm.electron_size = 24">還原 24%</button>
+            </div>
+
             <label class="label">自訂外框圖（PNG，需透明背景）</label>
             <p class="field-hint">上傳後會覆蓋上面選的內建款式，圖片會等比拉伸鋪滿代表圖範圍。</p>
             <img v-if="siteFrameCurrent && !siteFramePreviewUrl" :src="siteFrameCurrent" class="img-preview bg-preview" alt="目前外框圖" />
@@ -802,7 +828,7 @@ export default {
       cropQueue: [],
       galleryItems: [],
       gallerySaving: false,
-      siteForm: { title: '', subtitle: '', description: '', frame_style: 'classic' },
+      siteForm: { title: '', subtitle: '', description: '', frame_style: 'classic', layer_bg: '#ffffff', electron_size: 24 },
       siteDefaults: SITE_DEFAULTS,
       siteBgCurrent: '',
       siteBgPreviewUrl: '',
@@ -1136,7 +1162,9 @@ export default {
           title: res.data.title || '',
           subtitle: res.data.subtitle || '',
           description: res.data.description || '',
-          frame_style: res.data.frame_style || 'classic'
+          frame_style: res.data.frame_style || 'classic',
+          layer_bg: res.data.layer_bg || '#ffffff',
+          electron_size: Number(res.data.electron_size) || 24
         }
         this.siteBgCurrent = res.data.bg_image || ''
         this.siteFrameCurrent = res.data.frame_image || ''
@@ -1192,6 +1220,8 @@ export default {
       formData.append('subtitle', this.siteForm.subtitle)
       formData.append('description', this.siteForm.description)
       formData.append('frame_style', this.siteForm.frame_style || 'classic')
+      formData.append('layer_bg', this.siteForm.layer_bg || '#ffffff')
+      formData.append('electron_size', this.siteForm.electron_size || 24)
       return formData
     },
     async handleClearSiteFrame() {
@@ -2587,6 +2617,86 @@ export default {
   display: flex;
   gap: 4px;
   justify-content: center;
+}
+
+/* ── 電子大小 ── */
+.size-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+}
+
+.size-picker input[type="range"] { flex: 1; min-width: 140px; max-width: 220px; }
+
+.size-value {
+  font-size: 13px;
+  color: rgba(228, 251, 255, 0.8);
+  font-variant-numeric: tabular-nums;
+  min-width: 38px;
+}
+
+/* 即時預覽：白底方塊上一顆原子核與一顆電子 */
+.size-demo {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  border-radius: 6px;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.size-demo-nucleus {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 46%;
+  height: 46%;
+  margin: -23% 0 0 -23%;
+  border-radius: 50%;
+  background: #e06633;
+}
+
+.size-demo-electron {
+  position: absolute;
+  top: 14%;
+  left: 68%;
+  border-radius: 50%;
+  background: #2b6cb0;
+  transform: translate(-50%, -50%);
+}
+
+/* ── 分層圖底色 ── */
+.bg-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+}
+
+.bg-picker input[type="color"] {
+  width: 40px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(228, 251, 255, 0.25);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bg-hex {
+  width: 110px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.bg-sample {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(228, 251, 255, 0.2);
 }
 
 /* ── 圖鑑外框選擇 ── */

@@ -101,6 +101,22 @@
 
               <!-- 中：主圖 -->
               <div class="dex-figure">
+                <!-- 有分層素材時讓讀者自己選要看動態還是原本的靜態圖 -->
+                <div v-if="hasLayers" class="view-switch">
+                  <button
+                    class="view-switch-btn"
+                    type="button"
+                    :class="{ active: preferLayers }"
+                    @click="setPreferLayers(true)"
+                  >動態</button>
+                  <button
+                    class="view-switch-btn"
+                    type="button"
+                    :class="{ active: !preferLayers }"
+                    @click="setPreferLayers(false)"
+                  >靜態</button>
+                </div>
+
                 <PokedexFrame
                   v-if="!imgBroken"
                   :color="elInfo.CPKHexColor"
@@ -115,6 +131,8 @@
                     :electron-img="layers.electron_img"
                     :count="outerElectrons"
                     :motion="layers.motion"
+                    :bg-color="site.layer_bg"
+                    :size="site.electron_size"
                   />
                   <img
                     v-else
@@ -158,8 +176,6 @@
 
           <!-- Stats：基本資料 + 能力值 -->
           <div v-else key="stats" class="stats-section">
-            <ElementProfile v-if="abilityData" :elInfo="abilityData" />
-
             <div class="chart-type-toggle">
               <button :class="{ active: chartType === 'bars' }" @click="chartType = 'bars'">數值條</button>
               <button :class="{ active: chartType === 'radar' }" @click="chartType = 'radar'">雷達圖</button>
@@ -181,7 +197,6 @@
 import { getElementDetail, getElementAbility, updateStory, recordElementView, getElementGallery, getElementLayers, apiBase } from '../api'
 import AbilityChart from '../components/AbilityChart.vue'
 import AbilityBars from '../components/AbilityBars.vue'
-import ElementProfile from '../components/ElementProfile.vue'
 import PokedexFrame from '../components/PokedexFrame.vue'
 import ElementGallery from '../components/ElementGallery.vue'
 import ElementLayers from '../components/ElementLayers.vue'
@@ -194,7 +209,7 @@ import { showToast } from '../store/toast'
 import { elementsState, ensureElements } from '../store/elements'
 
 export default {
-  components: { AbilityChart, AbilityBars, ElementProfile, PokedexFrame, ElementGallery, ElementLayers, StoryEditor, LoadingSpinner },
+  components: { AbilityChart, AbilityBars, PokedexFrame, ElementGallery, ElementLayers, StoryEditor, LoadingSpinner },
   props: { symbol: { type: String, required: true } },
   data() {
     return {
@@ -210,6 +225,7 @@ export default {
       site: siteSettingsState,
       gallery: [],
       layers: null,
+      preferLayers: localStorage.getItem('preferLayers') !== 'false',
       section: 'intro',
       chartType: 'bars',
       loading: false,
@@ -226,8 +242,12 @@ export default {
       return null
     },
     // 原子核是必要的；沒有它就沒有分層的基礎
-    useLayers() {
+    hasLayers() {
       return !!(this.layers && this.layers.nucleus)
+    },
+    // 有素材，且讀者選擇看動態版
+    useLayers() {
+      return this.hasLayers && this.preferLayers
     },
     outerElectrons() {
       return outerElectronCount(this.elInfo?.ElectronConfiguration)
@@ -332,6 +352,10 @@ export default {
       const chipCenter = active.offsetLeft + active.offsetWidth / 2
       wrap.scrollLeft = chipCenter - wrapCenter
       this.updateWheelDepth()
+    },
+    setPreferLayers(value) {
+      this.preferLayers = value
+      localStorage.setItem('preferLayers', String(value))
     },
     onWheelScroll() {
       // 捲動事件很密集，用 rAF 節流
@@ -607,6 +631,38 @@ export default {
 }
 
 .dex-figure { min-width: 0; }
+
+.view-switch {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  margin-bottom: 8px;
+  padding: 2px;
+  border: 1px solid rgba(228, 251, 255, 0.15);
+  border-radius: 999px;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.view-switch-btn {
+  padding: 3px 14px;
+  font-size: 12px;
+  font-family: inherit;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(228, 251, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-switch-btn:hover { color: rgba(228, 251, 255, 0.85); }
+
+.view-switch-btn.active {
+  background: rgba(228, 251, 255, 0.16);
+  color: #e4fbff;
+}
 
 .dex-facts {
   display: grid;

@@ -306,7 +306,7 @@ def delete_page(slug):
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
-SITE_SETTINGS_FIELDS = ("title", "subtitle", "description", "frame_style")
+SITE_SETTINGS_FIELDS = ("title", "subtitle", "description", "frame_style", "layer_bg", "electron_size")
 # 每個元素最多幾張「其他樣貌」。圖片以 base64 存進 Realtime DB，
 # 不設上限的話很容易把免費方案的額度吃掉。
 GALLERY_MAX = 6
@@ -359,6 +359,9 @@ def manage_site_settings():
             data = show_fdb("_site_settings") or {}
             result = {f: data.get(f, "") for f in SITE_SETTINGS_FIELDS}
             result["frame_style"] = data.get("frame_style") or "classic"
+            # 分層圖是去背 PNG，需要一個底色才看得清楚；預設白色
+            result["layer_bg"] = data.get("layer_bg") or "#ffffff"
+            result["electron_size"] = data.get("electron_size") or 24
             result["bg_image"] = data.get("bg_image", "")
             result["frame_image"] = data.get("frame_image", "")
             return jsonify(result)

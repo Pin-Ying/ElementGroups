@@ -269,6 +269,9 @@ def get_site_settings():
             "bg_image": data.get("bg_image", ""),
             # 元素代表圖的圖鑑外框：內建款式，或自訂的框圖（優先）
             "frame_style": data.get("frame_style", "classic"),
+            "layer_bg": data.get("layer_bg") or "#ffffff",
+            # 電子在畫面上的大小（佔容器寬度的百分比）
+            "electron_size": data.get("electron_size") or 24,
             "frame_image": data.get("frame_image", ""),
         })
     except Exception as e:

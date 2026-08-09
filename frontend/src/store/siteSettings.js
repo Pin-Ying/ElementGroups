@@ -15,6 +15,8 @@ const state = reactive({
   // 元素代表圖的圖鑑外框
   frame_style: 'classic',
   frame_image: '',
+  layer_bg: '#ffffff',
+  electron_size: 24,
   loaded: false
 })
 
@@ -40,6 +42,8 @@ export async function ensureSiteSettings() {
     state.bg_image = res.data.bg_image || ''
     state.frame_style = res.data.frame_style || 'classic'
     state.frame_image = res.data.frame_image || ''
+    state.layer_bg = res.data.layer_bg || '#ffffff'
+    state.electron_size = Number(res.data.electron_size) || 24
     state.loaded = true
   } catch (e) {
     console.error('Failed to load site settings:', e)
@@ -55,6 +59,8 @@ export function setSiteSettings(data) {
   if (data.bg_image !== undefined) state.bg_image = data.bg_image
   if (data.frame_style !== undefined) state.frame_style = data.frame_style || 'classic'
   if (data.frame_image !== undefined) state.frame_image = data.frame_image
+  if (data.layer_bg !== undefined) state.layer_bg = data.layer_bg || '#ffffff'
+  if (data.electron_size !== undefined) state.electron_size = Number(data.electron_size) || 24
   state.loaded = true
   applyToDocument()
 }
