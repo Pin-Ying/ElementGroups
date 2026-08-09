@@ -181,16 +181,6 @@
               <option v-for="opt in elementOptions" :key="opt.symbol" :value="opt.symbol">{{ opt.label }}</option>
             </select>
 
-            <div v-if="selectedSymbol" class="current-img-wrap">
-              <p class="preview-label">目前圖片</p>
-              <img
-                :src="currentElementImgSrc"
-                class="img-preview"
-                alt=""
-                @error="e => e.target.style.display='none'"
-              />
-            </div>
-
             <div class="label-row">
               <label class="label">Story</label>
               <button
@@ -253,10 +243,23 @@
             <label class="label">Image</label>
             <p class="field-hint">{{ uploadHint }}</p>
             <input class="input" type="file" accept="image/*" ref="imageInput" @change="onImageFileChange" />
-            <div v-if="newImagePreviewUrl" class="preview-new">
-              <p class="preview-label">新圖片預覽（尚未儲存）</p>
-              <img :src="newImagePreviewUrl" class="img-preview" alt="New image preview" />
-              <p class="compress-info">{{ compressionSummary(newImageInfo) }}</p>
+
+            <!-- 目前圖片與待上傳的新圖並排，方便直接對照 -->
+            <div class="img-compare">
+              <div v-if="selectedSymbol" class="img-slot">
+                <p class="preview-label">目前圖片</p>
+                <img
+                  :src="currentElementImgSrc"
+                  class="img-preview"
+                  alt=""
+                  @error="e => e.target.style.display='none'"
+                />
+              </div>
+              <div v-if="newImagePreviewUrl" class="img-slot img-slot--new">
+                <p class="preview-label">新圖片（尚未儲存）</p>
+                <img :src="newImagePreviewUrl" class="img-preview" alt="New image preview" />
+                <p class="compress-info">{{ compressionSummary(newImageInfo) }}</p>
+              </div>
             </div>
 
             <button class="button" type="submit" :disabled="loading">Submit</button>
@@ -1081,8 +1084,19 @@ export default {
   margin: 10px 0;
 }
 
-.current-img-wrap {
-  margin: 8px 0;
+.img-compare {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 10px 0 4px;
+}
+
+.img-slot {
+  min-width: 0;
+}
+
+.img-slot--new .img-preview {
+  border-color: rgba(110, 231, 110, 0.55);
 }
 
 .preview-label {
