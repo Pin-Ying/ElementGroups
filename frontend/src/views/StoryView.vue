@@ -387,6 +387,9 @@ export default {
 }
 
 .nav-wheel {
+  /* 必須是定位祖先：置中與遠近縮放都用 chip.offsetLeft 計算，
+     沒有它的話 offsetParent 會變成 body，座標基準與 scrollLeft 不一致 */
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -416,7 +419,7 @@ export default {
   transition: background 0.18s, border-color 0.18s, color 0.18s;
   overflow: hidden;
   /* transform / opacity 由捲動時的 updateWheelDepth() 設定 */
-  transform-origin: center bottom;
+  transform-origin: center center;
   will-change: transform, opacity;
 }
 
