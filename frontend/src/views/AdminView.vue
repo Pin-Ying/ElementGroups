@@ -43,7 +43,11 @@
           <img v-if="defaultImgData" :src="defaultImgData" class="img-preview" alt="Default" />
           <p v-else class="placeholder-text">尚未設定</p>
           <form @submit.prevent="handleUpdateDefaultImg">
-            <input class="input" type="file" accept=".jpg" ref="defaultImgInput" required />
+            <input class="input" type="file" accept=".jpg" ref="defaultImgInput" required @change="onDefaultImgFileChange" />
+            <div v-if="defaultImgPreviewUrl" class="preview-new">
+              <p class="preview-label">新圖片預覽（尚未儲存）</p>
+              <img :src="defaultImgPreviewUrl" class="img-preview" alt="New default preview" />
+            </div>
             <button class="button" type="submit" :disabled="defaultImgSaving">
               {{ defaultImgSaving ? 'Uploading…' : 'Upload' }}
             </button>
@@ -60,6 +64,7 @@
             </select>
 
             <div v-if="selectedSymbol" class="current-img-wrap">
+              <p class="preview-label">目前圖片</p>
               <img
                 :src="currentElementImgSrc"
                 class="img-preview"
@@ -77,7 +82,11 @@
             ></textarea>
 
             <label class="label">Image (.jpg)</label>
-            <input class="input" type="file" accept=".jpg" ref="imageInput" />
+            <input class="input" type="file" accept=".jpg" ref="imageInput" @change="onImageFileChange" />
+            <div v-if="newImagePreviewUrl" class="preview-new">
+              <p class="preview-label">新圖片預覽（尚未儲存）</p>
+              <img :src="newImagePreviewUrl" class="img-preview" alt="New image preview" />
+            </div>
 
             <button class="button" type="submit" :disabled="loading">Submit</button>
           </form>
@@ -145,7 +154,9 @@ export default {
       selectedSymbol: '',
       storyText: '',
       defaultImgData: '',
-      defaultImgSaving: false
+      defaultImgSaving: false,
+      newImagePreviewUrl: '',
+      defaultImgPreviewUrl: ''
     }
   },
   computed: {
@@ -159,7 +170,33 @@ export default {
       await Promise.all([this.loadStoryData(), this.loadDefaultImg()])
     }
   },
+  beforeUnmount() {
+    this.revokeImagePreview()
+    this.revokeDefaultImgPreview()
+  },
   methods: {
+    onImageFileChange(e) {
+      this.revokeImagePreview()
+      const file = e.target.files[0]
+      if (file) this.newImagePreviewUrl = URL.createObjectURL(file)
+    },
+    revokeImagePreview() {
+      if (this.newImagePreviewUrl) {
+        URL.revokeObjectURL(this.newImagePreviewUrl)
+        this.newImagePreviewUrl = ''
+      }
+    },
+    onDefaultImgFileChange(e) {
+      this.revokeDefaultImgPreview()
+      const file = e.target.files[0]
+      if (file) this.defaultImgPreviewUrl = URL.createObjectURL(file)
+    },
+    revokeDefaultImgPreview() {
+      if (this.defaultImgPreviewUrl) {
+        URL.revokeObjectURL(this.defaultImgPreviewUrl)
+        this.defaultImgPreviewUrl = ''
+      }
+    },
     async handleLogin() {
       this.loading = true
       this.msg = ''
@@ -248,6 +285,7 @@ export default {
         showToast(res.data.message, 'success')
         await this.loadDefaultImg()
         this.$refs.defaultImgInput.value = ''
+        this.revokeDefaultImgPreview()
       } catch (e) {
         showToast(e.response?.data?.message || 'Upload failed', 'error')
       } finally {
@@ -273,6 +311,8 @@ export default {
     },
     onSymbolChange() {
       this.storyText = this.storyDatas[this.selectedSymbol] || ''
+      this.revokeImagePreview()
+      if (this.$refs.imageInput) this.$refs.imageInput.value = ''
     },
     async handleUpdateStory() {
       const formData = new FormData()
@@ -286,6 +326,7 @@ export default {
         showToast(res.data.message || 'Saved!', 'success')
         this.storyDatas[this.selectedSymbol] = this.storyText
         if (this.$refs.imageInput) this.$refs.imageInput.value = ''
+        this.revokeImagePreview()
       } catch (e) {
         showToast(e.response?.data?.message || 'Save failed', 'error')
       } finally {
@@ -352,6 +393,19 @@ export default {
 
 .current-img-wrap {
   margin: 8px 0;
+}
+
+.preview-label {
+  font-size: 12px;
+  opacity: 0.5;
+  margin: 4px 0 2px;
+}
+
+.preview-new {
+  margin: 4px 0 10px;
+}
+.preview-new .img-preview {
+  border-color: rgba(110, 231, 110, 0.5);
 }
 
 .textarea {
