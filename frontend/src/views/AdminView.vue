@@ -72,10 +72,23 @@
         <!-- Update Story -->
         <div class="box">
           <p class="title is-4">UPDATE STORY</p>
+          <p class="desc">
+            編輯單一元素的故事內容與代表圖片。<br>
+            選擇元素後，Story 的文字會顯示在前台該元素的介紹頁（/stroy/{{ selectedSymbol || 'Symbol' }}），
+            上傳圖片則會<strong>直接覆蓋</strong>該元素目前的圖片。<br>
+            下拉選單的 ✓ 表示已寫故事、📷 表示已上傳圖片。
+          </p>
+
+          <div class="progress-summary">
+            <span>已寫故事 <strong>{{ storyProgress }}</strong> / {{ elements.length }}</span>
+            <span class="progress-divider">·</span>
+            <span>已上圖 <strong>{{ imageProgress }}</strong> / {{ elements.length }}</span>
+          </div>
+
           <form @submit.prevent="handleUpdateStory">
             <label class="label">Element</label>
             <select v-model="selectedSymbol" class="select" @change="onSymbolChange">
-              <option v-for="el in elements" :key="el" :value="el">{{ el }}</option>
+              <option v-for="opt in elementOptions" :key="opt.symbol" :value="opt.symbol">{{ opt.label }}</option>
             </select>
 
             <div v-if="selectedSymbol" class="current-img-wrap">
@@ -146,7 +159,7 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -166,6 +179,7 @@ export default {
       elements: [],
       storyDatas: {},
       imageDatas: {},
+      hasImageMap: {},
       selectedSymbol: '',
       storyText: '',
       defaultImgData: '',
@@ -179,7 +193,22 @@ export default {
   computed: {
     currentElementImgSrc() {
       if (!this.selectedSymbol) return ''
-      return (import.meta.env.VITE_API_URL || '/api') + '/elements/' + this.selectedSymbol + '/img'
+      return apiBase + '/elements/' + this.selectedSymbol + '/img'
+    },
+    // #5：每個元素標示故事/圖片完成度，讓 admin 一眼看出還有哪些沒補
+    elementOptions() {
+      return this.elements.map(sym => {
+        const hasStory = !!(this.storyDatas[sym] || '').trim()
+        const hasImage = !!this.hasImageMap[sym]
+        const marks = (hasStory ? ' ✓' : '') + (hasImage ? ' 📷' : '')
+        return { symbol: sym, hasStory, hasImage, label: sym + marks }
+      })
+    },
+    storyProgress() {
+      return this.elementOptions.filter(o => o.hasStory).length
+    },
+    imageProgress() {
+      return this.elementOptions.filter(o => o.hasImage).length
     }
   },
   async mounted() {
@@ -334,6 +363,7 @@ export default {
         this.elements = res.data.elements || []
         this.storyDatas = res.data.storyDatas || {}
         this.imageDatas = res.data.imageDatas || {}
+        this.hasImageMap = res.data.hasImage || {}
         if (this.elements.length > 0) {
           this.selectedSymbol = this.elements[0]
           this.storyText = this.storyDatas[this.selectedSymbol] || ''
@@ -361,6 +391,8 @@ export default {
         const res = await updateStory(formData)
         showToast(res.data.message || 'Saved!', 'success')
         this.storyDatas[this.selectedSymbol] = this.storyText
+        // 讓下拉選單的完成度標記立即反映這次儲存的結果
+        if (imageFile) this.hasImageMap[this.selectedSymbol] = true
         if (this.$refs.imageInput) this.$refs.imageInput.value = ''
         this.revokeImagePreview()
       } catch (e) {
@@ -410,6 +442,28 @@ export default {
   opacity: 0.55;
   margin: 2px 0 14px;
   line-height: 1.5;
+}
+
+.progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  opacity: 0.75;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(228, 251, 255, 0.04);
+}
+
+.progress-summary strong {
+  color: #6ee76e;
+  font-weight: 600;
+}
+
+.progress-divider {
+  opacity: 0.35;
 }
 
 .placeholder-text {

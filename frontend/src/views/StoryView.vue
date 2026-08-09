@@ -129,7 +129,7 @@
 </template>
 
 <script>
-import { getElementDetail, getElementAbility, updateStory } from '../api'
+import { getElementDetail, getElementAbility, updateStory, apiBase } from '../api'
 import AbilityChart from '../components/AbilityChart.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { authState } from '../store/auth'
@@ -173,9 +173,10 @@ export default {
   },
   computed: {
     resolvedImg() {
+      const defaultImg = apiBase + '/elements/default-img'
       if (this.imgFallbackLevel === 0) return this.imgSrc
-      if (this.imgFallbackLevel === 1) return this.imgData || '/api/elements/default-img'
-      if (this.imgFallbackLevel === 2) return '/api/elements/default-img'
+      if (this.imgFallbackLevel === 1) return this.imgData || defaultImg
+      if (this.imgFallbackLevel === 2) return defaultImg
       return null
     },
     imgBroken() {
@@ -240,7 +241,7 @@ export default {
         this.fEl = detail.f_el
         this.bEl = detail.b_el
         this.story = detail.story
-        this.imgSrc = '/api/elements/' + this.symbol + '/img'
+        this.imgSrc = apiBase + '/elements/' + this.symbol + '/img'
         this.imgData = detail.img_data
         this.editStory = detail.story || ''
         this.abilityData = abilityRes.data

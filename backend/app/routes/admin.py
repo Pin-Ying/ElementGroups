@@ -168,8 +168,15 @@ def update_story():
             fbDatas = show_fdb()
             if not fbDatas:
                 fbDatas = {}
-            imageDatas = {data: fbDatas[data].get("img", "") for data in fbDatas if data != "periodic_table"}
-            storyDatas = {data: fbDatas[data].get("description", "") for data in fbDatas if data != "periodic_table"}
+            # 排除 periodic_table 與 _default / _creator_links 等設定用 node
+            symbols = [d for d in fbDatas if d != "periodic_table" and not d.startswith("_")]
+            imageDatas = {data: fbDatas[data].get("img", "") for data in symbols}
+            storyDatas = {data: fbDatas[data].get("description", "") for data in symbols}
+            # Storage 關閉時圖片只存在 img_data(base64)，兩者任一有值就算已上傳
+            hasImage = {
+                data: bool(fbDatas[data].get("img") or fbDatas[data].get("img_data"))
+                for data in symbols
+            }
             elements_data = get_periodic_table()
             elements = [e["Symbol"] for e in elements_data]
             return jsonify(
@@ -177,6 +184,7 @@ def update_story():
                     "elements": elements,
                     "imageDatas": imageDatas,
                     "storyDatas": storyDatas,
+                    "hasImage": hasImage,
                 }
             )
         except Exception as e:

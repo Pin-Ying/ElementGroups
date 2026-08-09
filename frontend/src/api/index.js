@@ -1,5 +1,9 @@
 import axios from 'axios'
 
+// 直接寫在 <img src> 等非 axios 場合使用的 API base。
+// production 由 Render 注入 VITE_API_URL 指向後端服務；沒設定時退回同源 /api。
+export const apiBase = import.meta.env.VITE_API_URL || '/api'
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL
 })
