@@ -2,6 +2,15 @@
   <div>
     <LoadingSpinner v-if="loading" />
 
+    <!-- 圖片裁切：上傳任何圖片後先進這裡 -->
+    <ImageCropper
+      v-if="cropFile"
+      :file="cropFile"
+      @done="onCropDone"
+      @skip="onCropSkip"
+      @cancel="onCropCancel"
+    />
+
     <!-- Login Form -->
     <div v-if="!authState.loggedIn" class="admin-box">
       <p class="title">LOGIN</p>
@@ -401,6 +410,7 @@ import { setSiteSettings, SITE_DEFAULTS } from '../store/siteSettings'
 import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
 import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
 import PokedexFrame, { FRAME_STYLES } from '../components/PokedexFrame.vue'
+import ImageCropper from '../components/ImageCropper.vue'
 
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
@@ -416,7 +426,7 @@ const SECTIONS = [
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
-  components: { LoadingSpinner, PokedexFrame },
+  components: { LoadingSpinner, PokedexFrame, ImageCropper },
   data() {
     return {
       authState,
@@ -449,6 +459,9 @@ export default {
       platforms: PLATFORMS,
       FRAME_STYLES,
       GALLERY_MAX,
+      cropFile: null,
+      cropTarget: null,
+      cropQueue: [],
       galleryItems: [],
       gallerySaving: false,
       siteForm: { title: '', subtitle: '', description: '', frame_style: 'classic' },
@@ -507,19 +520,67 @@ export default {
     this.revokeDefaultImgPreview()
   },
   methods: {
-    async onImageFileChange(e) {
-      this.revokeImagePreview()
+    // ── 圖片裁切流程 ──
+    // 三個 1:1 顯示的圖片（元素代表圖、預設圖、其他樣貌）上傳後先進裁切；
+    // 首頁背景圖是全螢幕 cover，固定比例沒有意義，維持原本的壓縮流程
+    openCropper(e, target) {
       const file = e.target.files[0]
+      e.target.value = ''
       if (!file) return
+      if (!file.type.startsWith('image/')) {
+        showToast('請選擇圖片檔', 'error')
+        return
+      }
+      this.cropTarget = target
+      this.cropQueue = []
+      this.cropFile = file
+    },
+    async onCropDone({ blob }) {
+      // 裁切輸出已是 JPEG，再走一次壓縮確保尺寸與檔案大小一致
+      const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' })
+      await this.acceptCropped(file)
+    },
+    async onCropSkip() {
+      await this.acceptCropped(this.cropFile)
+    },
+    onCropCancel() {
+      this.nextCropOrClose()
+    },
+    async acceptCropped(file) {
+      const target = this.cropTarget
       try {
         const result = await compressImage(file)
-        this.newImageBlob = result.blob
-        this.newImageInfo = result
-        this.newImagePreviewUrl = URL.createObjectURL(result.blob)
+        if (target === 'story') {
+          this.newImageBlob = result.blob
+          this.newImageInfo = result
+          this.newImagePreviewUrl = URL.createObjectURL(result.blob)
+        } else if (target === 'default') {
+          this.defaultImgBlob = result.blob
+          this.defaultImgInfo = result
+          this.defaultImgPreviewUrl = URL.createObjectURL(result.blob)
+        } else if (target === 'gallery') {
+          const img_data = await new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result)
+            reader.onerror = reject
+            reader.readAsDataURL(result.blob)
+          })
+          this.galleryItems.push({ img_data, caption: '' })
+        }
       } catch (err) {
         showToast(err.message || '圖片處理失敗', 'error')
-        e.target.value = ''
+      } finally {
+        this.nextCropOrClose()
       }
+    },
+    nextCropOrClose() {
+      // gallery 多檔時逐張處理
+      this.cropFile = this.cropQueue.length ? this.cropQueue.shift() : null
+      if (!this.cropFile) this.cropTarget = null
+    },
+    onImageFileChange(e) {
+      this.revokeImagePreview()
+      this.openCropper(e, 'story')
     },
     revokeImagePreview() {
       if (this.newImagePreviewUrl) {
@@ -529,19 +590,9 @@ export default {
       this.newImageBlob = null
       this.newImageInfo = null
     },
-    async onDefaultImgFileChange(e) {
+    onDefaultImgFileChange(e) {
       this.revokeDefaultImgPreview()
-      const file = e.target.files[0]
-      if (!file) return
-      try {
-        const result = await compressImage(file)
-        this.defaultImgBlob = result.blob
-        this.defaultImgInfo = result
-        this.defaultImgPreviewUrl = URL.createObjectURL(result.blob)
-      } catch (err) {
-        showToast(err.message || '圖片處理失敗', 'error')
-        e.target.value = ''
-      }
+      this.openCropper(e, 'default')
     },
     revokeDefaultImgPreview() {
       if (this.defaultImgPreviewUrl) {
@@ -623,7 +674,7 @@ export default {
         this.galleryItems = []
       }
     },
-    async onGalleryFileChange(e) {
+    onGalleryFileChange(e) {
       const files = [...e.target.files]
       e.target.value = ''
       if (!files.length) return
@@ -632,21 +683,10 @@ export default {
       if (files.length > room) {
         showToast(`最多再加 ${room} 張，只會處理前 ${room} 張`, 'warning')
       }
-
-      for (const file of files.slice(0, room)) {
-        try {
-          const result = await compressImage(file)
-          const img_data = await new Promise((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = () => resolve(reader.result)
-            reader.onerror = reject
-            reader.readAsDataURL(result.blob)
-          })
-          this.galleryItems.push({ img_data, caption: '' })
-        } catch (err) {
-          showToast(`${file.name}：${err.message || '處理失敗'}`, 'error')
-        }
-      }
+      // 多檔時逐張進裁切，處理完一張才換下一張
+      this.cropQueue = files.slice(0, room)
+      this.cropTarget = 'gallery'
+      this.cropFile = this.cropQueue.shift() || null
     },
     moveGalleryItem(i, delta) {
       const target = i + delta
