@@ -11,7 +11,8 @@ from app.config import settings
 from app.elements import element_info
 from app.links import normalize_creator_links, serialize_creator_links
 from app.completion import update_completion, rebuild_completion
-from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, fdb
+from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
+from app import ai
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api")
 
@@ -101,6 +102,49 @@ def backfill_img_data():
         })
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/ai/status", methods=["GET"])
+@login_required
+def ai_status():
+    """前端據此決定要不要顯示 AI 協助介面。"""
+    if not ai.is_enabled():
+        return jsonify({"enabled": False})
+    used, limit = ai.get_usage()
+    return jsonify({
+        "enabled": True,
+        "provider": settings.AI_PROVIDER,
+        "model": settings.AI_MODEL,
+        "used": used,
+        "limit": limit,
+    })
+
+
+@admin_bp.route("/admin/story-suggest", methods=["POST"])
+@login_required
+def story_suggest():
+    if not ai.is_enabled():
+        return jsonify({"result": "failure", "message": "AI 功能未啟用"}), 400
+
+    data = request.get_json() or {}
+    symbol = (data.get("symbol") or "").strip()
+    if not symbol:
+        return jsonify({"result": "failure", "message": "缺少 symbol"}), 400
+
+    element = get_element_by_symbol(symbol)
+    if not element:
+        return jsonify({"result": "failure", "message": f"找不到元素 {symbol}"}), 404
+
+    try:
+        text, used, limit = ai.generate_story(
+            element,
+            draft=(data.get("draft") or "").strip(),
+            direction=(data.get("direction") or "").strip(),
+            reference=(data.get("reference") or "").strip(),
+        )
+        return jsonify({"result": "success", "suggestion": text, "used": used, "limit": limit})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 502
 
 
 @admin_bp.route("/admin/rebuild-completion", methods=["POST"])

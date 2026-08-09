@@ -1,0 +1,157 @@
+"""AI 故事協助（選用功能）。
+
+沒有設定 `AI_API_KEY` 時 `is_enabled()` 回傳 False，前端據此完全隱藏
+相關介面，其餘功能不受影響。
+
+呼叫次數以 UTC 日期為單位記在 Realtime DB 的 `_ai_usage` node，避免
+不小心把免費額度用光。
+"""
+
+import datetime
+
+import requests
+
+from app.config import settings
+from app.firebase import fdb
+
+USAGE_NODE = "_ai_usage"
+REQUEST_TIMEOUT = 30
+
+GEMINI_ENDPOINT = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
+
+
+def is_enabled():
+    return bool(settings.AI_API_KEY)
+
+
+def _today_key():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+
+
+def get_usage():
+    """回傳 (今日已用次數, 每日上限)。"""
+    try:
+        used = fdb.child(USAGE_NODE).child(_today_key()).get() or 0
+    except Exception as e:
+        print(f"Failed to read AI usage: {e}")
+        used = 0
+    return int(used), settings.AI_DAILY_LIMIT
+
+
+def _increment_usage():
+    key = _today_key()
+    try:
+        used = fdb.child(USAGE_NODE).child(key).get() or 0
+        fdb.child(USAGE_NODE).child(key).set(int(used) + 1)
+    except Exception as e:
+        print(f"Failed to update AI usage: {e}")
+
+
+def build_prompt(element, draft="", direction="", reference=""):
+    """組出給模型的提示。
+
+    element 是 periodic_table 裡該元素的整筆資料，帶進去讓內容扣著這個
+    元素講，而不是產生放諸四海皆準的空泛文字。
+    """
+    facts = []
+    for label, key in [
+        ("名稱", "Name"),
+        ("符號", "Symbol"),
+        ("原子序", "AtomicNumber"),
+        ("原子量", "AtomicMass"),
+        ("分類", "GroupBlock"),
+        ("常溫狀態", "StandardState"),
+        ("電子組態", "ElectronConfiguration"),
+        ("常見氧化態", "OxidationStates"),
+        ("發現年份", "YearDiscovered"),
+        ("熔點(K)", "MeltingPoint"),
+        ("沸點(K)", "BoilingPoint"),
+    ]:
+        value = element.get(key)
+        if value:
+            facts.append(f"- {label}：{value}")
+
+    parts = [
+        "你是一個科普網站的編輯，正在替元素週期表的每個元素撰寫簡短的介紹故事。",
+        "",
+        "請根據以下元素資料撰寫：",
+        "\n".join(facts),
+        "",
+        "撰寫要求：",
+        "- 使用繁體中文",
+        "- 200 到 300 字，分成 2 至 3 段",
+        "- 語氣親切、適合一般讀者，可以帶入生活中的例子或有趣的歷史",
+        "- 內容必須符合上面的元素資料，不要杜撰數據",
+        "- 只輸出故事內文，不要加標題、不要用 Markdown 語法、不要說明你在做什麼",
+    ]
+
+    if direction:
+        parts += ["", f"額外的風格或方向要求：{direction}"]
+
+    if reference:
+        parts += ["", "請參考以下補充資料：", reference]
+
+    if draft:
+        parts += [
+            "",
+            "使用者目前已經寫了以下內容，請在保留原意與既有語氣的前提下延伸或潤飾，"
+            "不要整段捨棄重寫：",
+            draft,
+        ]
+
+    return "\n".join(parts)
+
+
+def _call_gemini(prompt):
+    url = GEMINI_ENDPOINT.format(model=settings.AI_MODEL)
+    response = requests.post(
+        url,
+        params={"key": settings.AI_API_KEY},
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.9, "maxOutputTokens": 1024},
+        },
+        timeout=REQUEST_TIMEOUT,
+    )
+
+    if response.status_code != 200:
+        detail = ""
+        try:
+            detail = response.json().get("error", {}).get("message", "")
+        except Exception:
+            detail = response.text[:200]
+        raise RuntimeError(f"Gemini API 回應 {response.status_code}：{detail}")
+
+    data = response.json()
+    candidates = data.get("candidates") or []
+    if not candidates:
+        # 例如被安全設定擋下時不會有 candidates
+        reason = data.get("promptFeedback", {}).get("blockReason", "沒有回傳內容")
+        raise RuntimeError(f"AI 沒有產生內容（{reason}）")
+
+    text_parts = candidates[0].get("content", {}).get("parts") or []
+    text = "".join(p.get("text", "") for p in text_parts).strip()
+    if not text:
+        raise RuntimeError("AI 回傳了空白內容")
+    return text
+
+
+def generate_story(element, draft="", direction="", reference=""):
+    """產生故事建議。回傳 (內容, 今日已用, 上限)。"""
+    if not is_enabled():
+        raise RuntimeError("AI 功能未啟用")
+
+    used, limit = get_usage()
+    if limit > 0 and used >= limit:
+        raise RuntimeError(f"今日 AI 呼叫已達上限（{limit} 次），請明天再試")
+
+    if settings.AI_PROVIDER != "gemini":
+        raise RuntimeError(f"尚未支援的 AI_PROVIDER：{settings.AI_PROVIDER}")
+
+    prompt = build_prompt(element, draft=draft, direction=direction, reference=reference)
+    text = _call_gemini(prompt)
+
+    _increment_usage()
+    return text, used + 1, limit

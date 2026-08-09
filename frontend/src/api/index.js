@@ -70,6 +70,14 @@ export function getDefaultImgInfo() {
   return api.get('/admin/default-img')
 }
 
+export function getAiStatus() {
+  return api.get('/ai/status')
+}
+
+export function suggestStory(payload) {
+  return api.post('/admin/story-suggest', payload)
+}
+
 export function getElementsCompletion() {
   return api.get('/elements/completion')
 }

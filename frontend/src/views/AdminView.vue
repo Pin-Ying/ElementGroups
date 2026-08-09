@@ -137,13 +137,64 @@
               />
             </div>
 
-            <label class="label">Story</label>
+            <div class="label-row">
+              <label class="label">Story</label>
+              <button
+                v-if="ai.enabled"
+                class="ai-toggle"
+                type="button"
+                :class="{ active: aiPanelOpen }"
+                @click="aiPanelOpen = !aiPanelOpen"
+              >✨ AI 協助</button>
+            </div>
             <textarea
               class="textarea"
               v-model="storyText"
               rows="6"
               placeholder="Write the story…"
             ></textarea>
+
+            <!-- AI 故事協助（只有後端設定了 API key 才會出現） -->
+            <div v-if="ai.enabled && aiPanelOpen" class="ai-panel">
+              <p class="ai-hint">
+                會自動帶入這個元素的週期表資料（原子序、分類、熔沸點等）
+                <template v-if="storyText.trim()">，以及你目前已經寫的內容（AI 會延伸潤飾而不是整段重寫）</template>。
+              </p>
+
+              <label class="label ai-label">風格／方向（選填）</label>
+              <input
+                class="input"
+                type="text"
+                v-model="aiDirection"
+                placeholder="例：用擬人化的口吻／偏科普，國中生看得懂"
+              />
+
+              <label class="label ai-label">補充參考資料（選填）</label>
+              <textarea
+                class="textarea ai-reference"
+                v-model="aiReference"
+                rows="3"
+                placeholder="想讓 AI 參考的額外資訊，例如特定的典故、想提到的應用場景…"
+              ></textarea>
+
+              <div class="ai-actions">
+                <button class="button" type="button" :disabled="aiLoading" @click="handleSuggest">
+                  {{ aiLoading ? '產生中…' : (aiSuggestion ? '重新產生' : '產生建議') }}
+                </button>
+                <span v-if="ai.limit > 0" class="ai-quota">今日已用 {{ ai.used }} / {{ ai.limit }}</span>
+              </div>
+
+              <div v-if="aiSuggestion" class="ai-result">
+                <p class="preview-label">AI 建議（尚未套用）</p>
+                <div class="ai-suggestion">{{ aiSuggestion }}</div>
+                <div class="ai-actions">
+                  <button class="button secondary" type="button" @click="applySuggestion('append')">附加到編輯框</button>
+                  <button class="button secondary" type="button" @click="applySuggestion('replace')">直接覆蓋</button>
+                  <button class="button secondary" type="button" @click="aiSuggestion = ''">捨棄</button>
+                </div>
+                <p class="ai-note">套用後仍需按下方 Submit 才會真正儲存。</p>
+              </div>
+            </div>
 
             <label class="label">Image</label>
             <p class="field-hint">{{ uploadHint }}</p>
@@ -205,7 +256,7 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, apiBase } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -241,7 +292,13 @@ export default {
       defaultImgInfo: null,
       creatorLinks: [],
       creatorLinksSaving: false,
-      platforms: PLATFORMS
+      platforms: PLATFORMS,
+      ai: { enabled: false, used: 0, limit: 0 },
+      aiPanelOpen: false,
+      aiDirection: '',
+      aiReference: '',
+      aiSuggestion: '',
+      aiLoading: false
     }
   },
   computed: {
@@ -270,7 +327,7 @@ export default {
   },
   async mounted() {
     if (this.authState.loggedIn) {
-      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks()])
+      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus()])
     }
   },
   beforeUnmount() {
@@ -336,7 +393,7 @@ export default {
       try {
         const result = await login(this.email, this.password)
         if (result.ok) {
-          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks()])
+          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus()])
         } else {
           this.msg = result.message || 'Login failed'
         }
@@ -383,6 +440,48 @@ export default {
       } finally {
         this.loading = false
       }
+    },
+    async loadAiStatus() {
+      try {
+        const res = await getAiStatus()
+        this.ai = {
+          enabled: !!res.data.enabled,
+          used: res.data.used || 0,
+          limit: res.data.limit || 0
+        }
+      } catch (e) {
+        // 沒設定或後端還沒支援，就當作停用，介面完全不顯示
+        this.ai = { enabled: false, used: 0, limit: 0 }
+      }
+    },
+    async handleSuggest() {
+      this.aiLoading = true
+      try {
+        const res = await suggestStory({
+          symbol: this.selectedSymbol,
+          draft: this.storyText,
+          direction: this.aiDirection,
+          reference: this.aiReference
+        })
+        this.aiSuggestion = res.data.suggestion || ''
+        this.ai.used = res.data.used ?? this.ai.used
+        this.ai.limit = res.data.limit ?? this.ai.limit
+      } catch (e) {
+        showToast(e.response?.data?.message || 'AI 產生失敗', 'error')
+      } finally {
+        this.aiLoading = false
+      }
+    },
+    applySuggestion(mode) {
+      if (!this.aiSuggestion) return
+      if (mode === 'replace') {
+        this.storyText = this.aiSuggestion
+      } else {
+        const current = this.storyText.trim()
+        this.storyText = current ? current + '\n\n' + this.aiSuggestion : this.aiSuggestion
+      }
+      this.aiSuggestion = ''
+      showToast('已套用到編輯框，記得按 Submit 儲存', 'success')
     },
     async handleRebuildCompletion() {
       this.loading = true
@@ -702,6 +801,95 @@ export default {
 
 .preview-new {
   margin: 4px 0 10px;
+}
+
+/* ── AI 故事協助 ── */
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ai-toggle {
+  padding: 3px 12px;
+  font-size: 12px;
+  border: 1px solid rgba(157, 140, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(157, 140, 255, 0.1);
+  color: rgba(210, 200, 255, 0.9);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.ai-toggle:hover,
+.ai-toggle.active {
+  background: rgba(157, 140, 255, 0.25);
+  border-color: rgba(157, 140, 255, 0.8);
+  color: #fff;
+}
+
+.ai-panel {
+  margin: 4px 0 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(157, 140, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(90, 70, 160, 0.12);
+}
+
+.ai-hint {
+  font-size: 12px;
+  opacity: 0.6;
+  margin: 0 0 10px;
+  line-height: 1.6;
+}
+
+.ai-label {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.ai-reference {
+  min-height: 60px;
+}
+
+.ai-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.ai-quota {
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+.ai-result {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(228, 251, 255, 0.1);
+}
+
+.ai-suggestion {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.75;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: rgba(3, 1, 12, 0.5);
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.ai-note {
+  font-size: 12px;
+  opacity: 0.5;
+  margin: 8px 0 0;
 }
 
 .field-hint {

@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     FIREBASE_APP_ID: str
     FIREBASE_MEASUREMENT_ID: str
 
+    # AI 故事協助（選用）。沒設 AI_API_KEY 時整個功能不會啟用，
+    # 前端也不會顯示相關按鈕。
+    AI_PROVIDER: str = "gemini"
+    AI_API_KEY: str = ""
+    AI_MODEL: str = "gemini-2.0-flash"
+    AI_DAILY_LIMIT: int = 50
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
