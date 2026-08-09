@@ -20,6 +20,8 @@
         <span class="footer-sep">·</span>
         <a href="https://pubchem.ncbi.nlm.nih.gov/periodic-table/" target="_blank" rel="noopener noreferrer">資料來源 PubChem</a>
       </nav>
+
+      <AdminLogin v-if="!authState.loggedIn" />
     </div>
   </footer>
 </template>
@@ -27,11 +29,13 @@
 <script>
 import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
 import SocialLink from './SocialLink.vue'
+import AdminLogin from './AdminLogin.vue'
+import { authState } from '../store/auth'
 
 export default {
-  components: { SocialLink },
+  components: { SocialLink, AdminLogin },
   data() {
-    return { creatorLinksState }
+    return { creatorLinksState, authState }
   },
   computed: {
     links() {

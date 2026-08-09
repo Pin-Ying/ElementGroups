@@ -4,13 +4,15 @@ import StoryView from '../views/StoryView.vue'
 import AdminView from '../views/AdminView.vue'
 import LinksView from '../views/LinksView.vue'
 import GuideView from '../views/GuideView.vue'
+import PageView from '../views/PageView.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: HomeView },
   { path: '/stroy/:symbol', name: 'Story', component: StoryView, props: true },
   { path: '/admin', name: 'Admin', component: AdminView },
   { path: '/links', name: 'Links', component: LinksView },
-  { path: '/guide', name: 'Guide', component: GuideView }
+  { path: '/guide', name: 'Guide', component: GuideView },
+  { path: '/p/:slug', name: 'Page', component: PageView, props: true }
 ]
 
 const router = createRouter({

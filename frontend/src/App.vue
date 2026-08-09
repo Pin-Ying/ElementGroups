@@ -11,26 +11,16 @@
         </router-link>
 
         <!-- Admin area -->
-        <div class="admin-area">
-          <template v-if="authState.loggedIn">
-            <span class="admin-badge">Admin Mode</span>
-            <router-link class="button btn-sm" to="/admin">Admin Page</router-link>
-            <button class="button btn-sm" @click="handleLogout">Logout</button>
-          </template>
-          <template v-else>
-            <button v-if="!showLogin" class="button btn-sm" @click="showLogin = true">Admin Login</button>
-            <form v-else class="login-form" @submit.prevent="handleLogin">
-              <input class="input" type="email" v-model="email" aria-label="Email" required />
-              <input class="input" type="password" v-model="password" aria-label="Password" required />
-              <button class="button btn-sm" type="submit" :disabled="loggingIn">
-                {{ loggingIn ? '...' : 'Login' }}
-              </button>
-              <button class="button btn-sm" type="button" @click="showLogin = false">✕</button>
-            </form>
-          </template>
+        <!-- 登入入口已移到頁尾，這裡只在登入後顯示 -->
+        <div v-if="authState.loggedIn" class="admin-area">
+          <span class="admin-badge">Admin Mode</span>
+          <router-link class="button btn-sm" to="/admin">Admin Page</router-link>
+          <button class="button btn-sm" @click="handleLogout">Logout</button>
         </div>
       </div>
     </div>
+
+    <SiteNav />
 
     <router-view />
     <SiteFooter />
@@ -39,34 +29,20 @@
 </template>
 
 <script>
-import { authState, login, logout, initAuth } from './store/auth'
+import { authState, logout, initAuth } from './store/auth'
 import { showToast } from './store/toast'
 import ToastContainer from './components/ToastContainer.vue'
 import SiteFooter from './components/SiteFooter.vue'
+import SiteNav from './components/SiteNav.vue'
 import { siteSettingsState, ensureSiteSettings } from './store/siteSettings'
 import api from './api'
 
-function parseLoginError(raw) {
-  if (!raw) return 'Login failed'
-  if (raw.includes('INVALID_LOGIN_CREDENTIALS') || raw.includes('EMAIL_NOT_FOUND') || raw.includes('INVALID_PASSWORD'))
-    return 'Incorrect email or password'
-  if (raw.includes('TOO_MANY_ATTEMPTS_TRY_LATER'))
-    return 'Too many failed attempts, please try again later'
-  if (raw.includes('USER_DISABLED'))
-    return 'This account has been disabled'
-  return 'Login failed, please try again'
-}
-
 export default {
-  components: { ToastContainer, SiteFooter },
+  components: { ToastContainer, SiteFooter, SiteNav },
   data() {
     return {
       authState,
-      site: siteSettingsState,
-      showLogin: false,
-      email: '',
-      password: '',
-      loggingIn: false
+      site: siteSettingsState
     }
   },
   created() {
@@ -84,24 +60,6 @@ export default {
     initAuth()
   },
   methods: {
-    async handleLogin() {
-      this.loggingIn = true
-      try {
-        const result = await login(this.email, this.password)
-        if (result.ok) {
-          this.showLogin = false
-          this.email = ''
-          this.password = ''
-          showToast('Logged in successfully', 'success')
-        } else {
-          showToast(result.message || 'Login failed', 'error')
-        }
-      } catch (e) {
-        showToast(parseLoginError(e.response?.data?.message), 'error')
-      } finally {
-        this.loggingIn = false
-      }
-    },
     async handleLogout() {
       await logout()
     }
@@ -166,31 +124,6 @@ export default {
   justify-content: flex-end;
 }
 
-.login-form {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.login-form .input {
-  width: 150px;
-  padding: 4px 8px;
-  font-size: 13px;
-  font-family: 'Space Grotesk', sans-serif;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(228, 251, 255, 0.35);
-  border-radius: 5px;
-  color: #fff;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.login-form .input:focus {
-  border-color: rgba(228, 251, 255, 0.6);
-}
-
 .btn-sm {
   padding: 4px 12px;
   font-size: 13px;
@@ -215,6 +148,5 @@ export default {
     gap: 8px;
   }
   .admin-area { justify-content: flex-start; }
-  .login-form { justify-content: flex-start; }
 }
 </style>

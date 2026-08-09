@@ -56,6 +56,104 @@
       <div class="admin-content">
         <p class="content-title">{{ currentSection.label }}</p>
 
+        <!-- Pages -->
+        <div v-if="section === 'pages'" class="box">
+          <p class="title is-4">PAGES</p>
+          <p class="desc">
+            自由新增與編輯頁面，內容使用 Markdown。<br>
+            未發布的頁面只有登入後看得到，可以先存成草稿寫完再發布。
+          </p>
+
+          <div class="page-list">
+            <button
+              v-for="p in pageList"
+              :key="p.slug"
+              class="page-item"
+              type="button"
+              :class="{ active: pageForm.original_slug === p.slug }"
+              @click="selectPage(p)"
+            >
+              <span class="page-item-title">{{ p.title }}</span>
+              <span class="page-item-meta">
+                /p/{{ p.slug }}
+                <span v-if="!p.published" class="draft-tag">草稿</span>
+              </span>
+            </button>
+            <button class="page-item page-item--new" type="button" @click="newPage">＋ 新增頁面</button>
+          </div>
+
+          <form class="page-form" @submit.prevent="handleSavePage">
+            <div class="page-form-row">
+              <div>
+                <label class="label">頁面標題</label>
+                <input class="input" type="text" v-model="pageForm.title" />
+              </div>
+              <div>
+                <label class="label">網址代稱</label>
+                <input class="input" type="text" v-model="pageForm.slug" aria-label="網址代稱" />
+                <p class="field-hint">網址為 /p/{{ pageForm.slug || '…' }}，只能用小寫英數字與連字號</p>
+              </div>
+            </div>
+
+            <div class="page-form-row">
+              <div>
+                <label class="label">導覽位置</label>
+                <select class="select" v-model="pageForm.nav_position">
+                  <option v-for="n in NAV_POSITIONS" :key="n.key" :value="n.key">{{ n.label }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="label">排序</label>
+                <input class="input" type="number" v-model.number="pageForm.nav_order" aria-label="排序" />
+              </div>
+            </div>
+
+            <div class="label-row">
+              <label class="label">內容（Markdown）</label>
+              <button class="ai-toggle" type="button" @click="showMarkdownHelp = !showMarkdownHelp">
+                {{ showMarkdownHelp ? '收起語法說明' : '語法說明' }}
+              </button>
+            </div>
+
+            <div v-if="showMarkdownHelp" class="md-help">
+              <p><code># 標題</code>　<code>**粗體**</code>　<code>*斜體*</code>　<code>[文字](網址)</code>　<code>- 清單</code>　<code>---</code> 分隔線</p>
+              <p>另外有三種區塊，用來排出一般 Markdown 做不到的版面：</p>
+              <pre>:::cards
+### 熔點 | K（凱氏溫標）
+固體變成液體的溫度。
+
+### 沸點 | K
+液體變成氣體的溫度。
+:::</pre>
+              <p><code>:::cards</code> 卡片格線（每個 <code>###</code> 一張，標題可用 <code>|</code> 分隔附註）、<code>:::note</code> 提示區塊、<code>:::links</code> 自動插入目前設定的社群連結。</p>
+            </div>
+
+            <div class="page-editor">
+              <textarea class="textarea page-content" v-model="pageForm.content" rows="16" aria-label="頁面內容"></textarea>
+              <div class="page-preview">
+                <p class="preview-label">即時預覽</p>
+                <MarkdownContent :source="pageForm.content" />
+              </div>
+            </div>
+
+            <div class="link-actions">
+              <button class="button" type="submit" :disabled="pageSaving" @click="pageForm.published = true">
+                {{ pageSaving ? 'Saving…' : '發布' }}
+              </button>
+              <button class="button secondary" type="button" :disabled="pageSaving" @click="saveAsDraft">
+                存成草稿
+              </button>
+              <button
+                v-if="pageForm.original_slug"
+                class="button secondary"
+                type="button"
+                :disabled="pageSaving"
+                @click="handleDeletePage"
+              >刪除此頁</button>
+            </div>
+          </form>
+        </div>
+
         <!-- Site Settings -->
         <div v-if="section === 'site'" class="box">
           <p class="title is-4">SITE SETTINGS</p>
@@ -448,18 +546,32 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, apiBase } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
 import { setSiteSettings, SITE_DEFAULTS } from '../store/siteSettings'
+import { refreshPages } from '../store/pages'
 import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
 import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
 import PokedexFrame, { FRAME_STYLES } from '../components/PokedexFrame.vue'
 import ImageCropper from '../components/ImageCropper.vue'
+import MarkdownContent from '../components/MarkdownContent.vue'
 
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
+
+const NAV_POSITIONS = [
+  { key: 'sidebar', label: '左側導覽' },
+  { key: 'footer', label: '頁尾' },
+  { key: 'header', label: '頁首' },
+  { key: 'none', label: '不顯示於導覽' }
+]
+
+const EMPTY_PAGE = () => ({
+  original_slug: '', slug: '', title: '',
+  content: '', nav_position: 'sidebar', nav_order: 0, published: false
+})
 
 const AVATAR_SHAPES = [
   { key: 'circle', label: '圓形' },
@@ -469,6 +581,7 @@ const AVATAR_SHAPES = [
 // 後台功能區塊。一次只顯示一項，避免所有表單疊在同一頁要一路往下滑。
 const SECTIONS = [
   { key: 'story', label: '元素故事', icon: '✎' },
+  { key: 'pages', label: '頁面管理', icon: '▤' },
   { key: 'site', label: '網站設定', icon: '⚙' },
   { key: 'default-img', label: '預設圖片', icon: '▣' },
   { key: 'links', label: '社群連結', icon: '⚯' },
@@ -477,7 +590,7 @@ const SECTIONS = [
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
-  components: { LoadingSpinner, PokedexFrame, ImageCropper },
+  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent },
   data() {
     return {
       authState,
@@ -512,6 +625,11 @@ export default {
       platforms: PLATFORMS,
       FRAME_STYLES,
       GALLERY_MAX,
+      NAV_POSITIONS,
+      pageList: [],
+      pageForm: EMPTY_PAGE(),
+      pageSaving: false,
+      showMarkdownHelp: false,
       cropFile: null,
       cropTarget: null,
       cropQueue: [],
@@ -565,7 +683,7 @@ export default {
   },
   async mounted() {
     if (this.authState.loggedIn) {
-      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings()])
+      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages()])
     }
   },
   beforeUnmount() {
@@ -669,7 +787,7 @@ export default {
       try {
         const result = await login(this.email, this.password)
         if (result.ok) {
-          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings()])
+          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages()])
         } else {
           this.msg = result.message || 'Login failed'
         }
@@ -762,6 +880,60 @@ export default {
         showToast(e.response?.data?.message || 'Save failed', 'error')
       } finally {
         this.gallerySaving = false
+      }
+    },
+    async loadPages() {
+      try {
+        const res = await getAdminPages()
+        this.pageList = res.data.pages || []
+      } catch (e) {
+        console.error('Failed to load pages:', e)
+      }
+    },
+    selectPage(p) {
+      this.pageForm = {
+        original_slug: p.slug, slug: p.slug, title: p.title,
+        content: p.content || '', nav_position: p.nav_position,
+        nav_order: p.nav_order, published: p.published
+      }
+    },
+    newPage() {
+      this.pageForm = EMPTY_PAGE()
+    },
+    async saveAsDraft() {
+      this.pageForm.published = false
+      await this.handleSavePage()
+    },
+    async handleSavePage() {
+      this.pageSaving = true
+      try {
+        const res = await savePage(this.pageForm)
+        showToast(res.data.message || '已儲存', 'success')
+        this.pageForm.original_slug = res.data.slug
+        this.pageForm.slug = res.data.slug
+        await this.loadPages()
+        // 讓前台導覽立即反映
+        await refreshPages()
+      } catch (e) {
+        showToast(e.response?.data?.message || '儲存失敗', 'error')
+      } finally {
+        this.pageSaving = false
+      }
+    },
+    async handleDeletePage() {
+      const slug = this.pageForm.original_slug
+      if (!slug) return
+      this.pageSaving = true
+      try {
+        const res = await deletePage(slug)
+        showToast(res.data.message || '已刪除', 'success')
+        this.newPage()
+        await this.loadPages()
+        await refreshPages()
+      } catch (e) {
+        showToast(e.response?.data?.message || '刪除失敗', 'error')
+      } finally {
+        this.pageSaving = false
       }
     },
     async loadSiteSettings() {
@@ -1656,6 +1828,135 @@ export default {
 
 .site-desc {
   min-height: 60px;
+}
+
+/* ── 頁面管理 ── */
+.page-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 18px;
+}
+
+.page-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 9px 14px;
+  border: 1px solid rgba(228, 251, 255, 0.14);
+  border-radius: 8px;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.page-item:hover {
+  border-color: rgba(228, 251, 255, 0.4);
+  background: rgba(228, 251, 255, 0.05);
+}
+
+.page-item.active {
+  border-color: #6ee76e;
+  background: rgba(110, 231, 110, 0.1);
+}
+
+.page-item-title {
+  font-size: 14px;
+  color: rgba(228, 251, 255, 0.9);
+}
+
+.page-item-meta {
+  font-size: 11px;
+  color: rgba(228, 251, 255, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.draft-tag {
+  color: #ffc46b;
+  border: 1px solid rgba(255, 196, 107, 0.4);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+
+.page-item--new {
+  justify-content: center;
+  color: rgba(228, 251, 255, 0.6);
+  font-size: 13px;
+  border-style: dashed;
+}
+
+.page-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.page-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 4px 0 6px;
+}
+
+.page-content {
+  min-height: 340px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.page-preview {
+  padding: 12px 14px;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(3, 1, 12, 0.35);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.md-help {
+  padding: 12px 14px;
+  margin: 0 0 10px;
+  border: 1px solid rgba(157, 140, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(90, 70, 160, 0.12);
+  font-size: 12px;
+  line-height: 1.8;
+  color: rgba(228, 251, 255, 0.72);
+}
+
+.md-help p { margin: 0 0 8px; }
+.md-help p:last-child { margin-bottom: 0; }
+
+.md-help code {
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(3, 1, 12, 0.6);
+}
+
+.md-help pre {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(3, 1, 12, 0.6);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+@media (max-width: 860px) {
+  .page-form-row,
+  .page-editor {
+    grid-template-columns: 1fr;
+  }
+  .page-preview { max-height: 300px; }
 }
 
 /* ── 其他樣貌管理 ── */

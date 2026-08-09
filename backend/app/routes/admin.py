@@ -13,6 +13,7 @@ from app.elements import element_info
 from app.links import normalize_creator_links, serialize_creator_links
 from app.completion import update_completion, rebuild_completion
 from app.gallery import normalize_gallery
+from app.pages import normalize_pages, serialize_page, normalize_slug, PAGES_NODE
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app import ai
 
@@ -180,6 +181,47 @@ def manage_default_image():
 
         upload_fdb("_default", {"img": img, "img_data": img_data})
         return jsonify({"result": "success", "message": "Default image updated!"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/pages", methods=["GET", "POST"])
+@login_required
+def manage_pages():
+    if request.method == "GET":
+        try:
+            return jsonify({"pages": normalize_pages(show_fdb(PAGES_NODE), include_drafts=True)})
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    # POST：新增或更新單一頁面
+    try:
+        payload = request.get_json() or {}
+        slug, record = serialize_page(payload)
+        if not slug:
+            return jsonify({"result": "failure", "message": record}), 400
+
+        # 改過 slug 時要把舊的那筆刪掉，否則會留下孤兒頁面
+        original = normalize_slug(payload.get("original_slug"))
+        if original and original != slug:
+            fdb.child(PAGES_NODE).child(original).delete()
+
+        record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        fdb.child(PAGES_NODE).child(slug).set(record)
+        return jsonify({"result": "success", "message": "頁面已儲存", "slug": slug})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/pages/<slug>", methods=["DELETE"])
+@login_required
+def delete_page(slug):
+    try:
+        safe = normalize_slug(slug)
+        if not safe:
+            return jsonify({"result": "failure", "message": "無效的網址代稱"}), 400
+        fdb.child(PAGES_NODE).child(safe).delete()
+        return jsonify({"result": "success", "message": "頁面已刪除"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 

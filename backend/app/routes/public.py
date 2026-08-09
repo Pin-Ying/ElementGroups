@@ -11,6 +11,7 @@ from app.elements import get_atomicOrbital, get_characteristic, get_abMax
 from app.links import normalize_creator_links
 from app.completion import get_completion
 from app.gallery import normalize_gallery
+from app.pages import normalize_page, normalize_pages, PAGES_NODE
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
@@ -202,6 +203,35 @@ def ai_status():
         used, limit = ai.get_usage()
         result.update({"used": used, "limit": limit})
     return jsonify(result)
+
+
+@public_bp.route("/pages", methods=["GET"])
+def get_pages():
+    """已發布頁面的清單，供導覽列使用。登入後一併回傳草稿。"""
+    try:
+        include_drafts = current_user.is_authenticated
+        pages = normalize_pages(show_fdb(PAGES_NODE), include_drafts=include_drafts)
+        # 導覽只需要標題與位置，內容另外抓，避免清單塞一堆 Markdown
+        return jsonify({"pages": [
+            {k: p[k] for k in ("slug", "title", "nav_position", "nav_order", "published")}
+            for p in pages
+        ]})
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/pages/<slug>", methods=["GET"])
+def get_page(slug):
+    try:
+        page = normalize_page(slug, show_fdb(f"{PAGES_NODE}/{slug}"))
+        if not page:
+            return jsonify({"result": "failure", "exception": "Page not found"}), 404
+        # 草稿只有登入後看得到
+        if not page["published"] and not current_user.is_authenticated:
+            return jsonify({"result": "failure", "exception": "Page not found"}), 404
+        return jsonify(page)
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
 
 
 @public_bp.route("/site-settings", methods=["GET"])

@@ -70,6 +70,26 @@ export function getDefaultImgInfo() {
   return api.get('/admin/default-img')
 }
 
+export function getPages() {
+  return api.get('/pages')
+}
+
+export function getPage(slug) {
+  return api.get(`/pages/${slug}`)
+}
+
+export function getAdminPages() {
+  return api.get('/admin/pages')
+}
+
+export function savePage(payload) {
+  return api.post('/admin/pages', payload)
+}
+
+export function deletePage(slug) {
+  return api.delete(`/admin/pages/${slug}`)
+}
+
 export function getSiteSettings() {
   return api.get('/site-settings')
 }
