@@ -12,6 +12,7 @@ from app.links import normalize_creator_links
 from app.completion import get_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_page, normalize_pages, PAGES_NODE
+from app.layers import normalize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
@@ -203,6 +204,21 @@ def ai_status():
         used, limit = ai.get_usage()
         result.update({"used": used, "limit": limit})
     return jsonify(result)
+
+
+@public_bp.route("/elements/<symbol>/layers", methods=["GET"])
+def get_element_layers(symbol):
+    """元素的圖層設定，連同選用的電子樣式圖一起回傳，前端才不用再打一次。"""
+    try:
+        layers = normalize_layers(show_fdb(f"{LAYERS_NODE}/{symbol}"))
+        electron_img = ""
+        if layers["electron_style"]:
+            style = show_fdb(f"{ELECTRON_STYLES_NODE}/{layers['electron_style']}")
+            if isinstance(style, dict):
+                electron_img = (style.get("img_data") or "").strip()
+        return jsonify({**layers, "electron_img": electron_img})
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
 
 
 @public_bp.route("/pages", methods=["GET"])

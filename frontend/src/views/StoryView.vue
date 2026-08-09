@@ -79,7 +79,17 @@
               :style="site.frame_style"
               :frame-image="site.frame_image"
             >
+              <!-- 圖層備齊時用分層呈現，否則沿用原本的靜態圖 -->
+              <ElementLayers
+                v-if="useLayers"
+                :nucleus="layers.nucleus"
+                :name-img="layers.name_img"
+                :electron-img="layers.electron_img"
+                :count="outerElectrons"
+                :motion="layers.motion"
+              />
               <img
+                v-else
                 :src="resolvedImg"
                 :title="elInfo.Name"
                 alt="Still Creating..."
@@ -147,12 +157,14 @@
 </template>
 
 <script>
-import { getElementDetail, getElementAbility, updateStory, recordElementView, getElementGallery, apiBase } from '../api'
+import { getElementDetail, getElementAbility, updateStory, recordElementView, getElementGallery, getElementLayers, apiBase } from '../api'
 import AbilityChart from '../components/AbilityChart.vue'
 import AbilityBars from '../components/AbilityBars.vue'
 import ElementProfile from '../components/ElementProfile.vue'
 import PokedexFrame from '../components/PokedexFrame.vue'
 import ElementGallery from '../components/ElementGallery.vue'
+import ElementLayers from '../components/ElementLayers.vue'
+import { outerElectronCount } from '../utils/valence'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { siteSettingsState } from '../store/siteSettings'
 import { authState } from '../store/auth'
@@ -160,7 +172,7 @@ import { showToast } from '../store/toast'
 import { elementsState, ensureElements } from '../store/elements'
 
 export default {
-  components: { AbilityChart, AbilityBars, ElementProfile, PokedexFrame, ElementGallery, LoadingSpinner },
+  components: { AbilityChart, AbilityBars, ElementProfile, PokedexFrame, ElementGallery, ElementLayers, LoadingSpinner },
   props: { symbol: { type: String, required: true } },
   data() {
     return {
@@ -174,6 +186,7 @@ export default {
       abilityData: null,
       site: siteSettingsState,
       gallery: [],
+      layers: null,
       section: 'intro',
       chartType: 'bars',
       loading: false,
@@ -189,6 +202,13 @@ export default {
       if (this.imgFallbackLevel === 1) return this.imgData || defaultImg
       if (this.imgFallbackLevel === 2) return defaultImg
       return null
+    },
+    // 原子核是必要的；沒有它就沒有分層的基礎
+    useLayers() {
+      return !!(this.layers && this.layers.nucleus)
+    },
+    outerElectrons() {
+      return outerElectronCount(this.elInfo?.ElectronConfiguration)
     },
     imgBroken() {
       return this.imgFallbackLevel >= 3
@@ -223,6 +243,7 @@ export default {
       this.loading = true
       this.elInfo = null
       this.gallery = []
+      this.layers = null
       this.imgFallbackLevel = 0
       this.section = 'intro'
       this.editing = false
@@ -245,6 +266,10 @@ export default {
         getElementGallery(this.symbol)
           .then(res => { this.gallery = res.data.images || [] })
           .catch(() => { this.gallery = [] })
+        // 圖層是選用的，沒設定就沿用靜態圖
+        getElementLayers(this.symbol)
+          .then(res => { this.layers = res.data })
+          .catch(() => { this.layers = null })
       } catch (e) {
         console.error('Failed to load element data:', e)
       } finally {

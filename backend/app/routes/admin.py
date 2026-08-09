@@ -14,6 +14,7 @@ from app.links import normalize_creator_links, serialize_creator_links
 from app.completion import update_completion, rebuild_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_pages, serialize_page, normalize_slug, PAGES_NODE
+from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app import ai
 
@@ -181,6 +182,67 @@ def manage_default_image():
 
         upload_fdb("_default", {"img": img, "img_data": img_data})
         return jsonify({"result": "success", "message": "Default image updated!"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/electron-styles", methods=["GET", "POST"])
+@login_required
+def manage_electron_styles():
+    """共用的電子樣式庫。同一種畫法可以套用到任何元素。"""
+    if request.method == "GET":
+        try:
+            return jsonify({"styles": normalize_electron_styles(show_fdb(ELECTRON_STYLES_NODE))})
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    try:
+        data = request.get_json() or {}
+        name = (data.get("name") or "").strip()
+        img_data = (data.get("img_data") or "").strip()
+        if not img_data:
+            return jsonify({"result": "failure", "message": "請選擇圖片"}), 400
+
+        style_id = (data.get("id") or "").strip()
+        if not style_id:
+            # 用時間戳當 id，避免與既有樣式衝突
+            style_id = datetime.datetime.now(datetime.timezone.utc).strftime("s%Y%m%d%H%M%S%f")
+
+        fdb.child(ELECTRON_STYLES_NODE).child(style_id).set({
+            "name": name or style_id,
+            "img_data": img_data,
+        })
+        return jsonify({"result": "success", "message": "電子樣式已儲存", "id": style_id})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/electron-styles/<style_id>", methods=["DELETE"])
+@login_required
+def delete_electron_style(style_id):
+    try:
+        fdb.child(ELECTRON_STYLES_NODE).child(style_id).delete()
+        return jsonify({"result": "success", "message": "電子樣式已刪除"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/elements/<symbol>/layers", methods=["GET", "POST"])
+@login_required
+def manage_layers(symbol):
+    if request.method == "GET":
+        try:
+            return jsonify(normalize_layers(show_fdb(f"{LAYERS_NODE}/{symbol}")))
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    try:
+        record = serialize_layers(request.get_json() or {})
+        if not record:
+            return jsonify({"result": "failure", "message": "沒有要更新的欄位"}), 400
+        # 用 update：只送了原子核時不該把手寫名那層清掉
+        fdb.child(LAYERS_NODE).child(symbol).update(record)
+        return jsonify({"result": "success", "message": "圖層已儲存"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 

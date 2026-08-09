@@ -124,6 +124,30 @@ export function recordElementView(symbol) {
   return api.post(`/elements/${symbol}/view`)
 }
 
+export function getElementLayers(symbol) {
+  return api.get(`/elements/${symbol}/layers`)
+}
+
+export function getAdminLayers(symbol) {
+  return api.get(`/admin/elements/${symbol}/layers`)
+}
+
+export function updateLayers(symbol, payload) {
+  return api.post(`/admin/elements/${symbol}/layers`, payload)
+}
+
+export function getElectronStyles() {
+  return api.get('/admin/electron-styles')
+}
+
+export function saveElectronStyle(payload) {
+  return api.post('/admin/electron-styles', payload)
+}
+
+export function deleteElectronStyle(id) {
+  return api.delete(`/admin/electron-styles/${id}`)
+}
+
 export function getElementGallery(symbol) {
   return api.get(`/elements/${symbol}/gallery`)
 }
