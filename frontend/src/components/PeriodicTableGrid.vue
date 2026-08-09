@@ -78,7 +78,9 @@ export default {
 .pt-wrapper {
   width: 100%;
   overflow-x: auto;
-  padding: 6px 4px 16px;
+  /* 元素 hover 時會放大 1.18 倍，四周要留出溢出的空間；
+     這個容器有 overflow-x: auto，依規範垂直方向也會跟著裁切 */
+  padding: 14px 12px 18px;
   -webkit-overflow-scrolling: touch;
 }
 

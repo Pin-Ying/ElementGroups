@@ -201,7 +201,10 @@ export default {
     wheelElements() {
       const all = elementsState.elements
       if (!all.length || !this.elInfo) return []
-      return all.map(el => ({ ...el, current: el.Symbol === this.elInfo.Symbol }))
+      // 明確依原子序排序，不倚賴資料來源的順序
+      return [...all]
+        .sort((a, b) => Number(a.AtomicNumber) - Number(b.AtomicNumber))
+        .map(el => ({ ...el, current: el.Symbol === this.elInfo.Symbol }))
     }
   },
   mounted() {
