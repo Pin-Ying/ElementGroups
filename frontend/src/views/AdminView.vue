@@ -39,16 +39,20 @@
         <!-- Default Image -->
         <div class="box">
           <p class="title is-4">DEFAULT IMAGE</p>
-          <p class="desc">元素尚未上傳圖片時顯示的預設圖片</p>
+          <p class="desc">
+            元素尚未上傳圖片時顯示的預設圖片。<br>
+            {{ uploadHint }}
+          </p>
           <img v-if="defaultImgData" :src="defaultImgData" class="img-preview" alt="Default" />
           <p v-else class="placeholder-text">尚未設定</p>
           <form @submit.prevent="handleUpdateDefaultImg">
-            <input class="input" type="file" accept=".jpg" ref="defaultImgInput" required @change="onDefaultImgFileChange" />
+            <input class="input" type="file" accept="image/*" ref="defaultImgInput" @change="onDefaultImgFileChange" />
             <div v-if="defaultImgPreviewUrl" class="preview-new">
               <p class="preview-label">新圖片預覽（尚未儲存）</p>
               <img :src="defaultImgPreviewUrl" class="img-preview" alt="New default preview" />
+              <p class="compress-info">{{ compressionSummary(defaultImgInfo) }}</p>
             </div>
-            <button class="button" type="submit" :disabled="defaultImgSaving">
+            <button class="button" type="submit" :disabled="defaultImgSaving || !defaultImgBlob">
               {{ defaultImgSaving ? 'Uploading…' : 'Upload' }}
             </button>
           </form>
@@ -141,11 +145,13 @@
               placeholder="Write the story…"
             ></textarea>
 
-            <label class="label">Image (.jpg)</label>
-            <input class="input" type="file" accept=".jpg" ref="imageInput" @change="onImageFileChange" />
+            <label class="label">Image</label>
+            <p class="field-hint">{{ uploadHint }}</p>
+            <input class="input" type="file" accept="image/*" ref="imageInput" @change="onImageFileChange" />
             <div v-if="newImagePreviewUrl" class="preview-new">
               <p class="preview-label">新圖片預覽（尚未儲存）</p>
               <img :src="newImagePreviewUrl" class="img-preview" alt="New image preview" />
+              <p class="compress-info">{{ compressionSummary(newImageInfo) }}</p>
             </div>
 
             <button class="button" type="submit" :disabled="loading">Submit</button>
@@ -204,6 +210,7 @@ import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
 import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
+import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
@@ -227,13 +234,20 @@ export default {
       defaultImgData: '',
       defaultImgSaving: false,
       newImagePreviewUrl: '',
+      newImageBlob: null,
+      newImageInfo: null,
       defaultImgPreviewUrl: '',
+      defaultImgBlob: null,
+      defaultImgInfo: null,
       creatorLinks: [],
       creatorLinksSaving: false,
       platforms: PLATFORMS
     }
   },
   computed: {
+    uploadHint() {
+      return `上傳前會自動等比縮至長邊 ${MAX_EDGE}px 並轉為 JPEG，減少資料庫用量；超過 ${formatBytes(MAX_UPLOAD_BYTES)} 的檔案不接受。`
+    },
     currentElementImgSrc() {
       if (!this.selectedSymbol) return ''
       return apiBase + '/elements/' + this.selectedSymbol + '/img'
@@ -264,27 +278,57 @@ export default {
     this.revokeDefaultImgPreview()
   },
   methods: {
-    onImageFileChange(e) {
+    async onImageFileChange(e) {
       this.revokeImagePreview()
       const file = e.target.files[0]
-      if (file) this.newImagePreviewUrl = URL.createObjectURL(file)
+      if (!file) return
+      try {
+        const result = await compressImage(file)
+        this.newImageBlob = result.blob
+        this.newImageInfo = result
+        this.newImagePreviewUrl = URL.createObjectURL(result.blob)
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+        e.target.value = ''
+      }
     },
     revokeImagePreview() {
       if (this.newImagePreviewUrl) {
         URL.revokeObjectURL(this.newImagePreviewUrl)
         this.newImagePreviewUrl = ''
       }
+      this.newImageBlob = null
+      this.newImageInfo = null
     },
-    onDefaultImgFileChange(e) {
+    async onDefaultImgFileChange(e) {
       this.revokeDefaultImgPreview()
       const file = e.target.files[0]
-      if (file) this.defaultImgPreviewUrl = URL.createObjectURL(file)
+      if (!file) return
+      try {
+        const result = await compressImage(file)
+        this.defaultImgBlob = result.blob
+        this.defaultImgInfo = result
+        this.defaultImgPreviewUrl = URL.createObjectURL(result.blob)
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+        e.target.value = ''
+      }
     },
     revokeDefaultImgPreview() {
       if (this.defaultImgPreviewUrl) {
         URL.revokeObjectURL(this.defaultImgPreviewUrl)
         this.defaultImgPreviewUrl = ''
       }
+      this.defaultImgBlob = null
+      this.defaultImgInfo = null
+    },
+    compressionSummary(info) {
+      if (!info) return ''
+      const saved = info.originalSize - info.compressedSize
+      const pct = info.originalSize ? Math.round((saved / info.originalSize) * 100) : 0
+      const size = `${formatBytes(info.originalSize)} → ${formatBytes(info.compressedSize)}`
+      const dims = info.resized ? `，已縮至 ${info.width}×${info.height}` : ''
+      return saved > 0 ? `${size}（省下 ${pct}%）${dims}` : `${size}${dims}`
     },
     async handleLogin() {
       this.loading = true
@@ -378,10 +422,9 @@ export default {
       }
     },
     async handleUpdateDefaultImg() {
-      const imageFile = this.$refs.defaultImgInput?.files[0]
-      if (!imageFile) return
+      if (!this.defaultImgBlob) return
       const formData = new FormData()
-      formData.append('image', imageFile)
+      formData.append('image', this.defaultImgBlob, '_default.jpg')
       this.defaultImgSaving = true
       try {
         const res = await updateDefaultImg(formData)
@@ -474,15 +517,15 @@ export default {
       const formData = new FormData()
       formData.append('symbol', this.selectedSymbol)
       formData.append('stroy', this.storyText)
-      const imageFile = this.$refs.imageInput?.files[0]
-      if (imageFile) formData.append('image', imageFile)
+      const imageBlob = this.newImageBlob
+      if (imageBlob) formData.append('image', imageBlob, `${this.selectedSymbol}.jpg`)
       this.loading = true
       try {
         const res = await updateStory(formData)
         showToast(res.data.message || 'Saved!', 'success')
         this.storyDatas[this.selectedSymbol] = this.storyText
         // 讓下拉選單的完成度標記立即反映這次儲存的結果
-        if (imageFile) this.hasImageMap[this.selectedSymbol] = true
+        if (imageBlob) this.hasImageMap[this.selectedSymbol] = true
         if (this.$refs.imageInput) this.$refs.imageInput.value = ''
         this.revokeImagePreview()
       } catch (e) {
@@ -659,6 +702,20 @@ export default {
 
 .preview-new {
   margin: 4px 0 10px;
+}
+
+.field-hint {
+  font-size: 12px;
+  opacity: 0.45;
+  margin: 0 0 6px;
+  line-height: 1.5;
+}
+
+.compress-info {
+  font-size: 12px;
+  color: #6ee76e;
+  opacity: 0.85;
+  margin: 4px 0 0;
 }
 .preview-new .img-preview {
   border-color: rgba(110, 231, 110, 0.5);
