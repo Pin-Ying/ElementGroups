@@ -1,0 +1,41 @@
+{
+  "modification_id": "mod-002",
+  "feature_id": "system",
+  "type": "bugfix",
+  "scope": "system",
+  "status": "applied",
+  "description": "修正 Firebase 讀寫的錯誤吞噬，避免儲存故事時清空既有圖片",
+  "created_at": "2026-08-09T09:05:00Z",
+  "created_by": "project-manager-skill",
+  "impact_analysis": {
+    "breaking_change": false,
+    "affects_api": false,
+    "affects_schema": false,
+    "affects_dependencies": false,
+    "risk_level": "high"
+  },
+  "changes": {
+    "files": [
+      {
+        "path": "backend/app/firebase.py",
+        "change_type": "modified",
+        "diff_summary": "upload_fdb 與 show_fdb 移除 try/except，讓例外往上拋由 route 回報；原本失敗只印 log，API 仍回報成功"
+      },
+      {
+        "path": "backend/app/routes/admin.py",
+        "change_type": "modified",
+        "diff_summary": "update_story 未選新圖片時改用 update 只寫 description 與 updated_at，完全不碰 img/img_data；原本需先讀回整個 DB 取出舊圖再整筆 set 覆寫"
+      },
+      {
+        "path": "backend/app/completion.py",
+        "change_type": "modified",
+        "diff_summary": "update_completion 改用 update 合併，支援只更新故事而不動圖片狀態"
+      }
+    ]
+  },
+  "root_cause": "三個缺陷疊加：upload_fdb 寫入失敗只印 log 就返回、show_fdb 讀取失敗回 None 被上層當成「這個元素沒有資料」、update_story 為保留舊圖需先讀回整個 DB 再整筆覆寫。任一次 Firebase 讀取異常，既有圖片就會被空字串蓋掉，而畫面顯示儲存成功。",
+  "notes": [
+    "由使用者回報「元素資料不見了」而查出；該次回報的 Fe 實際上從未有過內容（有資料的 25 個元素正好是原子序 1-25 連續）",
+    "此為既有缺陷，非本次功能開發引入"
+  ]
+}

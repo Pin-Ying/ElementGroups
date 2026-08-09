@@ -1,0 +1,30 @@
+{
+  "feature_id": "feature-001",
+  "name": "元素完成度標示",
+  "description": "標示每個元素是否已撰寫故事、已上傳圖片。Admin 下拉選單以符號註記並顯示進度計數，首頁週期表則在元素格右上角以雙色圓點呈現，可切換隱藏。",
+  "status": "completed",
+  "created_at": "2026-08-09T07:00:00Z",
+  "files": [
+    "backend/app/completion.py",
+    "backend/app/routes/public.py",
+    "backend/app/routes/admin.py",
+    "frontend/src/components/CompletionDots.vue",
+    "frontend/src/components/PeriodicTableGrid.vue",
+    "frontend/src/components/GroupBox.vue",
+    "frontend/src/views/HomeView.vue",
+    "frontend/src/views/AdminView.vue"
+  ],
+  "dependencies": ["firebase_admin"],
+  "api_endpoints": [
+    { "method": "GET", "path": "/api/elements/completion", "description": "公開；回傳各元素的故事/圖片完成狀態" },
+    { "method": "POST", "path": "/api/admin/rebuild-completion", "description": "登入保護；重新掃描全部元素重建摘要" }
+  ],
+  "data_model": [
+    { "name": "_completion/{Symbol}", "fields": ["story", "image", "updated_at"] }
+  ],
+  "notes": [
+    "另建 _completion 摘要節點而非即時掃描：show_fdb() 會把 118 筆 base64 圖片一起拉下來，首頁載入付不起這個成本",
+    "摘要不存在時會自動掃描補建一次，既有資料不需手動處理",
+    "後端須回傳 hasImage 欄位：專案預設走 base64（img_data），只看 Storage URL（img）會全部誤判為未上傳"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "feature_id": "feature-004",
+  "name": "圖片上傳處理（壓縮與裁切）",
+  "description": "後台所有圖片上傳前先經裁切與壓縮：固定裁切框可拖曳縮放、支援 1:1/4:3/3:4，輸出長邊 1200px 的 JPEG，超過 5MB 的原始檔直接擋下。預覽區顯示壓縮前後大小與節省比例。",
+  "status": "completed",
+  "created_at": "2026-08-09T07:30:00Z",
+  "files": [
+    "frontend/src/utils/imageCompress.js",
+    "frontend/src/components/ImageCropper.vue",
+    "frontend/src/views/AdminView.vue"
+  ],
+  "dependencies": [],
+  "notes": [
+    "動機：圖片以 base64 存進 Realtime DB，編碼本身膨脹約 33%，Spark 免費方案上限 1GB",
+    "套用於元素代表圖、預設圖、其他樣貌三處（皆為 1:1 顯示）",
+    "首頁背景圖是全螢幕 cover，固定比例無意義，只走壓縮不裁切",
+    "社群頭像顯示尺寸小，只走壓縮",
+    "保留「不裁切直接使用」選項"
+  ]
+}

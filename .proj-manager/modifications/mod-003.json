@@ -1,0 +1,51 @@
+{
+  "modification_id": "mod-003",
+  "feature_id": "feature-007",
+  "type": "bugfix",
+  "scope": "frontend",
+  "status": "applied",
+  "description": "修正 production 元素頁圖片全數破圖，以及多處版面裁切與座標計算問題",
+  "created_at": "2026-08-09T09:10:00Z",
+  "created_by": "project-manager-skill",
+  "impact_analysis": {
+    "breaking_change": false,
+    "affects_api": false,
+    "affects_schema": false,
+    "affects_dependencies": false,
+    "risk_level": "medium"
+  },
+  "changes": {
+    "files": [
+      {
+        "path": "frontend/src/api/index.js",
+        "change_type": "modified",
+        "diff_summary": "新增匯出 apiBase 常數，供非 axios 場合（img src）使用"
+      },
+      {
+        "path": "frontend/src/views/StoryView.vue",
+        "change_type": "modified",
+        "diff_summary": "圖片路徑改用 apiBase；.nav-wheel 補上 position: relative 修正滾輪置中偏移"
+      },
+      {
+        "path": "frontend/src/components/PeriodicTableGrid.vue",
+        "change_type": "modified",
+        "diff_summary": "容器 padding 加大，避免 hover 放大 1.18 倍時被裁切；第一列 tooltip 改為往下彈"
+      },
+      {
+        "path": "frontend/.dockerignore",
+        "change_type": "added",
+        "diff_summary": "排除 node_modules 與 dist，避免 COPY . . 把本地依賴複製進 image"
+      },
+      {
+        "path": "backend/.dockerignore",
+        "change_type": "added",
+        "diff_summary": "排除 __pycache__ 與 .env"
+      }
+    ]
+  },
+  "root_cause": "三個獨立問題：(1) StoryView 的圖片路徑寫死相對 /api，在 Render static site 上被 SPA fallback 吞掉回傳 HTML；(2) .pt-wrapper 設了 overflow-x: auto，依 CSS 規範垂直方向也會變成裁切，而容器上方只留 6px、hover 放大需要 6.3px；(3) .nav-wheel 未設 position，chip.offsetLeft 的 offsetParent 變成 body，與 scrollLeft 座標基準不一致，造成 182px 偏移。",
+  "notes": [
+    "破圖問題不在任何 issue 內，但每個元素頁都受影響",
+    "缺少 .dockerignore 會讓 docker build 必定失敗：本地 node_modules 的檔案權限沒有執行位元，複製進 image 後覆蓋掉正確安裝的依賴"
+  ]
+}

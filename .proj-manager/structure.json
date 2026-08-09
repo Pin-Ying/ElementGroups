@@ -1,11 +1,14 @@
 {
-  "generated_at": "2026-02-23T00:00:00Z",
+  "generated_at": "2026-08-09T09:15:00Z",
   "root_path": ".",
   "directories": {
     "backend": {
       "type": "source",
       "description": "Flask 後端應用",
-      "subdirectories": ["app", "app/routes"]
+      "subdirectories": [
+        "app",
+        "app/routes"
+      ]
     },
     "backend/app": {
       "type": "source",
@@ -23,27 +26,47 @@
     "backend/app/routes": {
       "type": "source",
       "description": "API 路由定義",
-      "files": ["__init__.py", "public.py", "admin.py"]
+      "files": [
+        "__init__.py",
+        "public.py",
+        "admin.py"
+      ]
     },
     "frontend": {
       "type": "source",
       "description": "Vue 3 前端應用",
-      "subdirectories": ["src"]
+      "subdirectories": [
+        "src"
+      ]
     },
     "frontend/src": {
       "type": "source",
       "description": "前端原始碼",
-      "subdirectories": ["api", "assets", "components", "router", "views"]
+      "subdirectories": [
+        "api",
+        "assets",
+        "components",
+        "router",
+        "views"
+      ]
     },
     "frontend/src/components": {
       "type": "source",
       "description": "可重用 Vue 元件",
-      "files": ["AbilityChart.vue", "GroupBox.vue", "PeriodicTable.vue"]
+      "files": [
+        "AbilityChart.vue",
+        "GroupBox.vue",
+        "PeriodicTable.vue"
+      ]
     },
     "frontend/src/views": {
       "type": "source",
       "description": "頁面級 Vue 元件",
-      "files": ["AdminView.vue", "HomeView.vue", "StoryView.vue"]
+      "files": [
+        "AdminView.vue",
+        "HomeView.vue",
+        "StoryView.vue"
+      ]
     }
   },
   "key_files": {
@@ -132,16 +155,89 @@
       "type": "config",
       "role": "frontend_container",
       "importance": "critical"
+    },
+    "backend/app/completion.py": {
+      "type": "source",
+      "role": "元素故事/圖片完成度摘要（_completion 節點）",
+      "importance": "normal"
+    },
+    "backend/app/stats.py": {
+      "type": "source",
+      "role": "元素頁點閱統計（_stats 節點）",
+      "importance": "normal"
+    },
+    "backend/app/gallery.py": {
+      "type": "source",
+      "role": "其他樣貌圖庫的資料正規化",
+      "importance": "normal"
+    },
+    "backend/app/links.py": {
+      "type": "source",
+      "role": "社群連結正規化，相容三種歷史格式",
+      "importance": "normal"
+    },
+    "backend/app/ai.py": {
+      "type": "source",
+      "role": "Gemini 串接與每日用量控制",
+      "importance": "high"
+    },
+    "frontend/vite-plugin-seo.js": {
+      "type": "config",
+      "role": "build 時將網站文案與 og/twitter 標籤注入 index.html",
+      "importance": "high"
+    },
+    "frontend/src/utils/imageCompress.js": {
+      "type": "source",
+      "role": "上傳前的等比縮放與 JPEG 壓縮",
+      "importance": "high"
+    },
+    "frontend/src/utils/socialPlatforms.js": {
+      "type": "source",
+      "role": "社群平台清單與品牌色",
+      "importance": "normal"
+    },
+    "frontend/src/store/siteSettings.js": {
+      "type": "source",
+      "role": "網站文案、背景圖、圖鑑外框的全站狀態",
+      "importance": "high"
+    },
+    "frontend/src/store/creatorLinks.js": {
+      "type": "source",
+      "role": "社群連結全站狀態（頁尾與 /links 共用）",
+      "importance": "normal"
+    },
+    "frontend/.dockerignore": {
+      "type": "config",
+      "role": "排除 node_modules/dist，避免覆蓋 image 內的依賴",
+      "importance": "critical"
+    },
+    "backend/.dockerignore": {
+      "type": "config",
+      "role": "排除 __pycache__ 與 .env",
+      "importance": "normal"
+    },
+    "render.yaml": {
+      "type": "config",
+      "role": "Render 前端 static site 部署設定",
+      "importance": "high"
     }
   },
   "file_count": {
-    "total": 20,
+    "total": 84,
     "by_extension": {
-      ".py": 8,
-      ".vue": 6,
-      ".js": 3,
-      ".json": 2,
-      ".txt": 1
+      ".vue": 22,
+      ".py": 16,
+      ".json": 15,
+      ".js": 13,
+      ".jpg": 8,
+      ".md": 3,
+      ".yml": 1,
+      ".yaml": 1,
+      ".txt": 1,
+      ".html": 1,
+      ".example": 1,
+      ".css": 1,
+      ".conf": 1
     }
   },
   "ignored_patterns": [
@@ -151,5 +247,8 @@
     "dist",
     ".venv",
     "*.db"
+  ],
+  "notes": [
+    "PeriodicTable.vue 已於 2026-08-09 移除，職責由 ElementIconGrid.vue 涵蓋"
   ]
 }

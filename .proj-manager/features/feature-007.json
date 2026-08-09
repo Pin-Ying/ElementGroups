@@ -1,0 +1,37 @@
+{
+  "feature_id": "feature-007",
+  "name": "元素圖鑑呈現",
+  "description": "元素頁比照寶可夢圖鑑重整：基本資料區、CPK 色數值條、代表圖的圖鑑外框、其他樣貌圖庫，以及可捲動瀏覽全部 118 個元素的滾輪。另有獨立的元素說明書頁。",
+  "status": "completed",
+  "created_at": "2026-08-09T08:40:00Z",
+  "files": [
+    "backend/app/gallery.py",
+    "backend/app/routes/public.py",
+    "backend/app/routes/admin.py",
+    "frontend/src/components/AbilityBars.vue",
+    "frontend/src/components/ElementProfile.vue",
+    "frontend/src/components/PokedexFrame.vue",
+    "frontend/src/components/ElementGallery.vue",
+    "frontend/src/components/AbilityChart.vue",
+    "frontend/src/views/StoryView.vue",
+    "frontend/src/views/GuideView.vue",
+    "frontend/src/router/index.js"
+  ],
+  "dependencies": ["echarts"],
+  "api_endpoints": [
+    { "method": "GET", "path": "/api/elements/{symbol}/gallery", "description": "公開；元素的其他樣貌圖庫" },
+    { "method": "GET", "path": "/api/admin/elements/{symbol}/gallery", "description": "登入保護；後台讀取" },
+    { "method": "POST", "path": "/api/admin/elements/{symbol}/gallery", "description": "登入保護；整批覆寫，上限 6 張" }
+  ],
+  "data_model": [
+    { "name": "_gallery/{Symbol}[]", "fields": ["img_data", "caption"] }
+  ],
+  "notes": [
+    "gallery 與元素本體分開存：首頁與列表頁只需代表圖，混在一起會讓那些查詢連帶拉下所有圖片",
+    "Realtime DB 對有空洞的陣列會回傳以索引為 key 的 dict，讀取時需正規化",
+    "外框四款以 CSS 繪製並依元素 CPK 色變化，另支援上傳自訂 PNG（需透明背景）",
+    "滾輪整列渲染 118 個元素，遠近縮放改為依捲動位置即時計算",
+    ".nav-wheel 必須設 position: relative，否則 chip.offsetLeft 的 offsetParent 會是 body，與 scrollLeft 座標基準不一致",
+    "AbilityChart 原本寫死 min-width:600px 會讓窄螢幕橫向捲動，改為 clamp 響應式高度"
+  ]
+}

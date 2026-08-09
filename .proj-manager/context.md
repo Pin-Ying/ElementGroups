@@ -4,7 +4,7 @@
 
 **專案名稱:** ElementGroups
 **建立追蹤時間:** 2026-02-23
-**最後更新:** 2026-02-24
+**最後更新:** 2026-08-09
 **專案類型:** Fullstack Web Application
 **主要技術:** Python Flask (後端) + Vue 3 + Vite (前端)
 
@@ -42,11 +42,21 @@
 | 故事 / 圖片 URL | Realtime DB `{Symbol}/img, description` | 管理員上傳 |
 | 圖片 base64 備援 | Realtime DB `{Symbol}/img_data` | Storage 不可用時的 fallback |
 | 元素圖片檔案 | Firebase Storage `static/img/{Symbol}.JPG` | |
+| 完成度摘要 | Realtime DB `_completion/{Symbol}` | `{story, image, updated_at}`，避免首頁掃全庫 |
+| 點閱統計 | Realtime DB `_stats/{Symbol}/views` | 熱門元素排序用 |
+| 其他樣貌圖庫 | Realtime DB `_gallery/{Symbol}[]` | `{img_data, caption}`，上限 6 張 |
+| 網站設定 | Realtime DB `_site_settings` | 文案、背景圖、圖鑑外框 |
+| 社群連結 | Realtime DB `_creator_links` | 描述、頭像形狀、連結清單 |
+| AI 用量 | Realtime DB `_ai_usage/{YYYY-MM-DD}` | 每日呼叫次數 |
 
 ## 部署方式
 
-**目前:** Docker Compose（前端 8080，後端 8000）
-**之前:** Render.com (Procfile)
+**目前:** Render.com — 前端 static site（elementgroups-frontend）+ 後端 web service（elementtable），
+同一個 repo，push 後兩者皆自動重新部署。
+**本地開發:** Docker Compose（前端 8080，後端 8000），需 `backend/.env` 的 Firebase 憑證。
+
+> 注意：production 的 `VITE_API_URL` 由 Render 環境變數注入為後端絕對網址，
+> 會覆蓋 repo 內 `frontend/.env.production` 的 `/api`。
 
 啟動指令:
 ```bash
@@ -76,17 +86,41 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 | POST | `/api/admin/update-db` | 初始化/更新週期表（已有資料則略過）|
 | GET/POST | `/api/admin/story` | 故事與圖片管理 |
 | POST | `/api/admin/backfill-img-data` | 補齊舊圖片的 base64 img_data（有 img 無 img_data 者）|
+| GET | `/api/elements/completion` | 各元素的故事/圖片完成狀態（讀 `_completion` 摘要）|
+| GET | `/api/elements/recent` | 最近更新的元素（依 `updated_at`）|
+| GET | `/api/elements/popular` | 熱門元素（依 `_stats` 點閱數）|
+| POST | `/api/elements/:symbol/view` | 累加元素頁點閱 |
+| GET | `/api/elements/:symbol/gallery` | 元素的「其他樣貌」圖庫 |
+| GET | `/api/site-settings` | 網站文案、背景圖、圖鑑外框設定 |
+| GET | `/api/creator-links` | 社群連結（含描述、頭像形狀）|
+| GET | `/api/ai/status` | AI 協助是否啟用（公開，便於部署後確認環境變數）|
+| POST | `/api/admin/rebuild-completion` | 重建完成度摘要 |
+| GET/POST | `/api/admin/site-settings` | 網站設定（POST 為 multipart，含背景圖與外框圖）|
+| GET/POST | `/api/admin/elements/:symbol/gallery` | 其他樣貌圖庫（上限 6 張）|
+| POST | `/api/admin/story-suggest` | AI 產生故事建議 |
 
 ### 前端頁面
-- `HomeView.vue` - 主頁面（週期表 + 分組切換）
-- `StoryView.vue` - 元素詳細故事頁面（含登入後 inline 編輯 Modal）
-- `AdminView.vue` - 管理員頁面
+- `HomeView.vue` - 主頁面（分組下拉 + 檢視樣式 + 完成度 + 最近更新／熱門）
+- `StoryView.vue` - 元素詳細頁（圖鑑外框、數值條、基本資料、其他樣貌、元素滾輪）
+- `AdminView.vue` - 管理員頁面（側邊選單五個區塊）
+- `LinksView.vue` - 社群連結頁 `/links`
+- `GuideView.vue` - 元素說明書 `/guide`
 
 ### 前端元件
-- `PeriodicTableGrid.vue` - 標準週期表格排版（18 欄，預設模式）
-- `PeriodicTable.vue` - 簡易流排元素格
-- `GroupBox.vue` - 分組盒子
-- `AbilityChart.vue` - ECharts 雷達圖
+- `PeriodicTableGrid.vue` - 標準週期表格排版（18 欄）
+- `ElementIconGrid.vue` - 大／小圖示檢視（取代已移除的 PeriodicTable.vue）
+- `ElementListView.vue` - 詳細清單檢視
+- `GroupBox.vue` - 分組容器，依 viewStyle 渲染對應樣式
+- `ElementHighlights.vue` - 最近更新／熱門元素卡片列
+- `CompletionDots.vue` - 完成度圓點
+- `AbilityBars.vue` - CPK 色數值條（Stats 預設視圖）
+- `AbilityChart.vue` - ECharts 雷達圖（第二視圖）
+- `ElementProfile.vue` - 基本資料區
+- `PokedexFrame.vue` - 圖鑑外框（四款內建 + 自訂 PNG）
+- `ElementGallery.vue` - 其他樣貌圖庫與放大檢視
+- `ImageCropper.vue` - 圖片裁切
+- `SocialLink.vue` - 社群連結膠囊（頁尾與 /links 共用）
+- `SiteFooter.vue` - 全站頁尾
 - `LoadingSpinner.vue` - 全域 loading overlay
 
 ## 環境變數
@@ -96,6 +130,11 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 必填項目：
 - `SECRET_KEY` - Flask Session 密鑰
 - `FIREBASE_*` - Firebase Admin SDK 與 Client 金鑰
+
+選填項目：
+- `FIREBASE_STORAGE_ENABLED` - 預設 false，只用 Realtime DB base64
+- `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` / `AI_DAILY_LIMIT` / `AI_MAX_OUTPUT_TOKENS` - AI 故事協助，未設 key 則整個功能不啟用
+- `VITE_SITE_URL`（前端）- SEO 的 `og:url` 用，未設定會省略該標籤
 
 **已移除:** `DATABASE_URI`（SQLite 已廢棄）
 
@@ -115,6 +154,17 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 - [x] 優化整體前端介面（宇宙主題 UI 全面實作）
 - [ ] Flask-Login session 改用 Redis 或 server-side store（支援多 worker）
 - [x] StoryView 前端串接 img_data fallback 已實作；舊圖片可透過 Admin「Backfill img_data」一鍵補齊
+- [x] 元素完成度標示（Admin 下拉 + 首頁週期表圓點）
+- [x] 圖片上傳壓縮與裁切
+- [x] 網站設定與 SEO 標籤 build 時注入
+- [x] AI 故事協助（Gemini）
+- [x] 首頁分組下拉與三種檢視樣式
+- [x] 元素頁圖鑑化（數值條、基本資料、外框、其他樣貌、元素滾輪）
+- [x] 元素說明書頁 `/guide`
+- [ ] 頁面管理 CMS（issue #10：Markdown 編輯器、前台左側導覽欄、草稿狀態、元素故事草稿）
+- [ ] 分子區塊（issue #11：PubChem 化合物 API 已驗證可用，等需求確認）
+- [ ] AI 故事生成的截斷修正尚未實測（模型為 gemini-3.5-flash，屬思考型模型）
+- [ ] 若圖片量成長，評估啟用 Firebase Storage（需 Blaze 方案，程式碼已支援切換）
 
 ## Auth 相關注意事項
 
@@ -129,6 +179,44 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 - `AdminView` 在 `mounted()` 若已登入會自動載入 story 資料
 - **axios 401 interceptor**：在 `App.vue` created() 中設置，任何 401 response 自動同步 `authState.loggedIn = false`
 - **`login_manager.session_protection = None`**：停用 Flask-Login IP/UA hash 識別符檢查，避免 Windows Docker 環境中 IPv4/IPv6 切換導致 session 失效
+
+## 部署與環境的陷阱（實際踩過）
+
+- **前端不可寫死相對 `/api`**：production 的前端是 Render static site，`/api/*` 會被
+  `frontend/public/_redirects` 的 SPA fallback 吞掉並回傳 index.html。非 axios 場合
+  （`<img src>` 等）一律使用 `api/index.js` 匯出的 `apiBase`
+- **必須有 `.dockerignore`**：沒有的話 `COPY . .` 會把本地 `node_modules` 複製進 image，
+  覆蓋掉 `npm install` 裝好的依賴；若本地檔案缺少執行位元，build 會以 `Permission denied` 失敗
+- **SEO 靠 build 時注入**：`index.html` 是 build-time 靜態檔，JS 設定的 meta tag 爬蟲讀不到
+  （Facebook / LINE / Twitter 完全不執行 JS）。`frontend/vite-plugin-seo.js` 在打包階段向後端
+  抓一次設定並注入 title/description/og/twitter。**後台改完文案需重新部署一次爬蟲才看得到**
+- **本機無 Firebase 憑證時**：`app/firebase.py` 在 import 階段就初始化 SDK，後端起不來。
+  只能驗證編譯（`py_compile` / `vite build`），完整驗證需靠部署或代理到 production 後端
+- **working tree 行尾**：本地 checkout 為 CRLF、repo 內為 LF，且無 `.gitattributes`。
+  commit 前需對改動檔案轉 LF，否則 diff 會夾帶整份檔案的行尾變更
+
+## 資料安全注意事項
+
+- **Firebase 讀寫不可吞例外**：`upload_fdb` / `show_fdb` 的錯誤一律往上拋。
+  歷史上這兩個函式吞掉例外，導致寫入失敗仍回報成功、讀取失敗被當成「沒有資料」，
+  進而在寫回時用空字串覆蓋既有圖片（見 mod-002）
+- **部分更新用 `update`，不要用 `set`**：`upload_fdb` 是整筆覆寫。只改故事時應直接
+  `fdb.child(symbol).update({...})`，不要為了保留舊圖而先讀回整個 DB 再覆寫
+- **Realtime DB 的陣列**：有空洞時會回傳以索引為 key 的 dict，讀取端必須正規化
+  （見 `app/gallery.py` 的 `normalize_gallery`）
+
+## 前端版面注意事項
+
+- **`overflow-x: auto` 會連帶裁切垂直方向**：依 CSS 規範，一軸非 `visible` 時另一軸的
+  `visible` 會變成 `auto`。`.pt-wrapper` 因此切掉了 hover 放大（scale 1.18）溢出的部分，
+  容器四周需預留空間
+- **用 `offsetLeft` 計算捲動位置前，容器必須是定位祖先**：`.nav-wheel` 未設 `position`
+  時 `offsetParent` 會是 `body`，取到的座標與 `scrollLeft` 基準不同（實測偏移 182px）
+- **介面字型沒有 emoji 字符**：Space Grotesk 下 📷 ✨ 等會渲染成空白方框，一律改用
+  幾何符號（✓ ▣ ⚙ ⚯ ⚒ ✧）或 CSS 繪製
+- **圖片量與 Realtime DB**：base64 編碼膨脹約 33%，且讀取是整個節點一起拉。
+  圖庫另存 `_gallery` 節點、完成度另存 `_completion` 摘要，都是為了不讓列表頁
+  的查詢連帶拉下圖片
 
 ---
 

@@ -1,0 +1,30 @@
+{
+  "feature_id": "feature-005",
+  "name": "AI 故事協助（Gemini）",
+  "description": "Admin 編輯元素故事時可請 AI 產生建議。prompt 自動帶入該元素的 PubChem 資料與目前草稿，另可指定風格方向與補充參考資料。產生結果進預覽區，由使用者選擇附加或覆蓋，仍需按 Submit 才會儲存。",
+  "status": "completed",
+  "created_at": "2026-08-09T07:15:00Z",
+  "files": [
+    "backend/app/ai.py",
+    "backend/app/config.py",
+    "backend/app/routes/admin.py",
+    "backend/app/routes/public.py",
+    "frontend/src/views/AdminView.vue"
+  ],
+  "dependencies": ["requests"],
+  "api_endpoints": [
+    { "method": "GET", "path": "/api/ai/status", "description": "公開；是否啟用與模型名稱，登入時另回傳用量" },
+    { "method": "POST", "path": "/api/admin/story-suggest", "description": "登入保護；產生故事建議" }
+  ],
+  "data_model": [
+    { "name": "_ai_usage/{YYYY-MM-DD}", "fields": ["呼叫次數"] }
+  ],
+  "env_variables": ["AI_PROVIDER", "AI_API_KEY", "AI_MODEL", "AI_DAILY_LIMIT", "AI_MAX_OUTPUT_TOKENS"],
+  "notes": [
+    "未設定 AI_API_KEY 時 status 回 enabled:false，前端完全不顯示相關介面",
+    "思考型模型（如 gemini-3.5-flash）會把思考過程放進 parts 並標記 thought=true，必須濾掉，否則正文會與思考片段拼在一起",
+    "maxOutputTokens 過低會讓思考先吃掉預算導致正文被截斷，預設 4096",
+    "finishReason 為 MAX_TOKENS 時明確報錯，不回傳半截內容",
+    "ai/status 刻意不加登入保護，方便部署後直接確認環境變數是否生效"
+  ]
+}

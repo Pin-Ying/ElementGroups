@@ -1,0 +1,34 @@
+{
+  "feature_id": "feature-006",
+  "name": "首頁檢視方式與元素快捷",
+  "description": "首頁分組改為下拉選單，並拆出獨立的檢視樣式切換（大圖示／小圖示／詳細清單）。週期表上方另加「最近更新／熱門元素」卡片列。",
+  "status": "completed",
+  "created_at": "2026-08-09T08:20:00Z",
+  "files": [
+    "backend/app/stats.py",
+    "backend/app/routes/public.py",
+    "frontend/src/components/ElementIconGrid.vue",
+    "frontend/src/components/ElementListView.vue",
+    "frontend/src/components/ElementHighlights.vue",
+    "frontend/src/components/GroupBox.vue",
+    "frontend/src/views/HomeView.vue",
+    "frontend/src/assets/style.css"
+  ],
+  "dependencies": [],
+  "api_endpoints": [
+    { "method": "GET", "path": "/api/elements/recent", "description": "公開；依 updated_at 排序的最近更新元素" },
+    { "method": "GET", "path": "/api/elements/popular", "description": "公開；依點閱次數排序的熱門元素" },
+    { "method": "POST", "path": "/api/elements/{symbol}/view", "description": "公開；累加元素頁點閱" }
+  ],
+  "data_model": [
+    { "name": "_stats/{Symbol}", "fields": ["views"] }
+  ],
+  "notes": [
+    "分組與檢視樣式拆成兩個正交控制項，4 種分組 × 3 種樣式共 12 種組合只需兩個控制項",
+    "Periodic Table 是固定的 18 欄排版，選它時不顯示樣式切換",
+    "檢視樣式選擇存 localStorage",
+    "PeriodicTable.vue 職責被 ElementIconGrid 完全涵蓋，已移除",
+    "style.css 的 #group 原為 3 欄並排 + 限高 240px（為舊的小方格設計），改為每組佔滿寬度垂直堆疊",
+    "舊資料沒有 updated_at，不會出現在「最近更新」；刻意不補假的時間戳"
+  ]
+}

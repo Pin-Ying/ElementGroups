@@ -1,0 +1,32 @@
+{
+  "feature_id": "feature-002",
+  "name": "創作者社群連結",
+  "description": "後台可設定不限數量的社群連結，含平台、顯示名稱、網址、自訂顏色與頭像。顯示於全站頁尾與 /links 頁面，頭像形狀可選圓形或方形，Connect 頁另可加描述文字。",
+  "status": "completed",
+  "created_at": "2026-08-09T06:00:00Z",
+  "files": [
+    "backend/app/links.py",
+    "backend/app/routes/public.py",
+    "backend/app/routes/admin.py",
+    "frontend/src/utils/socialPlatforms.js",
+    "frontend/src/store/creatorLinks.js",
+    "frontend/src/components/SocialLink.vue",
+    "frontend/src/components/SiteFooter.vue",
+    "frontend/src/views/LinksView.vue",
+    "frontend/src/views/AdminView.vue"
+  ],
+  "dependencies": [],
+  "api_endpoints": [
+    { "method": "GET", "path": "/api/creator-links", "description": "公開；回傳描述、頭像形狀與連結清單" },
+    { "method": "GET", "path": "/api/admin/creator-links", "description": "登入保護；後台讀取" },
+    { "method": "POST", "path": "/api/admin/creator-links", "description": "登入保護；整批覆寫" }
+  ],
+  "data_model": [
+    { "name": "_creator_links", "fields": ["description", "avatar_shape", "links[]"] },
+    { "name": "links[]", "fields": ["platform", "label", "url", "color", "avatar"] }
+  ],
+  "notes": [
+    "links.py 相容三種歷史格式：{instagram,threads} → {links:[...]} → 含 description/avatar_shape 的版本",
+    "原本 header 中央的 Connect 按鈕位置突兀，已移除，改為全站頁尾的連結列"
+  ]
+}
