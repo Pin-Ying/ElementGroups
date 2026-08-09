@@ -8,9 +8,9 @@
       <div class="box" id="login-box">
         <form @submit.prevent="handleLogin">
           <label class="label">Email</label>
-          <input class="input" type="text" v-model="email" placeholder="Email" required />
+          <input class="input" type="text" v-model="email" required />
           <label class="label">Password</label>
-          <input class="input" type="password" v-model="password" placeholder="Password" required />
+          <input class="input" type="password" v-model="password" required />
           <div class="form-actions">
             <button class="button" type="submit">Login</button>
             <button class="button secondary" type="button" @click="email = ''; password = ''">Reset</button>
@@ -56,13 +56,13 @@
           </p>
           <form @submit.prevent="handleUpdateSiteSettings">
             <label class="label">網站標題</label>
-            <input class="input" type="text" v-model="siteForm.title" :placeholder="siteDefaults.title" />
+            <input class="input" type="text" v-model="siteForm.title" />
 
             <label class="label">副標題</label>
-            <input class="input" type="text" v-model="siteForm.subtitle" :placeholder="siteDefaults.subtitle" />
+            <input class="input" type="text" v-model="siteForm.subtitle" />
 
             <label class="label">網站描述（SEO）</label>
-            <textarea class="textarea site-desc" v-model="siteForm.description" rows="2" :placeholder="siteDefaults.description"></textarea>
+            <textarea class="textarea site-desc" v-model="siteForm.description" rows="2"></textarea>
 
             <label class="label">首頁背景圖</label>
             <p class="field-hint">{{ uploadHint }}</p>
@@ -125,22 +125,28 @@
               尚未新增任何連結，點下方「＋ 新增連結」開始。
             </div>
 
+            <div v-if="creatorLinks.length" class="link-head">
+              <span>平台</span>
+              <span>顯示名稱</span>
+              <span>網址</span>
+            </div>
+
             <div v-for="(link, i) in creatorLinks" :key="i" class="link-row">
               <div class="link-row-fields">
-                <select class="select link-platform" v-model="link.platform" @change="onPlatformChange(link)">
+                <select class="select link-platform" v-model="link.platform" @change="onPlatformChange(link)" aria-label="平台">
                   <option v-for="p in platforms" :key="p.key" :value="p.key">{{ p.label }}</option>
                 </select>
                 <input
                   class="input link-label"
                   type="text"
                   v-model="link.label"
-                  placeholder="顯示名稱"
+                  aria-label="顯示名稱"
                 />
                 <input
                   class="input link-url"
                   type="url"
                   v-model="link.url"
-                  :placeholder="platformInfo(link.platform).placeholder"
+                  aria-label="網址"
                 />
               </div>
               <div class="link-row-actions">
@@ -195,8 +201,7 @@
               class="textarea"
               v-model="storyText"
               rows="6"
-              placeholder="Write the story…"
-            ></textarea>
+              ></textarea>
 
             <!-- AI 故事協助（只有後端設定了 API key 才會出現） -->
             <div v-if="ai.enabled && aiPanelOpen" class="ai-panel">
@@ -210,7 +215,6 @@
                 class="input"
                 type="text"
                 v-model="aiDirection"
-                placeholder="例：用擬人化的口吻／偏科普，國中生看得懂"
               />
 
               <label class="label ai-label">補充參考資料（選填）</label>
@@ -218,7 +222,6 @@
                 class="textarea ai-reference"
                 v-model="aiReference"
                 rows="3"
-                placeholder="想讓 AI 參考的額外資訊，例如特定的典故、想提到的應用場景…"
               ></textarea>
 
               <div class="ai-actions">
@@ -972,6 +975,18 @@ export default {
 }
 
 /* ── Creator links 動態列 ── */
+.link-head {
+  display: grid;
+  grid-template-columns: 130px 150px 1fr;
+  gap: 8px;
+  padding: 0 0 6px;
+  margin-right: 100px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(228, 251, 255, 0.4);
+  border-bottom: 1px solid rgba(228, 251, 255, 0.1);
+}
+
 .link-row {
   display: flex;
   align-items: flex-start;
@@ -1044,6 +1059,10 @@ export default {
 @media (max-width: 700px) {
   .link-row-fields {
     grid-template-columns: 1fr;
+  }
+  /* 單欄排列時欄位標題對不上，改在列內用 aria-label 辨識 */
+  .link-head {
+    display: none;
   }
 }
 

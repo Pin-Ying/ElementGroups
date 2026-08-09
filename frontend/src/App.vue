@@ -20,8 +20,8 @@
           <template v-else>
             <button v-if="!showLogin" class="button btn-sm" @click="showLogin = true">Admin Login</button>
             <form v-else class="login-form" @submit.prevent="handleLogin">
-              <input class="input" type="email" v-model="email" placeholder="Email" required />
-              <input class="input" type="password" v-model="password" placeholder="Password" required />
+              <input class="input" type="email" v-model="email" aria-label="Email" required />
+              <input class="input" type="password" v-model="password" aria-label="Password" required />
               <button class="button btn-sm" type="submit" :disabled="loggingIn">
                 {{ loggingIn ? '...' : 'Login' }}
               </button>

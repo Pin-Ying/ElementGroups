@@ -15,8 +15,7 @@
             class="edit-textarea"
             v-model="editStory"
             rows="6"
-            placeholder="Write the story..."
-          ></textarea>
+            ></textarea>
           <label class="edit-label">Image (.jpg)</label>
           <input class="edit-file" type="file" accept=".jpg" ref="imageInput" />
           <div class="edit-actions">

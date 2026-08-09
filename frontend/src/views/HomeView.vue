@@ -36,7 +36,7 @@
       <input
         class="search-input"
         v-model="query"
-        placeholder="Search by name, symbol or number…"
+        aria-label="搜尋元素"
         autocomplete="off"
         spellcheck="false"
       />
