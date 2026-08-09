@@ -149,9 +149,7 @@
               :style="{ borderColor: '#' + elInfo.CPKHexColor + '66' }"
               id="main-content"
             >
-              <template v-if="story">
-                <span v-html="story.replace(/\\n/g, '<br>')"></span>
-              </template>
+              <template v-if="storyText">{{ storyText }}</template>
               <template v-else>Still Creating...</template>
             </section>
 
@@ -233,6 +231,13 @@ export default {
     },
     outerElectrons() {
       return outerElectronCount(this.elInfo?.ElectronConfiguration)
+    },
+    // 用純文字輸出搭配 white-space: pre-wrap 顯示換行。
+    // 原本走 v-html 只把字面的 \n 換成 <br>，抓不到後台實際輸入的換行字元；
+    // 而且 v-html 會執行故事裡的 HTML（含 AI 產生的內容），是不必要的 XSS 風險。
+    storyText() {
+      // 舊資料可能存的是字面的反斜線 n，一併還原成真正的換行
+      return (this.story || '').replace(/\\n/g, '\n')
     },
     tagStyle() {
       const c = this.elInfo?.CPKHexColor || '64b8e8'
@@ -626,6 +631,8 @@ export default {
 }
 
 .dex-story {
+  /* 保留後台輸入的換行與空行 */
+  white-space: pre-wrap;
   margin-top: 24px;
   padding: 20px 22px;
   border: 1px solid;
