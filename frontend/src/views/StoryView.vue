@@ -68,65 +68,92 @@
 
         <transition name="fade" mode="out-in">
           <!-- 介紹 -->
-          <div v-if="section === 'intro'" key="intro" class="element-grid">
-            <PokedexFrame
-              v-if="!imgBroken"
-              :color="elInfo.CPKHexColor"
-              :style="site.frame_style"
-              :frame-image="site.frame_image"
-            >
-              <!-- 圖層備齊時用分層呈現，否則沿用原本的靜態圖 -->
-              <ElementLayers
-                v-if="useLayers"
-                :nucleus="layers.nucleus"
-                :name-img="layers.name_img"
-                :electron-img="layers.electron_img"
-                :count="outerElectrons"
-                :motion="layers.motion"
-              />
-              <img
-                v-else
-                :src="resolvedImg"
-                :title="elInfo.Name"
-                alt="Still Creating..."
-                @error="onImgError"
-              />
-            </PokedexFrame>
-            <div
-              v-else
-              class="img-placeholder"
-              :style="{ borderColor: '#' + elInfo.CPKHexColor, backgroundColor: '#' + elInfo.CPKHexColor + '18' }"
-            >
-              <span class="img-placeholder-sym" :style="{ color: '#' + elInfo.CPKHexColor }">{{ elInfo.Symbol }}</span>
-              <span class="img-placeholder-label">No image yet</span>
+          <div v-if="section === 'intro'" key="intro" class="dex">
+            <!-- 編號與名稱：比照圖鑑置中在最上方 -->
+            <header class="dex-head">
+              <p class="dex-no">No.{{ String(elInfo.AtomicNumber).padStart(3, '0') }}</p>
+              <h1 class="dex-name" :style="{ color: '#' + elInfo.CPKHexColor }">
+                {{ elInfo.Name }}
+                <span class="dex-symbol">{{ elInfo.Symbol }}</span>
+              </h1>
+              <button
+                v-if="authState.loggedIn"
+                class="btn-edit"
+                type="button"
+                @click="editing = true"
+              >Edit</button>
+            </header>
+
+            <div class="dex-body">
+              <!-- 左：分類標籤 -->
+              <aside class="dex-tags">
+                <p class="dex-label">分類</p>
+                <span class="dex-tag" :style="tagStyle">{{ elInfo.GroupBlock || '—' }}</span>
+
+                <p class="dex-label">常溫狀態</p>
+                <span class="dex-tag" :style="tagStyle">{{ elInfo.StandardState || '—' }}</span>
+
+                <template v-if="outerElectrons">
+                  <p class="dex-label">最外層電子</p>
+                  <span class="dex-tag" :style="tagStyle">{{ outerElectrons }} 個</span>
+                </template>
+              </aside>
+
+              <!-- 中：主圖 -->
+              <div class="dex-figure">
+                <PokedexFrame
+                  v-if="!imgBroken"
+                  :color="elInfo.CPKHexColor"
+                  :style="site.frame_style"
+                  :frame-image="site.frame_image"
+                >
+                  <!-- 圖層備齊時用分層呈現，否則沿用原本的靜態圖 -->
+                  <ElementLayers
+                    v-if="useLayers"
+                    :nucleus="layers.nucleus"
+                    :name-img="layers.name_img"
+                    :electron-img="layers.electron_img"
+                    :count="outerElectrons"
+                    :motion="layers.motion"
+                  />
+                  <img
+                    v-else
+                    :src="resolvedImg"
+                    :title="elInfo.Name"
+                    alt="Still Creating..."
+                    @error="onImgError"
+                  />
+                </PokedexFrame>
+                <div
+                  v-else
+                  class="img-placeholder"
+                  :style="{ borderColor: '#' + elInfo.CPKHexColor, backgroundColor: '#' + elInfo.CPKHexColor + '18' }"
+                >
+                  <span class="img-placeholder-sym" :style="{ color: '#' + elInfo.CPKHexColor }">{{ elInfo.Symbol }}</span>
+                  <span class="img-placeholder-label">No image yet</span>
+                </div>
+              </div>
+
+              <!-- 右：基本資料，兩欄網格 -->
+              <dl class="dex-facts">
+                <div v-for="f in facts" :key="f.label" class="dex-fact">
+                  <dt>{{ f.label }}</dt>
+                  <dd>{{ f.value }}</dd>
+                </div>
+              </dl>
             </div>
-            <div
-              class="element-grid-info"
-              :style="{
-                borderColor: '#' + elInfo.CPKHexColor,
-                backgroundColor: '#' + elInfo.CPKHexColor + '33'
-              }"
+
+            <!-- 故事全寬 -->
+            <section
+              class="dex-story"
+              :style="{ borderColor: '#' + elInfo.CPKHexColor + '66' }"
               id="main-content"
             >
-              <div class="atomic-title">
-                <span class="title">Atomic NUMBER: {{ elInfo.AtomicNumber }}</span>
-                <button
-                  v-if="authState.loggedIn"
-                  class="btn-edit"
-                  type="button"
-                  @click="editing = true"
-                >Edit</button>
-              </div>
-              <div class="subtitle">
-                {{ elInfo.Name }} / {{ elInfo.Symbol }} / {{ elInfo.ElectronConfiguration }}
-              </div>
-              <div>
-                <template v-if="story">
-                  <span v-html="story.replace(/\\n/g, '<br>')"></span>
-                </template>
-                <template v-else>Still Creating...</template>
-              </div>
-            </div>
+              <template v-if="story">
+                <span v-html="story.replace(/\\n/g, '<br>')"></span>
+              </template>
+              <template v-else>Still Creating...</template>
+            </section>
 
             <ElementGallery class="gallery-span" :images="gallery" :color="elInfo.CPKHexColor" />
           </div>
@@ -206,6 +233,23 @@ export default {
     },
     outerElectrons() {
       return outerElectronCount(this.elInfo?.ElectronConfiguration)
+    },
+    tagStyle() {
+      const c = this.elInfo?.CPKHexColor || '64b8e8'
+      return {
+        borderColor: `#${c}`,
+        background: `color-mix(in srgb, #${c} 22%, transparent)`
+      }
+    },
+    // 右側基本資料。沒有值的欄位不列出，避免一排「—」
+    facts() {
+      const el = this.elInfo || {}
+      return [
+        { label: '原子量', value: el.AtomicMass ? `${el.AtomicMass} u` : '' },
+        { label: '電子組態', value: el.ElectronConfiguration },
+        { label: '常見氧化態', value: el.OxidationStates },
+        { label: '發現年份', value: el.YearDiscovered }
+      ].filter(f => f.value)
     },
     imgBroken() {
       return this.imgFallbackLevel >= 3
@@ -330,16 +374,6 @@ export default {
 </script>
 
 <style scoped>
-#main-content {
-  display: grid;
-  text-align: left;
-  border: #ffffff solid 2px;
-  border-radius: 2px;
-  font-size: 20px;
-  margin: 5px;
-  padding: 20px 10px;
-}
-
 .stats-section {
   width: 100%;
 }
@@ -489,20 +523,132 @@ export default {
   display: grid;
 }
 
-.element-grid {
+/* ── 圖鑑式排版 ── */
+.dex {
   width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  align-items: center;
-  justify-items: center;
-  gap: 10px;
-  margin: 5px auto;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 8px;
 }
 
-/* 其他樣貌獨立一區，橫跨圖片與故事兩欄 */
+.dex-head {
+  position: relative;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.dex-no {
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: rgba(228, 251, 255, 0.4);
+  margin: 0;
+}
+
+.dex-name {
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 2px 0 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+}
+
+.dex-symbol {
+  font-size: 0.5em;
+  color: rgba(228, 251, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
+.dex-head .btn-edit {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+/* 左標籤／中圖／右資料 */
+.dex-body {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(240px, 1.5fr) minmax(180px, 1.2fr);
+  gap: 22px;
+  align-items: center;
+}
+
+.dex-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.dex-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: rgba(228, 251, 255, 0.4);
+  margin: 12px 0 2px;
+}
+
+.dex-label:first-child { margin-top: 0; }
+
+.dex-tag {
+  display: inline-block;
+  padding: 6px 16px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 14px;
+  color: #e4fbff;
+  text-align: center;
+}
+
+.dex-figure { min-width: 0; }
+
+.dex-facts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin: 0;
+  text-align: left;
+}
+
+.dex-fact dt {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: rgba(228, 251, 255, 0.4);
+  margin-bottom: 2px;
+}
+
+.dex-fact dd {
+  font-size: 15px;
+  color: rgba(228, 251, 255, 0.92);
+  margin: 0;
+  word-break: break-word;
+}
+
+.dex-story {
+  margin-top: 24px;
+  padding: 20px 22px;
+  border: 1px solid;
+  border-radius: 10px;
+  background: rgba(20, 5, 35, 0.4);
+  font-size: 16px;
+  line-height: 1.95;
+  text-align: left;
+}
+
 .gallery-span {
-  grid-column: 1 / -1;
-  justify-self: stretch;
+  margin-top: 8px;
+}
+
+@media (max-width: 860px) {
+  .dex-body {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  /* 手機上先看圖，再看標籤與資料 */
+  .dex-figure { order: -1; max-width: 320px; margin: 0 auto; }
+  .dex-facts { grid-template-columns: 1fr 1fr; }
+  .dex-head .btn-edit { position: static; margin-top: 8px; }
 }
 
 .img-placeholder {
@@ -527,19 +673,7 @@ export default {
   letter-spacing: 0.05em;
 }
 
-.element-grid-info {
-  height: 100%;
-  width: 100%;
-  grid-template-rows: 1fr 0.5fr 2.5fr;
-}
-
 /* ── Atomic title row ── */
-.atomic-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .btn-edit {
   font-size: 12px;
   padding: 2px 10px;
@@ -664,8 +798,6 @@ export default {
 
 @media only screen and (max-width: 800px) {
   img { width: 90%; }
-  .element-grid { grid-template-columns: 1fr; }
-  .element-grid-info { width: 90%; }
   .wheel-chip { width: 40px; height: 46px; }
   .wheel-chip .chip-sym { font-size: 15px; }
   .wheel-chip--current { width: 64px; height: 58px; }

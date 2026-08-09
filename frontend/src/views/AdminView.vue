@@ -532,7 +532,7 @@
               <div class="layer-slot">
                 <p class="preview-label">原子核</p>
                 <img v-if="layerForm.nucleus" :src="layerForm.nucleus" alt="" @error="onLayerImgError('nucleus')" />
-                <p v-else class="avatar-empty">{{ layerErrors.nucleus || '未設定' }}</p>
+                <p v-else class="layer-empty">{{ layerErrors.nucleus || '未設定' }}</p>
                 <input class="input" type="file" accept="image/*" aria-label="原子核圖層" @change="onLayerFile($event, 'nucleus')" />
                 <button v-if="layerForm.nucleus" class="draft-link" type="button" @click="layerForm.nucleus = ''">移除</button>
               </div>
@@ -540,7 +540,7 @@
               <div class="layer-slot">
                 <p class="preview-label">手寫元素名</p>
                 <img v-if="layerForm.name_img" :src="layerForm.name_img" alt="" @error="onLayerImgError('name_img')" />
-                <p v-else class="avatar-empty">{{ layerErrors.name_img || '未設定' }}</p>
+                <p v-else class="layer-empty">{{ layerErrors.name_img || '未設定' }}</p>
                 <input class="input" type="file" accept="image/*" aria-label="手寫元素名圖層" @change="onLayerFile($event, 'name_img')" />
                 <button v-if="layerForm.name_img" class="draft-link" type="button" @click="layerForm.name_img = ''">移除</button>
               </div>
@@ -560,7 +560,7 @@
                     <img :src="st.img_data" alt="" />
                   </button>
                 </div>
-                <p v-else class="avatar-empty">尚無樣式，請先到「圖層素材」新增</p>
+                <p v-else class="layer-empty">尚無樣式，請先到「圖層素材」新增</p>
 
                 <label class="label ai-label">運動方式</label>
                 <select class="select" v-model="layerForm.motion" aria-label="電子運動方式">
@@ -2156,6 +2156,16 @@ export default {
 }
 
 .layer-slot .input { margin: 0; font-size: 11px; }
+
+/* 圖層的空狀態要能正常斷行；.avatar-empty 是社群頭像佔位用的，寬度寫死 32px */
+.layer-empty {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.35);
+  line-height: 1.6;
+  margin: 0;
+  padding: 14px 4px;
+  text-align: center;
+}
 .layer-slot .select { margin: 0; }
 
 .electron-picker {
