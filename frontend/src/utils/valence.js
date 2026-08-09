@@ -13,6 +13,52 @@
 
 export const MAX_ELECTRONS = 8
 
+/**
+ * 取出最外層各軌域的電子分布。
+ *
+ * 例如 O 的 [He]2s2 2p4 → [{ type: 's', count: 2 }, { type: 'p', count: 4 }]
+ *
+ * 用途：電子的運動路徑依所在軌域而不同——s 軌域是球對稱，p 軌域是沿著
+ * 某個軸的啞鈴形，d 軌域更複雜。有了分布就能讓畫面呈現這件事，而不是
+ * 全部電子繞同一種圓形軌道。
+ */
+export function outerOrbitals(configuration) {
+  if (!configuration) return []
+
+  const cleaned = String(configuration)
+    .replace(/\[[A-Za-z]+\]/g, ' ')
+    .replace(/\(predicted\)/gi, ' ')
+
+  const orbitals = [...cleaned.matchAll(/(\d+)\s*([spdf])\s*(\d+)/gi)]
+  if (!orbitals.length) return []
+
+  const maxShell = Math.max(...orbitals.map(([, shell]) => Number(shell)))
+
+  const order = { s: 0, p: 1, d: 2, f: 3 }
+  return orbitals
+    .filter(([, shell]) => Number(shell) === maxShell)
+    .map(([, , type, electrons]) => ({
+      type: type.toLowerCase(),
+      count: Number(electrons)
+    }))
+    .sort((a, b) => order[a.type] - order[b.type])
+}
+
+/**
+ * 把電子逐顆展開並標上所屬軌域，總數上限與 outerElectronCount 一致。
+ * @returns {{type: string, indexInType: number}[]}
+ */
+export function outerElectronOrbitals(configuration) {
+  const orbitals = outerOrbitals(configuration)
+  const result = []
+  for (const { type, count } of orbitals) {
+    for (let i = 0; i < count && result.length < MAX_ELECTRONS; i++) {
+      result.push({ type, indexInType: i })
+    }
+  }
+  return result
+}
+
 export function outerElectronCount(configuration) {
   if (!configuration) return 0
 

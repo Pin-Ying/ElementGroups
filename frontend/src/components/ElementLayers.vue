@@ -9,6 +9,7 @@
         v-for="(e, i) in orbits"
         :key="'path' + i"
         class="orbit-path"
+        :class="'orbit-path--' + e.orbitalType"
         :style="e.pathStyle"
       ></i>
 
@@ -16,6 +17,7 @@
         v-for="(e, i) in orbits"
         :key="i"
         class="electron"
+        :class="'electron--' + e.orbitalType"
         :style="e.style"
       >
         <img :src="electronImg" alt="" />
@@ -33,6 +35,28 @@ function orbitRadius(containerPct, electronPct) {
   return `${(containerPct / electronPct) * 100}%`
 }
 
+// 各軌域的運動形態。
+//
+// 這裡不是精確的量子力學模型，而是取軌域最容易辨認的幾何特徵：
+//   s 軌域球對稱     → 接近正圓，方向隨意
+//   p 軌域是啞鈴形   → 壓得很扁，看起來像沿著某個軸來回，且分三個方向
+//   d 軌域四葉       → 中等扁率，方向更分散
+//   f 軌域更複雜     → 扁率與方向都再拉開
+const ORBITAL_SHAPES = {
+  s: { flatten: [0.92, 0.82, 0.88], tilts: [0, 55, 110], radius: 0, speed: 1 },
+  p: { flatten: [0.16, 0.22, 0.19], tilts: [0, 60, 120], radius: 5, speed: 0.82 },
+  d: { flatten: [0.45, 0.38, 0.52, 0.42], tilts: [20, 70, 115, 160], radius: 9, speed: 0.7 },
+  f: { flatten: [0.3, 0.6, 0.24, 0.5], tilts: [15, 65, 100, 145], radius: 12, speed: 0.62 }
+}
+
+// 依元素符號產生穩定的偏移量。用雜湊而不是亂數，重新整理不會跳動，
+// 但不同元素的軌道配置看起來各有差異。
+function symbolSeed(symbol) {
+  let h = 0
+  for (const ch of String(symbol || '')) h = (h * 31 + ch.charCodeAt(0)) % 997
+  return h
+}
+
 export default {
   props: {
     nucleus: { type: String, required: true },
@@ -44,6 +68,10 @@ export default {
     motion: { type: String, default: 'orbit' },
     // 電子寬度佔容器的百分比，可在後台調整
     size: { type: Number, default: 24 },
+    // 每顆電子所屬的軌域，例如 [{type:'s'},{type:'s'},{type:'p'}...]
+    orbitals: { type: Array, default: () => [] },
+    // 用來產生穩定的軌道偏移，讓不同元素看起來不一樣
+    seed: { type: String, default: '' },
     // 三層都是去背 PNG，需要底色才看得清楚
     bgColor: { type: String, default: '#ffffff' }
   },
@@ -58,28 +86,38 @@ export default {
     },
     orbits() {
       const n = Math.max(0, Math.min(this.count, 8))
+      const offset = symbolSeed(this.seed)
+
       return Array.from({ length: n }, (_, i) => {
-        // 起始角度平均分散，再加一點偏移讓它不會排得太整齊
-        const angle = (360 / n) * i + (i % 2 ? 14 : -9)
+        // 該顆電子所屬的軌域；沒有資料時退回 s（球對稱）
+        const type = this.orbitals[i]?.type || 's'
+        const shape = ORBITAL_SHAPES[type] || ORBITAL_SHAPES.s
+        // 同一軌域內第幾顆，用來挑選該軌域的不同方向
+        const k = this.orbitals.slice(0, i).filter(o => o.type === type).length
 
-        // 每顆給不同的軌道半徑、傾角與速度。用固定的錯開量而不是亂數，
-        // 這樣重新整理不會跳動，但看起來仍像各自繞著自己的軌道跑。
-        const radiusPct = this.motion === 'free'
-          ? 30 + (i % 4) * 6
-          : 32 + (i % 3) * 5
+        // 起始角度平均分散，再加上依元素而異的偏移
+        const angle = (360 / n) * i + (offset % 37) + (i % 2 ? 14 : -9)
 
-        // 橢圓：垂直方向壓扁一些，並讓整個軌道面傾斜
-        const flatten = this.motion === 'static' ? 1 : 0.62 + (i % 3) * 0.14
-        const tilt = (i * 37) % 180 - 90
+        const radiusPct = (this.motion === 'free' ? 30 + (i % 4) * 6 : 32 + (i % 3) * 5)
+          + shape.radius
+          + (offset % 5)
 
-        const duration = this.motion === 'free'
-          ? 7 + (i % 4) * 2.5
-          : 6.5 + (i % 3) * 2.2
+        // p 軌域壓得很扁看起來就像沿軸來回，s 軌域接近正圓
+        const flatten = this.motion === 'static'
+          ? 1
+          : shape.flatten[k % shape.flatten.length]
+
+        // 同軌域的不同方向錯開（p 的三個方向、d 的四葉）
+        const tilt = shape.tilts[k % shape.tilts.length] + (offset % 23) - 11
+
+        const duration = ((this.motion === 'free' ? 7 + (i % 4) * 2.5 : 6.5 + (i % 3) * 2.2)
+          / shape.speed)
 
         // 軌道線的尺寸用容器百分比，與電子的 translateX 換算基準不同
         const pathSize = radiusPct * 2
 
         return {
+          orbitalType: type,
           pathStyle: {
             width: `${pathSize}%`,
             height: `${pathSize}%`,
@@ -193,7 +231,13 @@ export default {
   transform: rotate(var(--angle)) translateX(var(--radius, 225%)) rotate(calc(-1 * var(--angle)));
 }
 
-/* 軌道線（僅繞行模式）：讓「各自有軌道」這件事看得出來 */
+/* 軌道線（僅繞行模式）：讓「各自有軌道」這件事看得出來。
+   依軌域上色，s／p／d 的差別才看得出來 */
+.orbit-path--s { border-color: rgba(0, 0, 0, 0.13); }
+.orbit-path--p { border-color: rgba(43, 108, 176, 0.22); }
+.orbit-path--d { border-color: rgba(160, 60, 200, 0.2); }
+.orbit-path--f { border-color: rgba(200, 120, 40, 0.2); }
+
 .layers--orbit .orbit-path,
 .layers--free .orbit-path {
   position: absolute;

@@ -133,6 +133,8 @@
                     :motion="layers.motion"
                     :bg-color="site.layer_bg"
                     :size="site.electron_size"
+                    :orbitals="outerOrbitals"
+                    :seed="elInfo.Symbol"
                   />
                   <img
                     v-else
@@ -201,7 +203,7 @@ import PokedexFrame from '../components/PokedexFrame.vue'
 import ElementGallery from '../components/ElementGallery.vue'
 import ElementLayers from '../components/ElementLayers.vue'
 import StoryEditor from '../components/StoryEditor.vue'
-import { outerElectronCount } from '../utils/valence'
+import { outerElectronCount, outerElectronOrbitals } from '../utils/valence'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { siteSettingsState } from '../store/siteSettings'
 import { authState } from '../store/auth'
@@ -251,6 +253,10 @@ export default {
     },
     outerElectrons() {
       return outerElectronCount(this.elInfo?.ElectronConfiguration)
+    },
+    // 每顆電子所屬的軌域，決定它的運動形態
+    outerOrbitals() {
+      return outerElectronOrbitals(this.elInfo?.ElectronConfiguration)
     },
     // 用純文字輸出搭配 white-space: pre-wrap 顯示換行。
     // 原本走 v-html 只把字面的 \n 換成 <br>，抓不到後台實際輸入的換行字元；
