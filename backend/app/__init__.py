@@ -5,6 +5,10 @@ from flask import Flask, make_response, request, session
 from app.config import settings
 from app.auth import login_manager
 
+# 允許的跨來源方法。DELETE 用於刪除電子樣式與頁面，漏掉的話瀏覽器會在
+# preflight 階段就擋下請求，前端只會看到操作沒有反應。
+CORS_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+
 
 def create_app():
     app = Flask(__name__)
@@ -24,7 +28,9 @@ def create_app():
                 response.headers['Access-Control-Allow-Origin'] = origin
                 response.headers['Access-Control-Allow-Credentials'] = 'true'
                 response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+                response.headers['Access-Control-Allow-Methods'] = CORS_METHODS
+                # preflight 結果快取一天，減少重複往返
+                response.headers['Access-Control-Max-Age'] = '86400'
             return response, 204
 
     @app.after_request
@@ -34,7 +40,7 @@ def create_app():
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+            response.headers['Access-Control-Allow-Methods'] = CORS_METHODS
         return response
 
     login_manager.init_app(app)

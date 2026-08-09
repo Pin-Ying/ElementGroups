@@ -298,7 +298,13 @@
                   :class="{ active: st.id === defaultStyleId }"
                   @click="toggleDefaultStyle(st)"
                 >{{ st.id === defaultStyleId ? '★ 預設' : '設為預設' }}</button>
-                <button class="icon-button danger" type="button" title="刪除" @click="handleDeleteStyle(st)">✕</button>
+                <button
+                  class="icon-button danger"
+                  type="button"
+                  :title="pendingDeleteStyle === st.id ? '再按一次確認刪除' : '刪除'"
+                  :class="{ confirming: pendingDeleteStyle === st.id }"
+                  @click="handleDeleteStyle(st)"
+                >{{ pendingDeleteStyle === st.id ? '確認' : '✕' }}</button>
               </div>
             </div>
           </div>
@@ -311,7 +317,12 @@
           </div>
           <div v-if="newStyleImg" class="preview-new">
             <p class="preview-label">預覽（尚未儲存）</p>
-            <img :src="newStyleImg" class="img-preview" alt="" style="max-width:80px" />
+            <img :src="newStyleImg" class="img-preview sprite-preview" alt="" />
+            <p v-if="newStyleInfo" class="compress-info">
+              {{ newStyleInfo.sourceSize }}
+              <template v-if="newStyleInfo.trimmed"> → 裁掉透明邊距後 {{ newStyleInfo.contentSize }}</template>
+              → 置中輸出 240×240
+            </p>
           </div>
           <div class="link-actions">
             <button class="button" type="button" :disabled="styleSaving || !newStyleImg" @click="handleSaveStyle">
@@ -693,7 +704,7 @@ import { setCreatorLinks } from '../store/creatorLinks'
 import { setSiteSettings, SITE_DEFAULTS } from '../store/siteSettings'
 import { refreshPages } from '../store/pages'
 import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
-import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
+import { compressImage, normalizeSprite, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
 import PokedexFrame, { FRAME_STYLES } from '../components/PokedexFrame.vue'
 import ImageCropper from '../components/ImageCropper.vue'
 import MarkdownContent from '../components/MarkdownContent.vue'
@@ -775,10 +786,12 @@ export default {
       layerSaving: false,
       layerErrors: { nucleus: '', name_img: '' },
       brokenStyles: [],
+      pendingDeleteStyle: '',
       electronStyles: [],
       defaultStyleId: '',
       newStyleName: '',
       newStyleImg: '',
+      newStyleInfo: null,
       styleSaving: false,
       pageList: [],
       pageForm: EMPTY_PAGE(),
@@ -1500,9 +1513,11 @@ export default {
       const file = e.target.files[0]
       if (!file) return
       try {
-        // 電子在畫面上只佔約 16%，240px 已足夠，也讓 PNG 不會太肥
-        const result = await compressImage(file, { keepTransparency: true, maxEdge: 240 })
+        // 自動裁掉透明邊距並置中到正方形，否則不同來源的 PNG 疊上去
+        // 大小會差很多
+        const result = await normalizeSprite(file, { size: 240 })
         this.newStyleImg = await this.blobToDataUrl(result.blob)
+        this.newStyleInfo = result
         if (!this.newStyleName) this.newStyleName = file.name.replace(/\.[^.]+$/, '')
       } catch (err) {
         showToast(err.message || '圖片處理失敗', 'error')
@@ -1515,6 +1530,7 @@ export default {
         showToast(res.data.message || '已新增', 'success')
         this.newStyleName = ''
         this.newStyleImg = ''
+        this.newStyleInfo = null
         if (this.$refs.styleInput) this.$refs.styleInput.value = ''
         await this.loadElectronStyles()
       } catch (e) {
@@ -1534,6 +1550,15 @@ export default {
       }
     },
     async handleDeleteStyle(style) {
+      // 第一次點只是進入確認狀態，避免手滑刪掉畫好的素材
+      if (this.pendingDeleteStyle !== style.id) {
+        this.pendingDeleteStyle = style.id
+        setTimeout(() => {
+          if (this.pendingDeleteStyle === style.id) this.pendingDeleteStyle = ''
+        }, 4000)
+        return
+      }
+      this.pendingDeleteStyle = ''
       try {
         const res = await deleteElectronStyle(style.id)
         showToast(res.data.message || '已刪除', 'success')
@@ -1982,6 +2007,15 @@ export default {
   cursor: not-allowed;
 }
 
+.icon-button.confirming {
+  width: auto;
+  padding: 0 8px;
+  font-size: 11px;
+  background: rgba(255, 107, 107, 0.25);
+  border-color: rgba(255, 107, 107, 0.7);
+  color: #ff6b6b;
+}
+
 .icon-button.danger:hover:not(:disabled) {
   background: rgba(255, 107, 107, 0.18);
   border-color: rgba(255, 107, 107, 0.6);
@@ -2289,6 +2323,16 @@ export default {
 .style-default-btn.active { color: #6ee76e; border-color: rgba(110, 231, 110, 0.6); }
 
 .electron-option { position: relative; }
+
+/* 電子是去背 PNG，配個底色才看得清楚 */
+.sprite-preview {
+  max-width: 90px;
+  background:
+    linear-gradient(45deg, rgba(228,251,255,0.06) 25%, transparent 25%, transparent 75%, rgba(228,251,255,0.06) 75%),
+    linear-gradient(45deg, rgba(228,251,255,0.06) 25%, transparent 25%, transparent 75%, rgba(228,251,255,0.06) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 6px 6px;
+}
 
 .electron-default-mark {
   position: absolute;
