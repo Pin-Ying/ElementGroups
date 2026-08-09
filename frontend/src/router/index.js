@@ -5,6 +5,8 @@ import AdminView from '../views/AdminView.vue'
 import LinksView from '../views/LinksView.vue'
 import GuideView from '../views/GuideView.vue'
 import PageView from '../views/PageView.vue'
+import MoleculesView from '../views/MoleculesView.vue'
+import MoleculeView from '../views/MoleculeView.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: HomeView },
@@ -12,7 +14,15 @@ const routes = [
   { path: '/admin', name: 'Admin', component: AdminView },
   { path: '/links', name: 'Links', component: LinksView },
   { path: '/guide', name: 'Guide', component: GuideView },
-  { path: '/p/:slug', name: 'Page', component: PageView, props: true }
+  { path: '/p/:slug', name: 'Page', component: PageView, props: true },
+  {
+    path: '/molecules',
+    name: 'Molecules',
+    component: MoleculesView,
+    // 元素頁的「查看更多」會帶 ?element=Fe 篩選
+    props: route => ({ element: route.query.element || '' })
+  },
+  { path: '/molecule/:slug', name: 'Molecule', component: MoleculeView, props: true }
 ]
 
 const router = createRouter({

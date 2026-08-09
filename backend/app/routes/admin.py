@@ -14,6 +14,8 @@ from app.links import normalize_creator_links, serialize_creator_links
 from app.completion import update_completion, rebuild_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_pages, serialize_page, normalize_slug, PAGES_NODE
+from app.molecules import normalize_molecules, serialize_molecule, normalize_slug as molecule_slug, MOLECULES_NODE
+from app import pubchem
 from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app import ai
@@ -261,6 +263,63 @@ def manage_layers(symbol):
         # 用 update：只送了原子核時不該把手寫名那層清掉
         fdb.child(LAYERS_NODE).child(symbol).update(record)
         return jsonify({"result": "success", "message": "圖層已儲存"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/molecules/lookup", methods=["GET"])
+@login_required
+def lookup_molecule():
+    """到 PubChem 查分子。查不到回空陣列，前端據此切換到手動填寫。"""
+    try:
+        name = (request.args.get("name") or "").strip()
+        formula = (request.args.get("formula") or "").strip()
+        if not name and not formula:
+            return jsonify({"result": "failure", "message": "請提供名稱或分子式"}), 400
+
+        results = pubchem.lookup_by_name(name) if name else pubchem.lookup_by_formula(formula)
+        return jsonify({"results": results, "found": len(results) > 0})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": f"查詢失敗：{e}"}), 502
+
+
+@admin_bp.route("/admin/molecules", methods=["GET", "POST"])
+@login_required
+def manage_molecules():
+    if request.method == "GET":
+        try:
+            return jsonify({"molecules": normalize_molecules(show_fdb(MOLECULES_NODE),
+                                                             include_drafts=True)})
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    try:
+        payload = request.get_json() or {}
+        slug, record = serialize_molecule(payload)
+        if not slug:
+            return jsonify({"result": "failure", "message": record}), 400
+
+        # 改過 slug 時刪掉舊的那筆，避免留下孤兒
+        original = molecule_slug(payload.get("original_slug") or "")
+        if original and original != slug:
+            fdb.child(MOLECULES_NODE).child(original).delete()
+
+        record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        fdb.child(MOLECULES_NODE).child(slug).set(record)
+        return jsonify({"result": "success", "message": "分子已儲存", "slug": slug})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/molecules/<slug>", methods=["DELETE"])
+@login_required
+def delete_molecule(slug):
+    try:
+        safe = molecule_slug(slug)
+        if not safe:
+            return jsonify({"result": "failure", "message": "無效的網址代稱"}), 400
+        fdb.child(MOLECULES_NODE).child(safe).delete()
+        return jsonify({"result": "success", "message": "分子已刪除"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 

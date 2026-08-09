@@ -168,6 +168,136 @@
           </form>
         </div>
 
+        <!-- Molecules -->
+        <div v-if="section === 'molecules'" class="box">
+          <p class="title is-4">MOLECULES</p>
+          <p class="desc">
+            用下面的建構器點選元素拼出分子式，再向 PubChem 查詢自動帶入分子量與 IUPAC 名稱。<br>
+            網址代稱取自 IUPAC 名稱；查不到的分子也可以手動填寫後儲存。
+          </p>
+
+          <div class="page-list">
+            <button
+              v-for="m in moleculeList"
+              :key="m.slug"
+              class="page-item"
+              type="button"
+              :class="{ active: moleculeForm.original_slug === m.slug }"
+              @click="selectMolecule(m)"
+            >
+              <span class="page-item-title" v-html="subscript(m.formula)"></span>
+              <span class="page-item-meta">
+                {{ m.name }}
+                <span v-if="!m.published" class="draft-tag">草稿</span>
+              </span>
+            </button>
+            <button class="page-item page-item--new" type="button" @click="newMolecule">＋ 新增分子</button>
+          </div>
+
+          <form class="page-form" @submit.prevent="handleSaveMolecule">
+            <label class="label">分子式建構器</label>
+            <FormulaBuilder v-model="moleculeForm.nodes" @change="onFormulaChange" />
+
+            <div class="mol-lookup">
+              <input
+                class="input"
+                type="text"
+                v-model="moleculeQuery"
+                placeholder="也可以直接輸入名稱查詢，例如 water、caffeine"
+                aria-label="分子名稱"
+                @keydown.enter.prevent="lookupByName"
+              />
+              <button class="button secondary" type="button" :disabled="moleculeLooking" @click="lookupByName">
+                依名稱查詢
+              </button>
+              <button
+                class="button secondary"
+                type="button"
+                :disabled="moleculeLooking || !moleculeForm.formula"
+                @click="lookupByFormula"
+              >依分子式查詢</button>
+            </div>
+
+            <div v-if="lookupResults.length" class="mol-results">
+              <p class="field-hint">PubChem 查到 {{ lookupResults.length }} 筆，點選要套用的：</p>
+              <button
+                v-for="r in lookupResults"
+                :key="r.cid"
+                class="mol-result"
+                type="button"
+                @click="applyLookup(r)"
+              >
+                <span class="mol-result-formula" v-html="subscript(r.formula)"></span>
+                <span class="mol-result-name">{{ r.iupac_name || '（無 IUPAC 名稱）' }}</span>
+                <span class="mol-result-cid">CID {{ r.cid }}</span>
+              </button>
+            </div>
+
+            <div class="page-form-row">
+              <div>
+                <label class="label">顯示名稱</label>
+                <input class="input" type="text" v-model="moleculeForm.name" aria-label="顯示名稱" />
+                <p class="field-hint">可以填中文或俗名，例如「水」</p>
+              </div>
+              <div>
+                <label class="label">IUPAC 名稱</label>
+                <input class="input" type="text" v-model="moleculeForm.iupac_name" aria-label="IUPAC 名稱" />
+                <p class="field-hint">網址為 /molecule/{{ moleculeSlug || '…' }}</p>
+              </div>
+            </div>
+
+            <div class="page-form-row">
+              <div>
+                <label class="label">分子式</label>
+                <input class="input" type="text" v-model="moleculeForm.formula" aria-label="分子式" />
+              </div>
+              <div>
+                <label class="label">分子量</label>
+                <input class="input" type="text" v-model="moleculeForm.weight" aria-label="分子量" />
+              </div>
+            </div>
+
+            <label class="label">SMILES</label>
+            <input class="input" type="text" v-model="moleculeForm.smiles" aria-label="SMILES" />
+
+            <label class="label">介紹</label>
+            <textarea class="textarea" v-model="moleculeForm.description" rows="5" aria-label="分子介紹"></textarea>
+
+            <label class="label">代表圖片</label>
+            <div class="mol-image-row">
+              <div class="mol-image-preview">
+                <img v-if="moleculeImageSrc" :src="moleculeImageSrc" alt="分子圖片" />
+                <span v-else class="layer-empty">沒有自訂圖片時會用 PubChem 的 2D 結構圖</span>
+              </div>
+              <div class="mol-image-actions">
+                <input type="file" accept="image/*" ref="moleculeImgInput" @change="onMoleculeImgChange" />
+                <button
+                  v-if="moleculeForm.img_data"
+                  class="button secondary"
+                  type="button"
+                  @click="moleculeForm.img_data = ''"
+                >移除自訂圖片</button>
+              </div>
+            </div>
+
+            <div class="link-actions">
+              <button class="button" type="submit" :disabled="moleculeSaving" @click="moleculeForm.published = true">
+                {{ moleculeSaving ? 'Saving…' : '發布' }}
+              </button>
+              <button class="button secondary" type="button" :disabled="moleculeSaving" @click="saveMoleculeDraft">
+                存成草稿
+              </button>
+              <button
+                v-if="moleculeForm.original_slug"
+                class="button secondary"
+                type="button"
+                :disabled="moleculeSaving"
+                @click="handleDeleteMolecule"
+              >刪除此分子</button>
+            </div>
+          </form>
+        </div>
+
         <!-- Site Settings -->
         <div v-if="section === 'site'" class="box">
           <p class="title is-4">SITE SETTINGS</p>
@@ -723,7 +853,7 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
+import { getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -734,8 +864,10 @@ import { compressImage, normalizeSprite, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE
 import PokedexFrame, { FRAME_STYLES } from '../components/PokedexFrame.vue'
 import ImageCropper from '../components/ImageCropper.vue'
 import MarkdownContent from '../components/MarkdownContent.vue'
+import FormulaBuilder from '../components/FormulaBuilder.vue'
 import { BUILTIN_PAGES } from '../utils/builtinPages'
 import { outerElectronCount } from '../utils/valence'
+import { parseFormula } from '../utils/formula'
 
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
@@ -746,6 +878,12 @@ const NAV_POSITIONS = [
   { key: 'header', label: '頁首' },
   { key: 'none', label: '不顯示於導覽' }
 ]
+
+const EMPTY_MOLECULE = () => ({
+  original_slug: '', name: '', iupac_name: '', formula: '', weight: '',
+  smiles: '', cid: null, description: '', img_data: '', nodes: [],
+  source: 'manual', published: true
+})
 
 const EMPTY_PAGE = () => ({
   original_slug: '', slug: '', title: '',
@@ -761,6 +899,7 @@ const AVATAR_SHAPES = [
 const SECTIONS = [
   { key: 'story', label: '元素故事', icon: '✎' },
   { key: 'pages', label: '頁面管理', icon: '▤' },
+  { key: 'molecules', label: '分子管理', icon: '⬡' },
   { key: 'site', label: '網站設定', icon: '⚙' },
   { key: 'default-img', label: '預設圖片', icon: '▣' },
   { key: 'electrons', label: '圖層素材', icon: '◌' },
@@ -770,7 +909,7 @@ const SECTIONS = [
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
-  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent },
+  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, FormulaBuilder },
   data() {
     return {
       authState,
@@ -822,6 +961,12 @@ export default {
       pageList: [],
       pageForm: EMPTY_PAGE(),
       pageSaving: false,
+      moleculeList: [],
+      moleculeForm: EMPTY_MOLECULE(),
+      moleculeSaving: false,
+      moleculeQuery: '',
+      moleculeLooking: false,
+      lookupResults: [],
       showMarkdownHelp: false,
       cropFile: null,
       cropTarget: null,
@@ -847,6 +992,16 @@ export default {
     }
   },
   computed: {
+    moleculeSlug() {
+      const raw = this.moleculeForm.iupac_name || this.moleculeForm.name
+      return raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    },
+    moleculeImageSrc() {
+      if (this.moleculeForm.img_data) return this.moleculeForm.img_data
+      return this.moleculeForm.cid
+        ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${this.moleculeForm.cid}/PNG`
+        : ''
+    },
     currentSection() {
       return SECTIONS.find(s => s.key === this.section) || SECTIONS[0]
     },
@@ -892,7 +1047,7 @@ export default {
   },
   async mounted() {
     if (this.authState.loggedIn) {
-      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(), this.loadElectronStyles()])
+      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(), this.loadElectronStyles(), this.loadMolecules()])
     }
   },
   beforeUnmount() {
@@ -996,7 +1151,7 @@ export default {
       try {
         const result = await login(this.email, this.password)
         if (result.ok) {
-          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(), this.loadElectronStyles()])
+          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(), this.loadElectronStyles(), this.loadMolecules()])
         } else {
           this.msg = result.message || 'Login failed'
         }
@@ -1090,6 +1245,129 @@ export default {
       } finally {
         this.gallerySaving = false
       }
+    },
+    async loadMolecules() {
+      try {
+        const res = await getAdminMolecules()
+        this.moleculeList = res.data.molecules || []
+      } catch (e) {
+        console.error('Failed to load molecules:', e)
+      }
+    },
+    selectMolecule(m) {
+      this.lookupResults = []
+      this.moleculeQuery = ''
+      this.moleculeForm = {
+        original_slug: m.slug, name: m.name, iupac_name: m.iupac_name || '',
+        formula: m.formula || '', weight: m.weight || '', smiles: m.smiles || '',
+        cid: m.cid || null, description: m.description || '', img_data: m.img_data || '',
+        // 舊資料沒存建構器節點時，從分子式反推一份，仍然可以繼續編輯
+        nodes: m.nodes?.length ? m.nodes : parseFormula(m.formula),
+        source: m.source || 'manual', published: m.published !== false
+      }
+    },
+    newMolecule() {
+      this.moleculeForm = EMPTY_MOLECULE()
+      this.lookupResults = []
+      this.moleculeQuery = ''
+    },
+    onFormulaChange({ formula }) {
+      this.moleculeForm.formula = formula
+    },
+    async runLookup(params) {
+      this.moleculeLooking = true
+      this.lookupResults = []
+      try {
+        const res = await lookupMolecule(params)
+        const results = res.data.results || []
+        if (!results.length) {
+          showToast('PubChem 查不到這個分子，可以手動填寫', 'error')
+        } else if (results.length === 1) {
+          this.applyLookup(results[0])
+        } else {
+          this.lookupResults = results
+        }
+      } catch (e) {
+        showToast(e.response?.data?.message || '查詢失敗', 'error')
+      } finally {
+        this.moleculeLooking = false
+      }
+    },
+    lookupByName() {
+      const name = this.moleculeQuery.trim()
+      if (!name) return showToast('請先輸入分子名稱', 'error')
+      this.runLookup({ name })
+    },
+    lookupByFormula() {
+      const formula = this.moleculeForm.formula
+      if (!formula) return showToast('請先用建構器拼出分子式', 'error')
+      this.runLookup({ formula })
+    },
+    applyLookup(r) {
+      const f = this.moleculeForm
+      f.formula = r.formula || f.formula
+      f.weight = r.weight || ''
+      f.iupac_name = r.iupac_name || ''
+      f.smiles = r.smiles || ''
+      f.cid = r.cid || null
+      f.source = 'pubchem'
+      if (!f.name) f.name = r.iupac_name || r.formula || ''
+      // 查詢結果的分子式回填建構器，讓拼出來的內容與 PubChem 一致
+      if (r.formula) f.nodes = parseFormula(r.formula)
+      this.lookupResults = []
+      showToast(`已套用 PubChem CID ${r.cid}`, 'success')
+    },
+    async onMoleculeImgChange(e) {
+      const file = e.target.files[0]
+      e.target.value = ''
+      if (!file) return
+      try {
+        // 結構圖多半是去背 PNG，保留透明才不會變成黑塊
+        const result = await compressImage(file, { keepTransparency: true })
+        this.moleculeForm.img_data = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(result.blob)
+        })
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+      }
+    },
+    async saveMoleculeDraft() {
+      this.moleculeForm.published = false
+      await this.handleSaveMolecule()
+    },
+    async handleSaveMolecule() {
+      this.moleculeSaving = true
+      try {
+        const res = await saveMolecule({ ...this.moleculeForm, slug: this.moleculeForm.original_slug || '' })
+        showToast(res.data.message || '已儲存', 'success')
+        this.moleculeForm.original_slug = res.data.slug
+        await this.loadMolecules()
+      } catch (e) {
+        showToast(e.response?.data?.message || '儲存失敗', 'error')
+      } finally {
+        this.moleculeSaving = false
+      }
+    },
+    async handleDeleteMolecule() {
+      const slug = this.moleculeForm.original_slug
+      if (!slug) return
+      this.moleculeSaving = true
+      try {
+        const res = await deleteMolecule(slug)
+        showToast(res.data.message || '已刪除', 'success')
+        this.newMolecule()
+        await this.loadMolecules()
+      } catch (e) {
+        showToast(e.response?.data?.message || '刪除失敗', 'error')
+      } finally {
+        this.moleculeSaving = false
+      }
+    },
+    subscript(formula) {
+      return String(formula || '').replace(/\d/g, d => `<sub>${d}</sub>`)
     },
     async loadPages() {
       try {
@@ -2840,5 +3118,90 @@ button.secondary {
 button.button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.mol-lookup {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 4px;
+  flex-wrap: wrap;
+}
+
+.mol-lookup .input { flex: 1 1 240px; }
+
+.mol-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.mol-result {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(228, 251, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(20, 5, 35, 0.5);
+  color: #e4fbff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mol-result:hover { border-color: rgba(228, 251, 255, 0.5); }
+
+.mol-result-formula { font-weight: 700; }
+
+.mol-result-name {
+  flex: 1;
+  font-size: 13px;
+  color: rgba(228, 251, 255, 0.7);
+  word-break: break-all;
+}
+
+.mol-result-cid {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.45);
+}
+
+.mol-image-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.mol-image-preview {
+  width: 140px;
+  aspect-ratio: 1 / 1;
+  border: 1px dashed rgba(228, 251, 255, 0.25);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+.mol-image-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.mol-image-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.page-item-title :deep(sub),
+.mol-result-formula :deep(sub) {
+  font-size: 0.6em;
+  vertical-align: baseline;
+  position: relative;
+  bottom: -0.2em;
 }
 </style>

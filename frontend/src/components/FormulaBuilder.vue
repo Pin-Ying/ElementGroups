@@ -21,9 +21,10 @@
     <!-- 選元素 -->
     <div class="fb-picker">
       <input
-        class="input fb-search"
+        class="fb-search"
         type="text"
         v-model="query"
+        placeholder="搜尋元素符號或名稱"
         aria-label="搜尋元素"
       />
       <div class="fb-elements">
@@ -41,7 +42,7 @@
     </div>
 
     <div class="fb-actions">
-      <button class="button secondary" type="button" :disabled="!nodes.length" @click="wrapInGroup">
+      <button class="fb-group-btn" type="button" :disabled="!nodes.length" @click="wrapInGroup">
         （ ）把目前內容包成群組
       </button>
       <span class="fb-note">群組用於 Ca(OH)₂ 這類需要括號的分子式</span>
@@ -178,7 +179,42 @@ export default {
 }
 
 .fb-search {
+  display: block;
+  width: 100%;
   margin: 0 0 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(228, 251, 255, 0.25);
+  border-radius: 6px;
+  background: rgba(10, 2, 20, 0.6);
+  color: #e4fbff;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.fb-search::placeholder { color: rgba(228, 251, 255, 0.35); }
+
+.fb-search:focus {
+  outline: none;
+  border-color: rgba(228, 251, 255, 0.55);
+}
+
+.fb-group-btn {
+  cursor: pointer;
+  padding: 8px 16px;
+  border: 1px solid rgba(228, 251, 255, 0.45);
+  border-radius: 6px;
+  background: transparent;
+  color: #e4fbff;
+  font-family: inherit;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.fb-group-btn:hover:not(:disabled) { background: rgba(228, 251, 255, 0.12); }
+
+.fb-group-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .fb-elements {

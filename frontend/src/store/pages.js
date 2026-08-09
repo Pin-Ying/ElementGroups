@@ -32,6 +32,7 @@ export function pagesFor(position) {
 // 內建頁面有自己的路由，且在後台轉成可編輯之前不會出現在 _pages 裡。
 // 尚未轉換時沿用這裡的預設位置，轉換後就完全依後台設定。
 const BUILTIN_NAV = [
+  { slug: 'molecules', label: '分子圖鑑', to: '/molecules', defaultPosition: 'footer' },
   { slug: 'guide', label: '元素說明書', to: '/guide', defaultPosition: 'footer' },
   { slug: 'links', label: 'Connect', to: '/links', defaultPosition: 'footer' }
 ]

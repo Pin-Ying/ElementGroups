@@ -12,6 +12,7 @@ from app.links import normalize_creator_links
 from app.completion import get_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_page, normalize_pages, PAGES_NODE
+from app.molecules import normalize_molecule, normalize_molecules, MOLECULES_NODE
 from app.layers import normalize_layers, normalize_electron_styles, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
@@ -224,6 +225,40 @@ def get_element_layers(symbol):
             if isinstance(style, dict):
                 electron_img = (style.get("img_data") or "").strip()
         return jsonify({**layers, "electron_style": style_id, "electron_img": electron_img})
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/molecules", methods=["GET"])
+def get_molecules():
+    """分子清單。登入後一併回傳未發布的。"""
+    try:
+        items = normalize_molecules(show_fdb(MOLECULES_NODE),
+                                    include_drafts=current_user.is_authenticated)
+        element = (request.args.get("element") or "").strip()
+        if element:
+            items = [m for m in items if element in (m.get("elements") or [])]
+        limit = request.args.get("limit")
+        total = len(items)
+        if limit:
+            items = items[:max(0, int(limit))]
+        # 清單不需要故事與圖片，省下傳輸量
+        slim = [{k: m[k] for k in ("slug", "name", "formula", "elements", "published", "updated_at")}
+                for m in items]
+        return jsonify({"molecules": slim, "total": total})
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/molecules/<slug>", methods=["GET"])
+def get_molecule(slug):
+    try:
+        molecule = normalize_molecule(slug, show_fdb(f"{MOLECULES_NODE}/{slug}"))
+        if not molecule:
+            return jsonify({"result": "failure", "exception": "Molecule not found"}), 404
+        if not molecule["published"] and not current_user.is_authenticated:
+            return jsonify({"result": "failure", "exception": "Molecule not found"}), 404
+        return jsonify(molecule)
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 

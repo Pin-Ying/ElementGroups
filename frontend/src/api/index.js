@@ -70,6 +70,30 @@ export function getDefaultImgInfo() {
   return api.get('/admin/default-img')
 }
 
+export function getMolecules(params = {}) {
+  return api.get('/molecules', { params })
+}
+
+export function getMolecule(slug) {
+  return api.get(`/molecules/${slug}`)
+}
+
+export function getAdminMolecules() {
+  return api.get('/admin/molecules')
+}
+
+export function saveMolecule(payload) {
+  return api.post('/admin/molecules', payload)
+}
+
+export function deleteMolecule(slug) {
+  return api.delete(`/admin/molecules/${slug}`)
+}
+
+export function lookupMolecule(params) {
+  return api.get('/admin/molecules/lookup', { params })
+}
+
 export function getPages() {
   return api.get('/pages')
 }
