@@ -12,7 +12,7 @@ from app.links import normalize_creator_links
 from app.completion import get_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_page, normalize_pages, PAGES_NODE
-from app.layers import normalize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE
+from app.layers import normalize_layers, normalize_electron_styles, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
@@ -216,12 +216,14 @@ def get_element_layers(symbol):
     """元素的圖層設定，連同選用的電子樣式圖一起回傳，前端才不用再打一次。"""
     try:
         layers = normalize_layers(show_fdb(f"{LAYERS_NODE}/{symbol}"))
+        # 元素沒有各自指定電子樣式時退回全站預設
+        style_id = resolve_electron_style(layers, show_fdb(ELECTRON_DEFAULT_NODE))
         electron_img = ""
-        if layers["electron_style"]:
-            style = show_fdb(f"{ELECTRON_STYLES_NODE}/{layers['electron_style']}")
+        if style_id:
+            style = show_fdb(f"{ELECTRON_STYLES_NODE}/{style_id}")
             if isinstance(style, dict):
                 electron_img = (style.get("img_data") or "").strip()
-        return jsonify({**layers, "electron_img": electron_img})
+        return jsonify({**layers, "electron_style": style_id, "electron_img": electron_img})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 

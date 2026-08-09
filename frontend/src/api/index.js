@@ -144,6 +144,10 @@ export function saveElectronStyle(payload) {
   return api.post('/admin/electron-styles', payload)
 }
 
+export function setDefaultElectronStyle(id) {
+  return api.post('/admin/electron-styles/default', { id })
+}
+
 export function deleteElectronStyle(id) {
   return api.delete(`/admin/electron-styles/${id}`)
 }

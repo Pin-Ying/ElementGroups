@@ -273,19 +273,33 @@
           <p class="title is-4">ELECTRON STYLES</p>
           <p class="desc">
             電子的畫法可以套用到任何元素，所以集中管理在這裡。<br>
-            在「元素故事」的圖片分層區選擇要用哪一種；每個元素放幾顆由電子組態自動決定。
+            設一個<strong>預設</strong>之後，沒有另外指定的元素都會自動使用它，不必每個元素各選一次。<br>
+            每個元素放幾顆由電子組態自動決定。
           </p>
 
           <div v-if="!electronStyles.length" class="placeholder-text">尚未新增任何電子樣式。</div>
 
           <div v-else class="style-grid">
-            <div v-for="st in electronStyles" :key="st.id" class="style-item" :class="{ broken: brokenStyles.includes(st.id) }">
+            <div
+              v-for="st in electronStyles"
+              :key="st.id"
+              class="style-item"
+              :class="{ broken: brokenStyles.includes(st.id), 'is-default': st.id === defaultStyleId }"
+            >
               <img :src="st.img_data" alt="" @error="markBrokenStyle(st.id)" />
               <span class="style-name">
                 {{ st.name }}
                 <span v-if="brokenStyles.includes(st.id)" class="broken-tag">圖片損毀</span>
               </span>
-              <button class="icon-button danger" type="button" title="刪除" @click="handleDeleteStyle(st)">✕</button>
+              <div class="style-actions">
+                <button
+                  class="style-default-btn"
+                  type="button"
+                  :class="{ active: st.id === defaultStyleId }"
+                  @click="toggleDefaultStyle(st)"
+                >{{ st.id === defaultStyleId ? '★ 預設' : '設為預設' }}</button>
+                <button class="icon-button danger" type="button" title="刪除" @click="handleDeleteStyle(st)">✕</button>
+              </div>
             </div>
           </div>
 
@@ -551,13 +565,17 @@
                     class="electron-option"
                     type="button"
                     :class="{ active: layerForm.electron_style === st.id }"
-                    :title="st.name"
+                    :title="st.name + (st.id === defaultStyleId ? '（預設）' : '')"
                     @click="layerForm.electron_style = layerForm.electron_style === st.id ? '' : st.id"
                   >
                     <img :src="st.img_data" alt="" />
+                    <span v-if="st.id === defaultStyleId" class="electron-default-mark">★</span>
                   </button>
                 </div>
                 <p v-else class="layer-empty">尚無樣式，請先到「圖層素材」新增</p>
+                <p v-if="electronStyles.length && !layerForm.electron_style" class="layer-empty">
+                  {{ defaultStyleId ? '未指定，將使用預設電子' : '未指定，且尚未設定預設電子' }}
+                </p>
 
                 <label class="label ai-label">運動方式</label>
                 <select class="select" v-model="layerForm.motion" aria-label="電子運動方式">
@@ -668,7 +686,7 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, apiBase } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -758,6 +776,7 @@ export default {
       layerErrors: { nucleus: '', name_img: '' },
       brokenStyles: [],
       electronStyles: [],
+      defaultStyleId: '',
       newStyleName: '',
       newStyleImg: '',
       styleSaving: false,
@@ -1472,6 +1491,7 @@ export default {
       try {
         const res = await getElectronStyles()
         this.electronStyles = res.data.styles || []
+        this.defaultStyleId = res.data.default_id || ''
       } catch (e) {
         console.error('Failed to load electron styles:', e)
       }
@@ -1503,12 +1523,23 @@ export default {
         this.styleSaving = false
       }
     },
+    async toggleDefaultStyle(style) {
+      const next = this.defaultStyleId === style.id ? '' : style.id
+      try {
+        const res = await setDefaultElectronStyle(next)
+        showToast(res.data.message || '已更新', 'success')
+        this.defaultStyleId = next
+      } catch (e) {
+        showToast(e.response?.data?.message || '設定失敗', 'error')
+      }
+    },
     async handleDeleteStyle(style) {
       try {
         const res = await deleteElectronStyle(style.id)
         showToast(res.data.message || '已刪除', 'success')
         // 有元素正在用這個樣式的話，選取狀態一併清掉
         if (this.layerForm.electron_style === style.id) this.layerForm.electron_style = ''
+        if (this.defaultStyleId === style.id) this.defaultStyleId = ''
         await this.loadElectronStyles()
       } catch (e) {
         showToast(e.response?.data?.message || '刪除失敗', 'error')
@@ -2238,6 +2269,34 @@ export default {
 }
 
 .style-item.broken { border-color: rgba(255, 107, 107, 0.5); }
+.style-item.is-default { border-color: #6ee76e; background: rgba(110, 231, 110, 0.08); }
+
+.style-actions { display: flex; align-items: center; gap: 5px; }
+
+.style-default-btn {
+  padding: 2px 9px;
+  font-size: 11px;
+  font-family: inherit;
+  border: 1px solid rgba(228, 251, 255, 0.2);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(228, 251, 255, 0.5);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.style-default-btn:hover { color: #e4fbff; border-color: rgba(228, 251, 255, 0.5); }
+.style-default-btn.active { color: #6ee76e; border-color: rgba(110, 231, 110, 0.6); }
+
+.electron-option { position: relative; }
+
+.electron-default-mark {
+  position: absolute;
+  top: -5px;
+  right: -3px;
+  font-size: 10px;
+  color: #6ee76e;
+}
 
 .broken-tag {
   display: block;

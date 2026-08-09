@@ -14,7 +14,7 @@ from app.links import normalize_creator_links, serialize_creator_links
 from app.completion import update_completion, rebuild_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_pages, serialize_page, normalize_slug, PAGES_NODE
-from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE
+from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app import ai
 
@@ -192,7 +192,10 @@ def manage_electron_styles():
     """共用的電子樣式庫。同一種畫法可以套用到任何元素。"""
     if request.method == "GET":
         try:
-            return jsonify({"styles": normalize_electron_styles(show_fdb(ELECTRON_STYLES_NODE))})
+            return jsonify({
+                "styles": normalize_electron_styles(show_fdb(ELECTRON_STYLES_NODE)),
+                "default_id": show_fdb(ELECTRON_DEFAULT_NODE) or ""
+            })
         except Exception as e:
             return jsonify({"result": "failure", "message": str(e)}), 500
 
@@ -217,11 +220,26 @@ def manage_electron_styles():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
+@admin_bp.route("/admin/electron-styles/default", methods=["POST"])
+@login_required
+def set_default_electron_style():
+    """設定全站預設電子樣式；元素沒有各自指定時就用它。"""
+    try:
+        style_id = ((request.get_json() or {}).get("id") or "").strip()
+        fdb.child(ELECTRON_DEFAULT_NODE).set(style_id)
+        return jsonify({"result": "success", "message": "已設為預設電子" if style_id else "已取消預設"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
 @admin_bp.route("/admin/electron-styles/<style_id>", methods=["DELETE"])
 @login_required
 def delete_electron_style(style_id):
     try:
         fdb.child(ELECTRON_STYLES_NODE).child(style_id).delete()
+        # 刪掉的正好是預設時要一併清除，否則會指向不存在的樣式
+        if (show_fdb(ELECTRON_DEFAULT_NODE) or "") == style_id:
+            fdb.child(ELECTRON_DEFAULT_NODE).set("")
         return jsonify({"result": "success", "message": "電子樣式已刪除"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500

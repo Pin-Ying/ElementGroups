@@ -15,6 +15,8 @@
 
 LAYERS_NODE = "_layers"
 ELECTRON_STYLES_NODE = "_electron_styles"
+# 預設電子樣式的 id 存在這裡；元素沒有各自指定時就用它
+ELECTRON_DEFAULT_NODE = "_electron_default"
 
 MOTIONS = ("orbit", "free", "static")
 DEFAULT_MOTION = "orbit"
@@ -50,6 +52,11 @@ def serialize_layers(payload):
         record["motion"] = motion if motion in MOTIONS else DEFAULT_MOTION
 
     return record
+
+
+def resolve_electron_style(layers, default_id):
+    """元素沒有指定電子樣式時，退回全站預設。"""
+    return (layers.get("electron_style") or "").strip() or (default_id or "").strip()
 
 
 def normalize_electron_styles(data):
