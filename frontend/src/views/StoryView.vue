@@ -636,7 +636,13 @@ export default {
   text-align: center;
 }
 
-.dex-figure { min-width: 0; }
+.dex-figure {
+  min-width: 0;
+  /* 必須給明確寬度：分層呈現是 width:100% + aspect-ratio，本身沒有固有
+     尺寸，父層若是 shrink-to-fit（例如只給 margin:auto）就會塌陷成一小塊，
+     而靜態的 <img> 因為有固有尺寸看起來卻正常 */
+  width: 100%;
+}
 
 .view-switch {
   display: flex;
@@ -714,8 +720,9 @@ export default {
     grid-template-columns: 1fr;
     gap: 18px;
   }
-  /* 手機上先看圖，再看標籤與資料 */
-  .dex-figure { order: -1; max-width: 320px; margin: 0 auto; }
+  /* 手機上先看圖，再看標籤與資料。平板寬度時 320px 太小，放寬到 420px；
+     窄螢幕靠 width:100% 自動收斂 */
+  .dex-figure { order: -1; width: 100%; max-width: 420px; margin: 0 auto; }
   .dex-facts { grid-template-columns: 1fr 1fr; }
   .dex-head .btn-edit { position: static; margin-top: 8px; }
 }
