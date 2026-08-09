@@ -13,7 +13,6 @@
       </div>
     </div>
     <p class="stat-note">
-      長條長度為該項目在 118 個元素中的相對比例 ·
       <router-link to="/guide">這些數值代表什麼？</router-link>
     </p>
   </div>
