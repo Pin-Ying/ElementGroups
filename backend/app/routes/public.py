@@ -102,6 +102,21 @@ def get_element_detail(symbol):
         return jsonify({"result": "failure", "exception": str(e)}), 500
 
 
+@public_bp.route("/site-settings", methods=["GET"])
+def get_site_settings():
+    """網站標題／副標題／SEO 描述與首頁背景圖，供前端動態套用。"""
+    try:
+        data = show_fdb("_site_settings") or {}
+        return jsonify({
+            "title": data.get("title", ""),
+            "subtitle": data.get("subtitle", ""),
+            "description": data.get("description", ""),
+            "bg_image": data.get("bg_image", ""),
+        })
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
 @public_bp.route("/elements/completion", methods=["GET"])
 def get_elements_completion():
     """首頁用：哪些元素已經有故事/圖片。"""

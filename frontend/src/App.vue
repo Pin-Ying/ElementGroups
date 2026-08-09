@@ -1,10 +1,13 @@
 <template>
   <div>
+    <!-- 後台設定的首頁背景圖（沒設定就維持原本的漸層底色） -->
+    <div v-if="site.bg_image" class="site-bg" :style="{ backgroundImage: `url(${site.bg_image})` }"></div>
+
     <div class="element-header">
       <div class="header-inner">
         <router-link to="/" class="header-title">
-          <p class="header-logo">Element Groups</p>
-          <p class="header-sub">Explore the components of the world.</p>
+          <p class="header-logo">{{ site.title }}</p>
+          <p class="header-sub">{{ site.subtitle }}</p>
         </router-link>
 
         <!-- Admin area -->
@@ -40,6 +43,7 @@ import { authState, login, logout, initAuth } from './store/auth'
 import { showToast } from './store/toast'
 import ToastContainer from './components/ToastContainer.vue'
 import SiteFooter from './components/SiteFooter.vue'
+import { siteSettingsState, ensureSiteSettings } from './store/siteSettings'
 import api from './api'
 
 function parseLoginError(raw) {
@@ -58,6 +62,7 @@ export default {
   data() {
     return {
       authState,
+      site: siteSettingsState,
       showLogin: false,
       email: '',
       password: '',
@@ -65,6 +70,7 @@ export default {
     }
   },
   created() {
+    ensureSiteSettings()
     // 若後端 session 失效（401），立即更新前端狀態
     api.interceptors.response.use(
       res => res,
@@ -104,6 +110,24 @@ export default {
 </script>
 
 <style scoped>
+/* 背景圖鋪滿視窗、固定不隨捲動，上面壓一層暗色確保文字可讀 */
+.site-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.35;
+}
+
+.site-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(3, 1, 10, 0.55), rgba(3, 1, 10, 0.8));
+}
+
 .header-inner {
   display: flex;
   flex-direction: row;

@@ -70,6 +70,20 @@ export function getDefaultImgInfo() {
   return api.get('/admin/default-img')
 }
 
+export function getSiteSettings() {
+  return api.get('/site-settings')
+}
+
+export function getAdminSiteSettings() {
+  return api.get('/admin/site-settings')
+}
+
+export function updateSiteSettings(formData) {
+  return api.post('/admin/site-settings', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
 export function getAiStatus() {
   return api.get('/ai/status')
 }

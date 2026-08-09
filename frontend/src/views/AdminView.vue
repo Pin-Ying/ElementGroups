@@ -36,6 +36,49 @@
       <!-- ── 管理 Tab ── -->
       <template v-if="adminTab === 'main'">
 
+        <!-- Site Settings -->
+        <div class="box">
+          <p class="title is-4">SITE SETTINGS</p>
+          <p class="desc">
+            網站層級的基本資料。標題與副標題會顯示在每一頁的左上角，
+            描述用於搜尋引擎與分享連結時的摘要；留空則沿用系統預設文案。
+          </p>
+          <form @submit.prevent="handleUpdateSiteSettings">
+            <label class="label">網站標題</label>
+            <input class="input" type="text" v-model="siteForm.title" :placeholder="siteDefaults.title" />
+
+            <label class="label">副標題</label>
+            <input class="input" type="text" v-model="siteForm.subtitle" :placeholder="siteDefaults.subtitle" />
+
+            <label class="label">網站描述（SEO）</label>
+            <textarea class="textarea site-desc" v-model="siteForm.description" rows="2" :placeholder="siteDefaults.description"></textarea>
+
+            <label class="label">首頁背景圖</label>
+            <p class="field-hint">{{ uploadHint }}</p>
+            <img v-if="siteBgCurrent && !siteBgPreviewUrl" :src="siteBgCurrent" class="img-preview bg-preview" alt="目前背景圖" />
+            <p v-else-if="!siteBgCurrent && !siteBgPreviewUrl" class="placeholder-text">尚未設定，維持原本的漸層底色</p>
+            <input class="input" type="file" accept="image/*" ref="siteBgInput" @change="onSiteBgFileChange" />
+            <div v-if="siteBgPreviewUrl" class="preview-new">
+              <p class="preview-label">新背景圖預覽（尚未儲存）</p>
+              <img :src="siteBgPreviewUrl" class="img-preview bg-preview" alt="New background preview" />
+              <p class="compress-info">{{ compressionSummary(siteBgInfo) }}</p>
+            </div>
+
+            <div class="link-actions">
+              <button class="button" type="submit" :disabled="siteSaving">
+                {{ siteSaving ? 'Saving…' : 'Save' }}
+              </button>
+              <button
+                v-if="siteBgCurrent"
+                class="button secondary"
+                type="button"
+                :disabled="siteSaving"
+                @click="handleClearSiteBg"
+              >移除背景圖</button>
+            </div>
+          </form>
+        </div>
+
         <!-- Default Image -->
         <div class="box">
           <p class="title is-4">DEFAULT IMAGE</p>
@@ -256,10 +299,11 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, apiBase } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
+import { setSiteSettings, SITE_DEFAULTS } from '../store/siteSettings'
 import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
 import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -293,6 +337,13 @@ export default {
       creatorLinks: [],
       creatorLinksSaving: false,
       platforms: PLATFORMS,
+      siteForm: { title: '', subtitle: '', description: '' },
+      siteDefaults: SITE_DEFAULTS,
+      siteBgCurrent: '',
+      siteBgPreviewUrl: '',
+      siteBgBlob: null,
+      siteBgInfo: null,
+      siteSaving: false,
       ai: { enabled: false, used: 0, limit: 0 },
       aiPanelOpen: false,
       aiDirection: '',
@@ -327,7 +378,7 @@ export default {
   },
   async mounted() {
     if (this.authState.loggedIn) {
-      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus()])
+      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings()])
     }
   },
   beforeUnmount() {
@@ -393,7 +444,7 @@ export default {
       try {
         const result = await login(this.email, this.password)
         if (result.ok) {
-          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus()])
+          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings()])
         } else {
           this.msg = result.message || 'Login failed'
         }
@@ -440,6 +491,74 @@ export default {
       } finally {
         this.loading = false
       }
+    },
+    async loadSiteSettings() {
+      try {
+        const res = await getAdminSiteSettings()
+        this.siteForm = {
+          title: res.data.title || '',
+          subtitle: res.data.subtitle || '',
+          description: res.data.description || ''
+        }
+        this.siteBgCurrent = res.data.bg_image || ''
+      } catch (e) {
+        console.error('Failed to load site settings:', e)
+      }
+    },
+    async onSiteBgFileChange(e) {
+      this.revokeSiteBgPreview()
+      const file = e.target.files[0]
+      if (!file) return
+      try {
+        const result = await compressImage(file)
+        this.siteBgBlob = result.blob
+        this.siteBgInfo = result
+        this.siteBgPreviewUrl = URL.createObjectURL(result.blob)
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+        e.target.value = ''
+      }
+    },
+    revokeSiteBgPreview() {
+      if (this.siteBgPreviewUrl) {
+        URL.revokeObjectURL(this.siteBgPreviewUrl)
+        this.siteBgPreviewUrl = ''
+      }
+      this.siteBgBlob = null
+      this.siteBgInfo = null
+    },
+    buildSiteFormData() {
+      const formData = new FormData()
+      formData.append('title', this.siteForm.title)
+      formData.append('subtitle', this.siteForm.subtitle)
+      formData.append('description', this.siteForm.description)
+      return formData
+    },
+    async saveSiteSettings(formData) {
+      this.siteSaving = true
+      try {
+        const res = await updateSiteSettings(formData)
+        showToast(res.data.message || 'Saved!', 'success')
+        await this.loadSiteSettings()
+        // 讓 header 與頁面標題立刻反映
+        setSiteSettings({ ...this.siteForm, bg_image: this.siteBgCurrent })
+        if (this.$refs.siteBgInput) this.$refs.siteBgInput.value = ''
+        this.revokeSiteBgPreview()
+      } catch (e) {
+        showToast(e.response?.data?.message || 'Save failed', 'error')
+      } finally {
+        this.siteSaving = false
+      }
+    },
+    async handleUpdateSiteSettings() {
+      const formData = this.buildSiteFormData()
+      if (this.siteBgBlob) formData.append('bg_image', this.siteBgBlob, 'bg.jpg')
+      await this.saveSiteSettings(formData)
+    },
+    async handleClearSiteBg() {
+      const formData = this.buildSiteFormData()
+      formData.append('clear_bg_image', '1')
+      await this.saveSiteSettings(formData)
     },
     async loadAiStatus() {
       try {
@@ -897,6 +1016,16 @@ export default {
   opacity: 0.45;
   margin: 0 0 6px;
   line-height: 1.5;
+}
+
+.site-desc {
+  min-height: 60px;
+}
+
+.bg-preview {
+  max-width: 260px;
+  max-height: 140px;
+  object-fit: cover;
 }
 
 .compress-info {

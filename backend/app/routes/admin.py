@@ -198,6 +198,54 @@ def manage_default_image():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
+SITE_SETTINGS_FIELDS = ("title", "subtitle", "description")
+
+
+@admin_bp.route("/admin/site-settings", methods=["GET", "POST"])
+@login_required
+def manage_site_settings():
+    if request.method == "GET":
+        try:
+            data = show_fdb("_site_settings") or {}
+            result = {f: data.get(f, "") for f in SITE_SETTINGS_FIELDS}
+            result["bg_image"] = data.get("bg_image", "")
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    # POST：文字欄位走 JSON，背景圖走 multipart
+    try:
+        existing = show_fdb("_site_settings") or {}
+        payload = dict(existing)
+
+        if request.content_type and request.content_type.startswith("multipart/"):
+            for f in SITE_SETTINGS_FIELDS:
+                if f in request.form:
+                    payload[f] = (request.form.get(f) or "").strip()
+
+            image = request.files.get("bg_image")
+            if image and image.filename:
+                image_bytes = image.read()
+                payload["bg_image"] = (
+                    "data:image/jpeg;base64,"
+                    + base64.b64encode(image_bytes).decode("utf-8")
+                )
+            elif request.form.get("clear_bg_image") == "1":
+                payload["bg_image"] = ""
+        else:
+            data = request.get_json() or {}
+            for f in SITE_SETTINGS_FIELDS:
+                if f in data:
+                    payload[f] = (data.get(f) or "").strip()
+            if data.get("clear_bg_image"):
+                payload["bg_image"] = ""
+
+        upload_fdb("_site_settings", payload)
+        return jsonify({"result": "success", "message": "Site settings updated!"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
 @admin_bp.route("/admin/creator-links", methods=["GET", "POST"])
 @login_required
 def manage_creator_links():
