@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     AI_API_KEY: str = ""
     AI_MODEL: str = "gemini-2.0-flash"
     AI_DAILY_LIMIT: int = 50
+    # 思考型模型會先花掉一部分輸出預算，太低會讓正文被截斷
+    AI_MAX_OUTPUT_TOKENS: int = 4096
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

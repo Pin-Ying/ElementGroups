@@ -21,23 +21,34 @@
     </div>
 
     <!-- Admin Panel -->
-    <div v-if="authState.loggedIn" class="admin-box">
-      <div class="admin-header">
-        <p class="title">ADMIN</p>
-        <button class="button secondary" @click="handleLogout">Logout</button>
-      </div>
+    <div v-if="authState.loggedIn" class="admin-layout">
+      <!-- 側邊導覽：功能區塊變多後改為一次只顯示一項，不必一路往下滑 -->
+      <aside class="admin-nav">
+        <p class="nav-title">ADMIN</p>
+        <nav class="nav-list">
+          <button
+            v-for="s in SECTIONS"
+            :key="s.key"
+            class="nav-item"
+            type="button"
+            :class="{ active: section === s.key }"
+            @click="setSection(s.key)"
+          >
+            <span class="nav-icon">{{ s.icon }}</span>
+            <span class="nav-label">{{ s.label }}</span>
+          </button>
+        </nav>
+        <button class="nav-item nav-logout" type="button" @click="handleLogout">
+          <span class="nav-icon">→</span>
+          <span class="nav-label">登出</span>
+        </button>
+      </aside>
 
-      <!-- Tab switcher -->
-      <div class="group-type-button" style="margin-bottom: 24px">
-        <button class="button" :class="{ active: adminTab === 'main' }" @click="adminTab = 'main'">管理</button>
-        <button class="button" :class="{ active: adminTab === 'maintenance' }" @click="adminTab = 'maintenance'">維護工具</button>
-      </div>
-
-      <!-- ── 管理 Tab ── -->
-      <template v-if="adminTab === 'main'">
+      <div class="admin-content">
+        <p class="content-title">{{ currentSection.label }}</p>
 
         <!-- Site Settings -->
-        <div class="box">
+        <div v-if="section === 'site'" class="box">
           <p class="title is-4">SITE SETTINGS</p>
           <p class="desc">
             網站層級的基本資料。標題與副標題會顯示在每一頁的左上角，
@@ -80,7 +91,7 @@
         </div>
 
         <!-- Default Image -->
-        <div class="box">
+        <div v-if="section === 'default-img'" class="box">
           <p class="title is-4">DEFAULT IMAGE</p>
           <p class="desc">
             元素尚未上傳圖片時顯示的預設圖片。<br>
@@ -102,7 +113,7 @@
         </div>
 
         <!-- Creator Links -->
-        <div class="box">
+        <div v-if="section === 'links'" class="box">
           <p class="title is-4">CREATOR LINKS</p>
           <p class="desc">
             設定要對外顯示的社群連結，數量不限。<br>
@@ -149,13 +160,13 @@
         </div>
 
         <!-- Update Story -->
-        <div class="box">
+        <div v-if="section === 'story'" class="box">
           <p class="title is-4">UPDATE STORY</p>
           <p class="desc">
             編輯單一元素的故事內容與代表圖片。<br>
             選擇元素後，Story 的文字會顯示在前台該元素的介紹頁（/stroy/{{ selectedSymbol || 'Symbol' }}），
             上傳圖片則會<strong>直接覆蓋</strong>該元素目前的圖片。<br>
-            下拉選單的 ✓ 表示已寫故事、📷 表示已上傳圖片。
+            下拉選單的 ✓ 表示已寫故事、▣ 表示已上傳圖片。
           </p>
 
           <div class="progress-summary">
@@ -188,7 +199,7 @@
                 type="button"
                 :class="{ active: aiPanelOpen }"
                 @click="aiPanelOpen = !aiPanelOpen"
-              >✨ AI 協助</button>
+              >✧ AI 協助</button>
             </div>
             <textarea
               class="textarea"
@@ -252,12 +263,8 @@
           </form>
         </div>
 
-      </template>
-
-      <!-- ── 維護工具 Tab ── -->
-      <template v-if="adminTab === 'maintenance'">
-
-        <div class="box maintenance-box">
+        <!-- 維護工具 -->
+        <div v-if="section === 'maintenance'" class="box maintenance-box">
           <div class="maintenance-item">
             <div class="maintenance-info">
               <p class="maintenance-title">Create DB</p>
@@ -292,8 +299,7 @@
 
           <p v-if="adminMsg" class="msg" :class="adminMsgType">{{ adminMsg }}</p>
         </div>
-
-      </template>
+      </div>
     </div>
   </div>
 </template>
@@ -306,6 +312,15 @@ import { setCreatorLinks } from '../store/creatorLinks'
 import { setSiteSettings, SITE_DEFAULTS } from '../store/siteSettings'
 import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
 import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
+
+// 後台功能區塊。一次只顯示一項，避免所有表單疊在同一頁要一路往下滑。
+const SECTIONS = [
+  { key: 'story', label: '元素故事', icon: '✎' },
+  { key: 'site', label: '網站設定', icon: '⚙' },
+  { key: 'default-img', label: '預設圖片', icon: '▣' },
+  { key: 'links', label: '社群連結', icon: '⚯' },
+  { key: 'maintenance', label: '維護工具', icon: '⚒' }
+]
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
@@ -313,7 +328,10 @@ export default {
   data() {
     return {
       authState,
-      adminTab: 'main',
+      SECTIONS,
+      section: SECTIONS.some(s => s.key === localStorage.getItem('adminSection'))
+        ? localStorage.getItem('adminSection')
+        : 'story',
       loading: false,
       email: '',
       password: '',
@@ -353,6 +371,9 @@ export default {
     }
   },
   computed: {
+    currentSection() {
+      return SECTIONS.find(s => s.key === this.section) || SECTIONS[0]
+    },
     uploadHint() {
       return `上傳前會自動等比縮至長邊 ${MAX_EDGE}px 並轉為 JPEG，減少資料庫用量；超過 ${formatBytes(MAX_UPLOAD_BYTES)} 的檔案不接受。`
     },
@@ -365,7 +386,8 @@ export default {
       return this.elements.map(sym => {
         const hasStory = !!(this.storyDatas[sym] || '').trim()
         const hasImage = !!this.hasImageMap[sym]
-        const marks = (hasStory ? ' ✓' : '') + (hasImage ? ' 📷' : '')
+        // 用幾何符號而非 emoji：介面字型沒有 emoji 字符，會渲染成方框
+        const marks = (hasStory ? ' ✓' : '') + (hasImage ? ' ▣' : '')
         return { symbol: sym, hasStory, hasImage, label: sym + marks }
       })
     },
@@ -657,6 +679,11 @@ export default {
       }
     },
     platformInfo,
+    setSection(key) {
+      this.section = key
+      localStorage.setItem('adminSection', key)
+      this.adminMsg = ''
+    },
     addLink() {
       const used = new Set(this.creatorLinks.map(l => l.platform))
       const next = PLATFORMS.find(p => !used.has(p.key)) || PLATFORMS[0]
@@ -762,6 +789,152 @@ export default {
   padding: 20px;
   max-width: 720px;
   margin: 0 auto;
+}
+
+/* ── 後台版面：側邊導覽 + 內容區 ── */
+.admin-layout {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 20px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 20px 18px 40px;
+  align-items: start;
+}
+
+.admin-nav {
+  position: sticky;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 14px 10px;
+  border: 1px solid rgba(228, 251, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(20, 5, 35, 0.5);
+}
+
+.nav-title {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: rgba(228, 251, 255, 0.35);
+  margin: 0 0 10px;
+  padding: 0 10px;
+  text-align: left;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(228, 251, 255, 0.62);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-item:hover {
+  background: rgba(228, 251, 255, 0.07);
+  color: rgba(228, 251, 255, 0.92);
+}
+
+.nav-item.active {
+  background: rgba(228, 251, 255, 0.15);
+  color: #e4fbff;
+  font-weight: 600;
+}
+
+.nav-icon {
+  width: 16px;
+  text-align: center;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.nav-logout {
+  margin-top: 10px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(228, 251, 255, 0.1);
+  border-radius: 0 0 7px 7px;
+  color: rgba(228, 251, 255, 0.4);
+}
+
+.nav-logout:hover {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.admin-content {
+  min-width: 0;
+}
+
+.content-title {
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: rgba(228, 251, 255, 0.4);
+  margin: 0 0 10px;
+  text-align: left;
+}
+
+.admin-content .box {
+  margin-bottom: 0;
+}
+
+@media (max-width: 760px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 14px 10px 32px;
+  }
+
+  .admin-nav {
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 8px;
+    scrollbar-width: none;
+  }
+
+  .admin-nav::-webkit-scrollbar { display: none; }
+
+  .nav-title { display: none; }
+
+  .nav-list {
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .nav-item {
+    width: auto;
+    white-space: nowrap;
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .nav-logout {
+    margin-top: 0;
+    padding-top: 7px;
+    border-top: none;
+    border-left: 1px solid rgba(228, 251, 255, 0.1);
+    border-radius: 7px;
+    margin-left: 4px;
+    padding-left: 12px;
+  }
 }
 
 .admin-header {

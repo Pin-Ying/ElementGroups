@@ -111,7 +111,12 @@ def _call_gemini(prompt):
         params={"key": settings.AI_API_KEY},
         json={
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.9, "maxOutputTokens": 1024},
+            "generationConfig": {
+                "temperature": 0.9,
+                # 一段 300 字的中文約 400~600 tokens，但具備思考能力的模型
+                # 會先花掉一部分預算，額度抓寬一點才不會把正文切斷
+                "maxOutputTokens": settings.AI_MAX_OUTPUT_TOKENS,
+            },
         },
         timeout=REQUEST_TIMEOUT,
     )
@@ -131,10 +136,29 @@ def _call_gemini(prompt):
         reason = data.get("promptFeedback", {}).get("blockReason", "沒有回傳內容")
         raise RuntimeError(f"AI 沒有產生內容（{reason}）")
 
-    text_parts = candidates[0].get("content", {}).get("parts") or []
-    text = "".join(p.get("text", "") for p in text_parts).strip()
+    candidate = candidates[0]
+    parts = candidate.get("content", {}).get("parts") or []
+    # 具備思考能力的模型會把思考過程也放在 parts 裡並標記 thought=True，
+    # 那不是要給使用者看的內容，必須濾掉，否則會拼出前後不連貫的段落
+    text = "".join(
+        p.get("text", "") for p in parts if not p.get("thought")
+    ).strip()
+
+    finish_reason = candidate.get("finishReason", "")
     if not text:
-        raise RuntimeError("AI 回傳了空白內容")
+        if finish_reason == "MAX_TOKENS":
+            raise RuntimeError(
+                "AI 的輸出額度用在思考過程上，沒有產生正文。"
+                "請調高 AI_MAX_OUTPUT_TOKENS，或改用非思考型模型（例如 gemini-2.0-flash）"
+            )
+        raise RuntimeError(f"AI 回傳了空白內容（finishReason: {finish_reason or '未知'}）")
+
+    if finish_reason == "MAX_TOKENS":
+        raise RuntimeError(
+            f"AI 回應在寫完之前就達到輸出上限（目前 {settings.AI_MAX_OUTPUT_TOKENS} tokens），"
+            "內容不完整。請調高 AI_MAX_OUTPUT_TOKENS 後重試"
+        )
+
     return text
 
 
