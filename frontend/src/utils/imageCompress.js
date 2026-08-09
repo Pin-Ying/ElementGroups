@@ -34,11 +34,18 @@ function loadImage(file) {
  * 壓縮圖片檔。
  *
  * @param {File} file 使用者選的檔案
+ * @param {object} [options]
+ * @param {boolean} [options.keepTransparency] 保留透明背景。圖層與電子樣式
+ *        這類要疊在其他圖上的素材必須開啟，否則 JPEG 會把透明區域填成黑色。
+ * @param {number} [options.maxEdge] 長邊上限，預設 MAX_EDGE。PNG 壓不掉多少，
+ *        需要透明的素材建議給小一點。
  * @returns {Promise<{blob: Blob, originalSize: number, compressedSize: number,
  *                    width: number, height: number, resized: boolean}>}
  * @throws {Error} 檔案過大或不是圖片時
  */
-export async function compressImage(file) {
+export async function compressImage(file, options = {}) {
+  const { keepTransparency = false, maxEdge = MAX_EDGE } = options
+
   if (!file.type.startsWith('image/')) {
     throw new Error('請選擇圖片檔')
   }
@@ -47,7 +54,7 @@ export async function compressImage(file) {
   }
 
   const img = await loadImage(file)
-  const scale = Math.min(1, MAX_EDGE / Math.max(img.width, img.height))
+  const scale = Math.min(1, maxEdge / Math.max(img.width, img.height))
   const width = Math.round(img.width * scale)
   const height = Math.round(img.height * scale)
 
@@ -57,11 +64,13 @@ export async function compressImage(file) {
   const ctx = canvas.getContext('2d')
   ctx.drawImage(img, 0, 0, width, height)
 
+  // PNG 才有 alpha 通道；toBlob 對 PNG 會忽略 quality 參數
+  const type = keepTransparency ? 'image/png' : 'image/jpeg'
   const blob = await new Promise((resolve, reject) => {
     canvas.toBlob(
       b => (b ? resolve(b) : reject(new Error('圖片壓縮失敗'))),
-      'image/jpeg',
-      JPEG_QUALITY
+      type,
+      keepTransparency ? undefined : JPEG_QUALITY
     )
   })
 

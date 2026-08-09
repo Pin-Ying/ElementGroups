@@ -287,7 +287,7 @@
           </div>
 
           <label class="label">新增樣式</label>
-          <p class="field-hint">建議使用去背的 PNG，正方形構圖，電子會等比縮放後疊在原子核上。</p>
+          <p class="field-hint">請使用<strong>去背的 PNG</strong>，正方形構圖。上傳後會縮至 240px 並保留透明背景。</p>
           <div class="style-upload">
             <input class="input" type="text" v-model="newStyleName" aria-label="樣式名稱" />
             <input class="input" type="file" accept="image/*" ref="styleInput" aria-label="樣式圖片" @change="onStyleFile" />
@@ -521,7 +521,8 @@
             <p class="label">圖片分層</p>
             <p class="field-hint">
               把代表圖拆成原子核、電子、手寫元素名三層。<br>
-              <strong>設定原子核之後才會啟用分層呈現</strong>，在那之前一律沿用上面的代表圖。
+              <strong>設定原子核之後才會啟用分層呈現</strong>，在那之前一律沿用上面的代表圖。<br>
+              三層都請使用<strong>去背的 PNG</strong>，上傳後會保留透明背景（縮至 900px）。
             </p>
 
             <div class="layer-grid">
@@ -1428,7 +1429,8 @@ export default {
       e.target.value = ''
       if (!file) return
       try {
-        const result = await compressImage(file)
+        // 圖層要疊在彼此之上，必須保留透明；PNG 壓不掉多少，尺寸給小一點
+        const result = await compressImage(file, { keepTransparency: true, maxEdge: 900 })
         this.layerForm[field] = await this.blobToDataUrl(result.blob)
       } catch (err) {
         showToast(err.message || '圖片處理失敗', 'error')
@@ -1466,7 +1468,8 @@ export default {
       const file = e.target.files[0]
       if (!file) return
       try {
-        const result = await compressImage(file)
+        // 電子在畫面上只佔約 16%，240px 已足夠，也讓 PNG 不會太肥
+        const result = await compressImage(file, { keepTransparency: true, maxEdge: 240 })
         this.newStyleImg = await this.blobToDataUrl(result.blob)
         if (!this.newStyleName) this.newStyleName = file.name.replace(/\.[^.]+$/, '')
       } catch (err) {
