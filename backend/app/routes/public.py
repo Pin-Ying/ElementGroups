@@ -10,6 +10,7 @@ from app.config import settings
 from app.elements import get_atomicOrbital, get_characteristic, get_abMax
 from app.links import normalize_creator_links
 from app.completion import get_completion
+from app.gallery import normalize_gallery
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
@@ -213,7 +214,19 @@ def get_site_settings():
             "subtitle": data.get("subtitle", ""),
             "description": data.get("description", ""),
             "bg_image": data.get("bg_image", ""),
+            # 元素代表圖的圖鑑外框：內建款式，或自訂的框圖（優先）
+            "frame_style": data.get("frame_style", "classic"),
+            "frame_image": data.get("frame_image", ""),
         })
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/elements/<symbol>/gallery", methods=["GET"])
+def get_element_gallery(symbol):
+    """元素的「其他樣貌」圖庫，與代表圖分開存放。"""
+    try:
+        return jsonify({"images": normalize_gallery(show_fdb(f"_gallery/{symbol}"))})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 

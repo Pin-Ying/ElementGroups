@@ -12,6 +12,9 @@ const DEFAULTS = {
 const state = reactive({
   ...DEFAULTS,
   bg_image: '',
+  // 元素代表圖的圖鑑外框
+  frame_style: 'classic',
+  frame_image: '',
   loaded: false
 })
 
@@ -35,6 +38,8 @@ export async function ensureSiteSettings() {
     state.subtitle = res.data.subtitle || DEFAULTS.subtitle
     state.description = res.data.description || DEFAULTS.description
     state.bg_image = res.data.bg_image || ''
+    state.frame_style = res.data.frame_style || 'classic'
+    state.frame_image = res.data.frame_image || ''
     state.loaded = true
   } catch (e) {
     console.error('Failed to load site settings:', e)
@@ -48,6 +53,8 @@ export function setSiteSettings(data) {
   state.subtitle = data.subtitle || DEFAULTS.subtitle
   state.description = data.description || DEFAULTS.description
   if (data.bg_image !== undefined) state.bg_image = data.bg_image
+  if (data.frame_style !== undefined) state.frame_style = data.frame_style || 'classic'
+  if (data.frame_image !== undefined) state.frame_image = data.frame_image
   state.loaded = true
   applyToDocument()
 }

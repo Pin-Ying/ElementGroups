@@ -12,6 +12,7 @@ from app.config import settings
 from app.elements import element_info
 from app.links import normalize_creator_links, serialize_creator_links
 from app.completion import update_completion, rebuild_completion
+from app.gallery import normalize_gallery
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app import ai
 
@@ -183,7 +184,49 @@ def manage_default_image():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
-SITE_SETTINGS_FIELDS = ("title", "subtitle", "description")
+SITE_SETTINGS_FIELDS = ("title", "subtitle", "description", "frame_style")
+# 每個元素最多幾張「其他樣貌」。圖片以 base64 存進 Realtime DB，
+# 不設上限的話很容易把免費方案的額度吃掉。
+GALLERY_MAX = 6
+
+
+@admin_bp.route("/admin/elements/<symbol>/gallery", methods=["GET", "POST"])
+@login_required
+def manage_gallery(symbol):
+    if request.method == "GET":
+        try:
+            return jsonify({"images": normalize_gallery(show_fdb(f"_gallery/{symbol}"))})
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    # POST：整批覆寫，前端送完整清單（含排序結果）
+    try:
+        data = request.get_json() or {}
+        images = data.get("images")
+        if not isinstance(images, list):
+            images = []
+        if len(images) > GALLERY_MAX:
+            return jsonify({
+                "result": "failure",
+                "message": f"最多只能放 {GALLERY_MAX} 張，目前有 {len(images)} 張"
+            }), 400
+
+        cleaned = []
+        for item in images:
+            if not isinstance(item, dict):
+                continue
+            img_data = (item.get("img_data") or "").strip()
+            if not img_data:
+                continue
+            cleaned.append({
+                "img_data": img_data,
+                "caption": (item.get("caption") or "").strip(),
+            })
+
+        fdb.child("_gallery").child(symbol).set(cleaned)
+        return jsonify({"result": "success", "message": "Gallery updated!", "count": len(cleaned)})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
 
 
 @admin_bp.route("/admin/site-settings", methods=["GET", "POST"])
@@ -193,7 +236,9 @@ def manage_site_settings():
         try:
             data = show_fdb("_site_settings") or {}
             result = {f: data.get(f, "") for f in SITE_SETTINGS_FIELDS}
+            result["frame_style"] = data.get("frame_style") or "classic"
             result["bg_image"] = data.get("bg_image", "")
+            result["frame_image"] = data.get("frame_image", "")
             return jsonify(result)
         except Exception as e:
             return jsonify({"result": "failure", "message": str(e)}), 500
@@ -208,15 +253,17 @@ def manage_site_settings():
                 if f in request.form:
                     payload[f] = (request.form.get(f) or "").strip()
 
-            image = request.files.get("bg_image")
-            if image and image.filename:
-                image_bytes = image.read()
-                payload["bg_image"] = (
-                    "data:image/jpeg;base64,"
-                    + base64.b64encode(image_bytes).decode("utf-8")
-                )
-            elif request.form.get("clear_bg_image") == "1":
-                payload["bg_image"] = ""
+            for field, clear_flag in (("bg_image", "clear_bg_image"), ("frame_image", "clear_frame_image")):
+                image = request.files.get(field)
+                if image and image.filename:
+                    # 外框圖需要透明背景，一律存 PNG；背景圖沿用 JPEG
+                    mime = "image/png" if field == "frame_image" else "image/jpeg"
+                    payload[field] = (
+                        f"data:{mime};base64,"
+                        + base64.b64encode(image.read()).decode("utf-8")
+                    )
+                elif request.form.get(clear_flag) == "1":
+                    payload[field] = ""
         else:
             data = request.get_json() or {}
             for f in SITE_SETTINGS_FIELDS:

@@ -75,6 +75,34 @@
               <p class="compress-info">{{ compressionSummary(siteBgInfo) }}</p>
             </div>
 
+            <label class="label">元素圖鑑外框</label>
+            <p class="field-hint">套用在元素頁代表圖外圍的框線樣式，會依該元素的顏色變化。</p>
+            <div class="frame-picker">
+              <button
+                v-for="f in FRAME_STYLES"
+                :key="f.key"
+                class="frame-option"
+                type="button"
+                :class="{ active: siteForm.frame_style === f.key }"
+                @click="siteForm.frame_style = f.key"
+              >
+                <PokedexFrame :style="f.key" color="E06633">
+                  <span class="frame-sample">Fe</span>
+                </PokedexFrame>
+                <span class="frame-option-label">{{ f.label }}</span>
+              </button>
+            </div>
+
+            <label class="label">自訂外框圖（PNG，需透明背景）</label>
+            <p class="field-hint">上傳後會覆蓋上面選的內建款式，圖片會等比拉伸鋪滿代表圖範圍。</p>
+            <img v-if="siteFrameCurrent && !siteFramePreviewUrl" :src="siteFrameCurrent" class="img-preview bg-preview" alt="目前外框圖" />
+            <p v-else-if="!siteFrameCurrent && !siteFramePreviewUrl" class="placeholder-text">未使用自訂外框</p>
+            <input class="input" type="file" accept="image/png" ref="siteFrameInput" @change="onSiteFrameFileChange" />
+            <div v-if="siteFramePreviewUrl" class="preview-new">
+              <p class="preview-label">新外框圖預覽（尚未儲存）</p>
+              <img :src="siteFramePreviewUrl" class="img-preview bg-preview" alt="New frame preview" />
+            </div>
+
             <div class="link-actions">
               <button class="button" type="submit" :disabled="siteSaving">
                 {{ siteSaving ? 'Saving…' : 'Save' }}
@@ -86,6 +114,13 @@
                 :disabled="siteSaving"
                 @click="handleClearSiteBg"
               >移除背景圖</button>
+              <button
+                v-if="siteFrameCurrent"
+                class="button secondary"
+                type="button"
+                :disabled="siteSaving"
+                @click="handleClearSiteFrame"
+              >移除自訂外框</button>
             </div>
           </form>
         </div>
@@ -267,6 +302,53 @@
 
             <button class="button" type="submit" :disabled="loading">Submit</button>
           </form>
+
+          <!-- 其他樣貌（gallery） -->
+          <div class="gallery-admin">
+            <p class="label">其他樣貌</p>
+            <p class="field-hint">
+              代表圖以外的照片，會顯示在元素頁故事下方的獨立區塊，最多 {{ GALLERY_MAX }} 張。<br>
+              比照昆蟲、鳥類圖鑑：同一個元素的不同型態或狀態（例如純金屬、氧化物、礦石）。
+            </p>
+
+            <div v-if="!galleryItems.length" class="placeholder-text">
+              尚未加入其他樣貌。
+            </div>
+
+            <div v-else class="gallery-admin-grid">
+              <div v-for="(item, i) in galleryItems" :key="i" class="gallery-admin-item">
+                <img :src="item.img_data" alt="" />
+                <input
+                  class="input gallery-caption"
+                  type="text"
+                  v-model="item.caption"
+                  aria-label="說明文字"
+                />
+                <div class="gallery-admin-actions">
+                  <button class="icon-button" type="button" title="左移" :disabled="i === 0" @click="moveGalleryItem(i, -1)">←</button>
+                  <button class="icon-button" type="button" title="右移" :disabled="i === galleryItems.length - 1" @click="moveGalleryItem(i, 1)">→</button>
+                  <button class="icon-button danger" type="button" title="刪除" @click="removeGalleryItem(i)">✕</button>
+                </div>
+              </div>
+            </div>
+
+            <input
+              class="input"
+              type="file"
+              accept="image/*"
+              multiple
+              ref="galleryInput"
+              :disabled="galleryItems.length >= GALLERY_MAX"
+              @change="onGalleryFileChange"
+            />
+
+            <div class="link-actions">
+              <button class="button" type="button" :disabled="gallerySaving || !selectedSymbol" @click="handleSaveGallery">
+                {{ gallerySaving ? 'Saving…' : '儲存其他樣貌' }}
+              </button>
+              <span class="ai-quota">{{ galleryItems.length }} / {{ GALLERY_MAX }} 張</span>
+            </div>
+          </div>
         </div>
 
         <!-- 維護工具 -->
@@ -311,13 +393,17 @@
 </template>
 
 <script>
-import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, apiBase } from '../api'
+import { createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
 import { setSiteSettings, SITE_DEFAULTS } from '../store/siteSettings'
 import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
 import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
+import PokedexFrame, { FRAME_STYLES } from '../components/PokedexFrame.vue'
+
+// 與後端 GALLERY_MAX 一致
+const GALLERY_MAX = 6
 
 // 後台功能區塊。一次只顯示一項，避免所有表單疊在同一頁要一路往下滑。
 const SECTIONS = [
@@ -330,7 +416,7 @@ const SECTIONS = [
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
-  components: { LoadingSpinner },
+  components: { LoadingSpinner, PokedexFrame },
   data() {
     return {
       authState,
@@ -361,10 +447,17 @@ export default {
       creatorLinks: [],
       creatorLinksSaving: false,
       platforms: PLATFORMS,
-      siteForm: { title: '', subtitle: '', description: '' },
+      FRAME_STYLES,
+      GALLERY_MAX,
+      galleryItems: [],
+      gallerySaving: false,
+      siteForm: { title: '', subtitle: '', description: '', frame_style: 'classic' },
       siteDefaults: SITE_DEFAULTS,
       siteBgCurrent: '',
       siteBgPreviewUrl: '',
+      siteFrameCurrent: '',
+      siteFramePreviewUrl: '',
+      siteFrameBlob: null,
       siteBgBlob: null,
       siteBgInfo: null,
       siteSaving: false,
@@ -520,15 +613,75 @@ export default {
         this.loading = false
       }
     },
+    async loadGallery() {
+      if (!this.selectedSymbol) { this.galleryItems = []; return }
+      try {
+        const res = await getAdminGallery(this.selectedSymbol)
+        this.galleryItems = res.data.images || []
+      } catch (e) {
+        console.error('Failed to load gallery:', e)
+        this.galleryItems = []
+      }
+    },
+    async onGalleryFileChange(e) {
+      const files = [...e.target.files]
+      e.target.value = ''
+      if (!files.length) return
+
+      const room = GALLERY_MAX - this.galleryItems.length
+      if (files.length > room) {
+        showToast(`最多再加 ${room} 張，只會處理前 ${room} 張`, 'warning')
+      }
+
+      for (const file of files.slice(0, room)) {
+        try {
+          const result = await compressImage(file)
+          const img_data = await new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result)
+            reader.onerror = reject
+            reader.readAsDataURL(result.blob)
+          })
+          this.galleryItems.push({ img_data, caption: '' })
+        } catch (err) {
+          showToast(`${file.name}：${err.message || '處理失敗'}`, 'error')
+        }
+      }
+    },
+    moveGalleryItem(i, delta) {
+      const target = i + delta
+      if (target < 0 || target >= this.galleryItems.length) return
+      const [item] = this.galleryItems.splice(i, 1)
+      this.galleryItems.splice(target, 0, item)
+    },
+    removeGalleryItem(i) {
+      this.galleryItems.splice(i, 1)
+    },
+    async handleSaveGallery() {
+      this.gallerySaving = true
+      try {
+        const res = await updateGallery(this.selectedSymbol, this.galleryItems.map(it => ({
+          img_data: it.img_data,
+          caption: (it.caption || '').trim()
+        })))
+        showToast(res.data.message || 'Saved!', 'success')
+      } catch (e) {
+        showToast(e.response?.data?.message || 'Save failed', 'error')
+      } finally {
+        this.gallerySaving = false
+      }
+    },
     async loadSiteSettings() {
       try {
         const res = await getAdminSiteSettings()
         this.siteForm = {
           title: res.data.title || '',
           subtitle: res.data.subtitle || '',
-          description: res.data.description || ''
+          description: res.data.description || '',
+          frame_style: res.data.frame_style || 'classic'
         }
         this.siteBgCurrent = res.data.bg_image || ''
+        this.siteFrameCurrent = res.data.frame_image || ''
       } catch (e) {
         console.error('Failed to load site settings:', e)
       }
@@ -555,12 +708,38 @@ export default {
       this.siteBgBlob = null
       this.siteBgInfo = null
     },
+    onSiteFrameFileChange(e) {
+      this.revokeSiteFramePreview()
+      const file = e.target.files[0]
+      if (!file) return
+      // 外框圖要保留透明背景，不能走 JPEG 壓縮，只擋過大的檔案
+      if (file.size > MAX_UPLOAD_BYTES) {
+        showToast(`外框圖 ${formatBytes(file.size)} 超過 ${formatBytes(MAX_UPLOAD_BYTES)} 上限`, 'error')
+        e.target.value = ''
+        return
+      }
+      this.siteFrameBlob = file
+      this.siteFramePreviewUrl = URL.createObjectURL(file)
+    },
+    revokeSiteFramePreview() {
+      if (this.siteFramePreviewUrl) {
+        URL.revokeObjectURL(this.siteFramePreviewUrl)
+        this.siteFramePreviewUrl = ''
+      }
+      this.siteFrameBlob = null
+    },
     buildSiteFormData() {
       const formData = new FormData()
       formData.append('title', this.siteForm.title)
       formData.append('subtitle', this.siteForm.subtitle)
       formData.append('description', this.siteForm.description)
+      formData.append('frame_style', this.siteForm.frame_style || 'classic')
       return formData
+    },
+    async handleClearSiteFrame() {
+      const formData = this.buildSiteFormData()
+      formData.append('clear_frame_image', '1')
+      await this.saveSiteSettings(formData)
     },
     async saveSiteSettings(formData) {
       this.siteSaving = true
@@ -569,9 +748,11 @@ export default {
         showToast(res.data.message || 'Saved!', 'success')
         await this.loadSiteSettings()
         // 讓 header 與頁面標題立刻反映
-        setSiteSettings({ ...this.siteForm, bg_image: this.siteBgCurrent })
+        setSiteSettings({ ...this.siteForm, bg_image: this.siteBgCurrent, frame_image: this.siteFrameCurrent })
         if (this.$refs.siteBgInput) this.$refs.siteBgInput.value = ''
+        if (this.$refs.siteFrameInput) this.$refs.siteFrameInput.value = ''
         this.revokeSiteBgPreview()
+        this.revokeSiteFramePreview()
       } catch (e) {
         showToast(e.response?.data?.message || 'Save failed', 'error')
       } finally {
@@ -581,6 +762,7 @@ export default {
     async handleUpdateSiteSettings() {
       const formData = this.buildSiteFormData()
       if (this.siteBgBlob) formData.append('bg_image', this.siteBgBlob, 'bg.jpg')
+      if (this.siteFrameBlob) formData.append('frame_image', this.siteFrameBlob, 'frame.png')
       await this.saveSiteSettings(formData)
     },
     async handleClearSiteBg() {
@@ -751,6 +933,7 @@ export default {
         if (this.elements.length > 0) {
           this.selectedSymbol = this.elements[0]
           this.storyText = this.storyDatas[this.selectedSymbol] || ''
+          this.loadGallery()
         } else {
           showToast('元素清單為空，請先執行 Update DB', 'warning')
         }
@@ -761,6 +944,7 @@ export default {
     },
     onSymbolChange() {
       this.storyText = this.storyDatas[this.selectedSymbol] || ''
+      this.loadGallery()
       this.revokeImagePreview()
       if (this.$refs.imageInput) this.$refs.imageInput.value = ''
     },
@@ -1226,6 +1410,103 @@ export default {
 
 .site-desc {
   min-height: 60px;
+}
+
+/* ── 其他樣貌管理 ── */
+.gallery-admin {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(228, 251, 255, 0.1);
+}
+
+.gallery-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.gallery-admin-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(3, 1, 12, 0.4);
+}
+
+.gallery-admin-item img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 5px;
+  border: none;
+}
+
+.gallery-caption {
+  margin: 0;
+  font-size: 12px;
+  padding: 4px 7px;
+}
+
+.gallery-admin-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+/* ── 圖鑑外框選擇 ── */
+.frame-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 10px;
+  margin: 4px 0 14px;
+  max-width: 460px;
+}
+
+.frame-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid rgba(228, 251, 255, 0.14);
+  border-radius: 8px;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.frame-option:hover {
+  border-color: rgba(228, 251, 255, 0.4);
+  background: rgba(228, 251, 255, 0.05);
+}
+
+.frame-option.active {
+  border-color: #6ee76e;
+  background: rgba(110, 231, 110, 0.1);
+}
+
+.frame-sample {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  font-size: 20px;
+  font-weight: 700;
+  color: #E06633;
+  background: rgba(60, 40, 75, 0.6);
+}
+
+.frame-option-label {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.7);
+}
+
+.frame-option.active .frame-option-label {
+  color: #e4fbff;
 }
 
 .bg-preview {

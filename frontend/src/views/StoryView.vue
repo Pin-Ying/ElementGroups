@@ -73,14 +73,19 @@
         <transition name="fade" mode="out-in">
           <!-- 介紹 -->
           <div v-if="section === 'intro'" key="intro" class="element-grid">
-            <img
+            <PokedexFrame
               v-if="!imgBroken"
-              :style="{ borderColor: '#' + elInfo.CPKHexColor }"
-              :src="resolvedImg"
-              :title="elInfo.Name"
-              alt="Still Creating..."
-              @error="onImgError"
-            />
+              :color="elInfo.CPKHexColor"
+              :style="site.frame_style"
+              :frame-image="site.frame_image"
+            >
+              <img
+                :src="resolvedImg"
+                :title="elInfo.Name"
+                alt="Still Creating..."
+                @error="onImgError"
+              />
+            </PokedexFrame>
             <div
               v-else
               class="img-placeholder"
@@ -116,6 +121,8 @@
                 <template v-else>Still Creating...</template>
               </div>
             </div>
+
+            <ElementGallery class="gallery-span" :images="gallery" :color="elInfo.CPKHexColor" />
           </div>
 
           <!-- Stats：基本資料 + 能力值 -->
@@ -140,17 +147,20 @@
 </template>
 
 <script>
-import { getElementDetail, getElementAbility, updateStory, recordElementView, apiBase } from '../api'
+import { getElementDetail, getElementAbility, updateStory, recordElementView, getElementGallery, apiBase } from '../api'
 import AbilityChart from '../components/AbilityChart.vue'
 import AbilityBars from '../components/AbilityBars.vue'
 import ElementProfile from '../components/ElementProfile.vue'
+import PokedexFrame from '../components/PokedexFrame.vue'
+import ElementGallery from '../components/ElementGallery.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import { siteSettingsState } from '../store/siteSettings'
 import { authState } from '../store/auth'
 import { showToast } from '../store/toast'
 import { elementsState, ensureElements } from '../store/elements'
 
 export default {
-  components: { AbilityChart, AbilityBars, ElementProfile, LoadingSpinner },
+  components: { AbilityChart, AbilityBars, ElementProfile, PokedexFrame, ElementGallery, LoadingSpinner },
   props: { symbol: { type: String, required: true } },
   data() {
     return {
@@ -164,6 +174,8 @@ export default {
       imgData: null,
       imgFallbackLevel: 0,
       abilityData: null,
+      site: siteSettingsState,
+      gallery: [],
       section: 'intro',
       chartType: 'bars',
       touchStartX: 0,
@@ -222,6 +234,7 @@ export default {
     async loadData() {
       this.loading = true
       this.elInfo = null
+      this.gallery = []
       this.imgFallbackLevel = 0
       this.section = 'intro'
       this.editing = false
@@ -242,6 +255,10 @@ export default {
         this.abilityData = abilityRes.data
         // 首頁「熱門元素」用的點閱計數；失敗不影響頁面
         recordElementView(this.symbol).catch(() => {})
+        // 其他樣貌是附加內容，獨立載入，沒有或失敗都不影響主要畫面
+        getElementGallery(this.symbol)
+          .then(res => { this.gallery = res.data.images || [] })
+          .catch(() => { this.gallery = [] })
       } catch (e) {
         console.error('Failed to load element data:', e)
       } finally {
@@ -475,6 +492,12 @@ export default {
   justify-items: center;
   gap: 10px;
   margin: 5px auto;
+}
+
+/* 其他樣貌獨立一區，橫跨圖片與故事兩欄 */
+.gallery-span {
+  grid-column: 1 / -1;
+  justify-self: stretch;
 }
 
 .img-placeholder {

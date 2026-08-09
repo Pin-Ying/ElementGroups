@@ -104,6 +104,18 @@ export function recordElementView(symbol) {
   return api.post(`/elements/${symbol}/view`)
 }
 
+export function getElementGallery(symbol) {
+  return api.get(`/elements/${symbol}/gallery`)
+}
+
+export function getAdminGallery(symbol) {
+  return api.get(`/admin/elements/${symbol}/gallery`)
+}
+
+export function updateGallery(symbol, images) {
+  return api.post(`/admin/elements/${symbol}/gallery`, { images })
+}
+
 export function getElementsCompletion() {
   return api.get('/elements/completion')
 }
