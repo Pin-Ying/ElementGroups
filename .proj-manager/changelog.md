@@ -608,3 +608,36 @@ StoryView Stats tab 整合
 ---
 
 *後續變更將自動記錄於此*
+
+---
+
+## [功能] - 2026-08-10 | commits baba74c → fbafc10
+
+### 變更類型
+分子圖鑑（#11）、主族形象（#16）、基本粒子（#17）、分子分類篩選（#18）、頁面 AI 協助（#19）、手機修正（#10/#15）、後台載入提示（#13）、隱藏軌道線（#14）
+
+### 重點
+
+**分子圖鑑 Molecule Groups（feature-008）**
+- `_molecules` node、PubChem 查詢（name/fastformula）、視覺化分子式建構器
+- 前台 /molecules、/molecule/:slug；元素頁相關分子（最近 5 個＋查看全部）
+- 後台清單支援搜尋／分類／元素三種篩選（參考化學資料庫慣例）
+
+**主族形象（feature-009）**
+- `_element_groups` node，20 個族各自可設形象；元素頁顯示所屬族形象
+- 故事 AI 勾選「帶入主族形象設定」，後端由原子序自動對照（15 案例驗證）
+
+**基本粒子（feature-010）**
+- `_particles` node、前台 /particles 圖鑑跨頁卡片、後台自由新增
+
+**頁面 AI 協助（feature-005 擴充）**
+- POST /api/admin/page-suggest：依主題產生 Markdown（含 :::cards/:::note 語法教學）
+- 編輯內建頁提供「載入最新內建模板」，模板更新改為 opt-in
+
+### 修正的 bug
+1. **重整 /admin 後資料全空**：initAuth 非同步、mounted 跳過 loadAll——「編輯內容不見了」的元凶（誤點載入內建模板覆蓋）。補 authState.loggedIn watcher
+2. iOS 聚焦縮放：≤760px 全站表單元件字級固定 16px（select 13.3px / textarea 14px 都會觸發 iPhone 自動放大）
+3. CSS/路由插入錨點沒對上靜默失敗兩次（主族樣式、/particles 路由）——多段替換務必 assert，或改用 Edit 工具
+
+### 憑證備忘
+- 對話中出現過 GitHub token 與 Gemini key 明碼，收尾時要提醒輪替

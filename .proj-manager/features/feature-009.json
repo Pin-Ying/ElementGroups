@@ -1,0 +1,57 @@
+{
+ "feature_id": "feature-009",
+ "name": "主族形象",
+ "description": "同族元素共用一套設計形象（例如 7A 獵食鳥類、8A 圓胖胖穩定物種）。後台依「主族 A／副族 B／獨立系列」三區選族，設定形象名稱、共同特色與代表圖；元素頁顯示所屬族的形象區塊。故事 AI 可勾選帶入該元素所屬族的形象設定。",
+ "status": "completed",
+ "created_at": "2026-08-10T04:30:00Z",
+ "files": [
+  "backend/app/groups.py",
+  "backend/app/ai.py",
+  "backend/app/routes/admin.py",
+  "backend/app/routes/public.py",
+  "frontend/src/utils/elementGroups.js",
+  "frontend/src/components/GroupArchetype.vue",
+  "frontend/src/views/AdminView.vue",
+  "frontend/src/views/StoryView.vue",
+  "frontend/src/components/StoryEditor.vue"
+ ],
+ "dependencies": [],
+ "api_endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/element-groups",
+   "description": "公開；已設定形象的族"
+  },
+  {
+   "method": "GET",
+   "path": "/api/element-groups/<key>",
+   "description": "公開；單一族"
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/element-groups",
+   "description": "登入；全部族（含未設定）"
+  },
+  {
+   "method": "POST",
+   "path": "/api/admin/element-groups/<key>",
+   "description": "登入；儲存"
+  }
+ ],
+ "data_model": [
+  {
+   "name": "_element_groups/{key}",
+   "fields": [
+    "name",
+    "description",
+    "img_data",
+    "updated_at"
+   ]
+  }
+ ],
+ "notes": [
+  "路由用 /element-groups 而非 /groups：公開 POST /groups 已被首頁分組佔用，且同名 view function 會讓 Flask 啟動失敗",
+  "族別對照（原子序→1A..8A/1B..10B/鑭錒系）前後端各一份：前端 periodicTableGroups.js、後端 groups.group_key_for（15 案例驗證）",
+  "story-suggest 收 include_group 旗標，後端自己查形象內容，前端兩個 AI 面板只需 checkbox"
+ ]
+}

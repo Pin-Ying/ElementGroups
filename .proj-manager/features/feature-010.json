@@ -1,0 +1,52 @@
+{
+ "feature_id": "feature-010",
+ "name": "基本粒子形象",
+ "description": "電子、質子、中子等基本粒子的形象頁。前台 /particles 以圖鑑跨頁卡片呈現（左右交錯），後台可自由新增粒子（slug 不綁死），設定名稱、形象稱呼、介紹、形象圖、排序與草稿狀態。",
+ "status": "completed",
+ "created_at": "2026-08-10T05:00:00Z",
+ "files": [
+  "backend/app/particles.py",
+  "backend/app/routes/admin.py",
+  "backend/app/routes/public.py",
+  "frontend/src/views/ParticlesView.vue",
+  "frontend/src/views/AdminView.vue",
+  "frontend/src/router/index.js",
+  "frontend/src/store/pages.js"
+ ],
+ "dependencies": [],
+ "api_endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/particles",
+   "description": "公開；登入含草稿"
+  },
+  {
+   "method": "GET/POST",
+   "path": "/api/admin/particles",
+   "description": "登入；清單／儲存"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/admin/particles/<slug>",
+   "description": "登入；刪除"
+  }
+ ],
+ "data_model": [
+  {
+   "name": "_particles/{slug}",
+   "fields": [
+    "name",
+    "title",
+    "description",
+    "img_data",
+    "order",
+    "published",
+    "updated_at"
+   ]
+  }
+ ],
+ "notes": [
+  "電子可一鍵帶入圖層素材的預設電子圖",
+  "路由曾因插入錨點沒對上而漏掉，前台一片空白——多段字串替換務必 assert 或改用 Edit 工具"
+ ]
+}

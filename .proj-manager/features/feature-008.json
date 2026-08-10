@@ -1,0 +1,78 @@
+{
+ "feature_id": "feature-008",
+ "name": "分子圖鑑 Molecule Groups",
+ "description": "分子資料存 _molecules/{slug}，slug 取自 IUPACName。後台以視覺化建構器拼分子式（點週期表、群組括號、就地調數量），可依名稱或分子式查 PubChem 自動帶入資料；查不到轉手動填寫。前台 /molecules 圖鑑與 /molecule/:slug 詳細頁，可依元素篩選；元素頁列出含該元素的最近五個分子。清單支援搜尋、分類與元素篩選。",
+ "status": "completed",
+ "created_at": "2026-08-10T04:00:00Z",
+ "files": [
+  "backend/app/molecules.py",
+  "backend/app/pubchem.py",
+  "backend/app/routes/admin.py",
+  "backend/app/routes/public.py",
+  "frontend/src/components/FormulaBuilder.vue",
+  "frontend/src/components/FormulaNode.vue",
+  "frontend/src/components/RelatedMolecules.vue",
+  "frontend/src/utils/formula.js",
+  "frontend/src/views/MoleculesView.vue",
+  "frontend/src/views/MoleculeView.vue",
+  "frontend/src/views/AdminView.vue"
+ ],
+ "dependencies": [
+  "requests"
+ ],
+ "api_endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/molecules",
+   "description": "公開；?element= 篩選、?limit= 截短，回 {molecules, total}；登入含草稿"
+  },
+  {
+   "method": "GET",
+   "path": "/api/molecules/<slug>",
+   "description": "公開；單一分子"
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/molecules/lookup",
+   "description": "登入；?name= 或 ?formula= 查 PubChem"
+  },
+  {
+   "method": "GET/POST",
+   "path": "/api/admin/molecules",
+   "description": "登入；清單／儲存（slug 變更時刪舊筆）"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/admin/molecules/<slug>",
+   "description": "登入；刪除"
+  }
+ ],
+ "data_model": [
+  {
+   "name": "_molecules/{slug}",
+   "fields": [
+    "name",
+    "iupac_name",
+    "formula",
+    "weight",
+    "smiles",
+    "cid",
+    "description",
+    "category",
+    "img_data",
+    "nodes",
+    "elements",
+    "source",
+    "published",
+    "updated_at"
+   ]
+  }
+ ],
+ "notes": [
+  "PubChem 已把 CanonicalSMILES 更名為 ConnectivitySMILES，兩個都收",
+  "fastformula 是同步端點，不需輪詢 ListKey",
+  "沒有自訂 img_data 時前端直接用 PubChem 的 CID PNG 結構圖",
+  "建構器節點結構（nodes）存進 DB，之後可再編輯；舊資料沒 nodes 時由 parseFormula 反推",
+  "名稱依 issue #11 回饋定為 Molecule Groups"
+ ]
+}
