@@ -59,7 +59,7 @@ export default {
 .subtitle {
   font-size: 14px;
   color: rgba(228, 251, 255, 0.55);
-  margin: -6px 0 24px;
+  margin: 10px 0 24px;
 }
 
 .particle-card {
