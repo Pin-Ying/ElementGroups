@@ -78,6 +78,22 @@ export function getMolecule(slug) {
   return api.get(`/molecules/${slug}`)
 }
 
+export function getParticles() {
+  return api.get('/particles')
+}
+
+export function getAdminParticles() {
+  return api.get('/admin/particles')
+}
+
+export function saveParticle(payload) {
+  return api.post('/admin/particles', payload)
+}
+
+export function deleteParticle(slug) {
+  return api.delete(`/admin/particles/${slug}`)
+}
+
 export function getElementGroups() {
   return api.get('/element-groups')
 }

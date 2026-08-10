@@ -13,6 +13,7 @@ from app.completion import get_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_page, normalize_pages, PAGES_NODE
 from app.molecules import normalize_molecule, normalize_molecules, MOLECULES_NODE
+from app.particles import normalize_particles, PARTICLES_NODE
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, has_content
 from app.layers import normalize_layers, normalize_electron_styles, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
 from app.stats import get_all_views, record_view
@@ -247,6 +248,17 @@ def get_element_group(key):
         return jsonify({"result": "failure", "message": "not found"}), 404
     try:
         return jsonify(normalize_group(key, show_fdb(f"{GROUPS_NODE}/{key}")))
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/particles", methods=["GET"])
+def get_particles():
+    """基本粒子形象清單。登入後一併回傳未發布的。"""
+    try:
+        particles = normalize_particles(show_fdb(PARTICLES_NODE),
+                                        include_drafts=current_user.is_authenticated)
+        return jsonify({"particles": particles})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 

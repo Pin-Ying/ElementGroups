@@ -6,6 +6,7 @@ import LinksView from '../views/LinksView.vue'
 import GuideView from '../views/GuideView.vue'
 import PageView from '../views/PageView.vue'
 import MoleculesView from '../views/MoleculesView.vue'
+import ParticlesView from '../views/ParticlesView.vue'
 import MoleculeView from '../views/MoleculeView.vue'
 
 const routes = [

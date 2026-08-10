@@ -33,6 +33,7 @@ export function pagesFor(position) {
 // 尚未轉換時沿用這裡的預設位置，轉換後就完全依後台設定。
 const BUILTIN_NAV = [
   { slug: 'molecules', label: 'Molecule Groups', to: '/molecules', defaultPosition: 'footer' },
+  { slug: 'particles', label: '基本粒子', to: '/particles', defaultPosition: 'footer' },
   { slug: 'guide', label: '元素說明書', to: '/guide', defaultPosition: 'footer' },
   { slug: 'links', label: 'Connect', to: '/links', defaultPosition: 'footer' }
 ]

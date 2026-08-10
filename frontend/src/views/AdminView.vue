@@ -387,6 +387,103 @@
           </form>
         </div>
 
+        <!-- Particles（基本粒子形象） -->
+        <div v-if="section === 'particles'" class="box">
+          <p class="title is-4">PARTICLES</p>
+          <p class="desc">
+            電子、質子、中子這些基本粒子的形象設定，會呈現在前台的「基本粒子」頁。<br>
+            可自由新增其他粒子（光子、夸克⋯），用排序控制先後。
+          </p>
+
+          <div class="page-list">
+            <button
+              v-for="pt in particleList"
+              :key="pt.slug"
+              class="page-item"
+              type="button"
+              :class="{ active: particleForm.original_slug === pt.slug }"
+              @click="selectParticle(pt)"
+            >
+              <span class="page-item-title">{{ pt.name }}</span>
+              <span class="page-item-meta">
+                {{ pt.title || pt.slug }}
+                <span v-if="!pt.published" class="draft-tag">草稿</span>
+              </span>
+            </button>
+            <button class="page-item page-item--new" type="button" @click="newParticle">＋ 新增粒子</button>
+          </div>
+
+          <form class="page-form" @submit.prevent="handleSaveParticle">
+            <div class="page-form-row">
+              <div>
+                <label class="label">粒子名稱</label>
+                <input class="input" type="text" v-model="particleForm.name" aria-label="粒子名稱" />
+                <p class="field-hint">例如「電子」</p>
+              </div>
+              <div>
+                <label class="label">網址代稱</label>
+                <input class="input" type="text" v-model="particleForm.slug" aria-label="粒子網址代稱" />
+                <p class="field-hint">留空會從名稱產生；只能用小寫英數字與連字號</p>
+              </div>
+            </div>
+
+            <div class="page-form-row">
+              <div>
+                <label class="label">形象稱呼</label>
+                <input class="input" type="text" v-model="particleForm.title" aria-label="形象稱呼" />
+                <p class="field-hint">例如「黑白相間、變化無常又長翅膀的小圓球」</p>
+              </div>
+              <div>
+                <label class="label">排序</label>
+                <input class="input" type="number" v-model.number="particleForm.order" aria-label="粒子排序" />
+                <p class="field-hint">數字小的排前面</p>
+              </div>
+            </div>
+
+            <label class="label">介紹</label>
+            <textarea class="textarea" v-model="particleForm.description" rows="5" aria-label="粒子介紹"></textarea>
+
+            <label class="label">形象圖</label>
+            <div class="mol-image-row">
+              <div class="mol-image-preview">
+                <img v-if="particleForm.img_data" :src="particleForm.img_data" alt="粒子形象圖" />
+                <span v-else class="layer-empty">未設定</span>
+              </div>
+              <div class="mol-image-actions">
+                <input type="file" accept="image/*" @change="onParticleImgChange" />
+                <button
+                  v-if="electronStyles.length"
+                  class="button secondary"
+                  type="button"
+                  @click="useDefaultElectronImg"
+                >帶入預設電子圖</button>
+                <button
+                  v-if="particleForm.img_data"
+                  class="button secondary"
+                  type="button"
+                  @click="particleForm.img_data = ''"
+                >移除圖片</button>
+              </div>
+            </div>
+
+            <div class="link-actions">
+              <button class="button" type="submit" :disabled="particleSaving" @click="particleForm.published = true">
+                {{ particleSaving ? 'Saving…' : '發布' }}
+              </button>
+              <button class="button secondary" type="button" :disabled="particleSaving" @click="saveParticleDraft">
+                存成草稿
+              </button>
+              <button
+                v-if="particleForm.original_slug"
+                class="button secondary"
+                type="button"
+                :disabled="particleSaving"
+                @click="handleDeleteParticle"
+              >刪除此粒子</button>
+            </div>
+          </form>
+        </div>
+
         <!-- Site Settings -->
         <div v-if="section === 'site'" class="box">
           <p class="title is-4">SITE SETTINGS</p>
@@ -948,7 +1045,7 @@
 </template>
 
 <script>
-import { getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -980,6 +1077,11 @@ const NAV_POSITIONS = [
 // 常用化合物分類，datalist 建議用；可自由輸入其他分類
 const CATEGORY_PRESETS = ['有機', '無機', '酸', '鹼', '鹽', '氧化物', '生物分子', '氣體', '溶劑', '高分子']
 
+const EMPTY_PARTICLE = () => ({
+  original_slug: '', slug: '', name: '', title: '', description: '',
+  img_data: '', order: 0, published: true
+})
+
 const EMPTY_MOLECULE = () => ({
   original_slug: '', name: '', iupac_name: '', formula: '', weight: '',
   smiles: '', cid: null, description: '', category: '', img_data: '', nodes: [],
@@ -1005,6 +1107,7 @@ const SECTIONS = [
   { key: 'default-img', label: '預設圖片', icon: '▣' },
   { key: 'electrons', label: '圖層素材', icon: '◌' },
   { key: 'groups', label: '主族形象', icon: '❖' },
+  { key: 'particles', label: '基本粒子', icon: '◉' },
   { key: 'links', label: '社群連結', icon: '⚯' },
   { key: 'maintenance', label: '維護工具', icon: '⚒' }
 ]
@@ -1066,6 +1169,9 @@ export default {
       pageList: [],
       pageForm: EMPTY_PAGE(),
       pageSaving: false,
+      particleList: [],
+      particleForm: EMPTY_PARTICLE(),
+      particleSaving: false,
       groupList: [],
       groupForm: { key: '', name: '', description: '', img_data: '' },
       groupSaving: false,
@@ -1191,7 +1297,7 @@ export default {
       return Promise.all([
         this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(),
         this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(),
-        this.loadElectronStyles(), this.loadMolecules(), this.loadGroups()
+        this.loadElectronStyles(), this.loadMolecules(), this.loadGroups(), this.loadParticles()
       ])
     },
     // ── 圖片裁切流程 ──
@@ -1383,6 +1489,79 @@ export default {
         showToast(e.response?.data?.message || 'Save failed', 'error')
       } finally {
         this.gallerySaving = false
+      }
+    },
+    async loadParticles() {
+      try {
+        const res = await getAdminParticles()
+        this.particleList = res.data.particles || []
+      } catch (e) {
+        console.error('Failed to load particles:', e)
+      }
+    },
+    selectParticle(pt) {
+      this.particleForm = {
+        original_slug: pt.slug, slug: pt.slug, name: pt.name,
+        title: pt.title || '', description: pt.description || '',
+        img_data: pt.img_data || '', order: pt.order || 0,
+        published: pt.published !== false
+      }
+    },
+    newParticle() {
+      this.particleForm = EMPTY_PARTICLE()
+    },
+    useDefaultElectronImg() {
+      // 電子的形象圖直接沿用圖層素材的預設電子，不必重新上傳
+      const style = this.electronStyles.find(st => st.id === this.defaultStyleId) || this.electronStyles[0]
+      if (style?.img_data) this.particleForm.img_data = style.img_data
+    },
+    async onParticleImgChange(e) {
+      const file = e.target.files[0]
+      e.target.value = ''
+      if (!file) return
+      try {
+        const result = await compressImage(file, { keepTransparency: true })
+        this.particleForm.img_data = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(result.blob)
+        })
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+      }
+    },
+    async saveParticleDraft() {
+      this.particleForm.published = false
+      await this.handleSaveParticle()
+    },
+    async handleSaveParticle() {
+      this.particleSaving = true
+      try {
+        const res = await saveParticle(this.particleForm)
+        showToast(res.data.message || '已儲存', 'success')
+        this.particleForm.original_slug = res.data.slug
+        this.particleForm.slug = res.data.slug
+        await this.loadParticles()
+      } catch (e) {
+        showToast(e.response?.data?.message || '儲存失敗', 'error')
+      } finally {
+        this.particleSaving = false
+      }
+    },
+    async handleDeleteParticle() {
+      const slug = this.particleForm.original_slug
+      if (!slug) return
+      this.particleSaving = true
+      try {
+        const res = await deleteParticle(slug)
+        showToast(res.data.message || '已刪除', 'success')
+        this.newParticle()
+        await this.loadParticles()
+      } catch (e) {
+        showToast(e.response?.data?.message || '刪除失敗', 'error')
+      } finally {
+        this.particleSaving = false
       }
     },
     async loadGroups() {

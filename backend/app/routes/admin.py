@@ -15,6 +15,7 @@ from app.completion import update_completion, rebuild_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_pages, serialize_page, normalize_slug, PAGES_NODE
 from app.molecules import normalize_molecules, serialize_molecule, normalize_slug as molecule_slug, MOLECULES_NODE
+from app.particles import normalize_particles, serialize_particle, normalize_slug as particle_slug, PARTICLES_NODE
 from app import pubchem
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, serialize_group
 from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
@@ -290,6 +291,46 @@ def update_element_group(key):
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         fdb.child(GROUPS_NODE).child(key).set(record)
         return jsonify({"result": "success", "message": "主族形象已儲存"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/particles", methods=["GET", "POST"])
+@login_required
+def manage_particles():
+    if request.method == "GET":
+        try:
+            return jsonify({"particles": normalize_particles(show_fdb(PARTICLES_NODE),
+                                                             include_drafts=True)})
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    try:
+        payload = request.get_json() or {}
+        slug, record = serialize_particle(payload)
+        if not slug:
+            return jsonify({"result": "failure", "message": record}), 400
+
+        original = particle_slug(payload.get("original_slug") or "")
+        if original and original != slug:
+            fdb.child(PARTICLES_NODE).child(original).delete()
+
+        record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        fdb.child(PARTICLES_NODE).child(slug).set(record)
+        return jsonify({"result": "success", "message": "粒子已儲存", "slug": slug})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/particles/<slug>", methods=["DELETE"])
+@login_required
+def delete_particle(slug):
+    safe = particle_slug(slug)
+    if not safe:
+        return jsonify({"result": "failure", "message": "無效的代稱"}), 400
+    try:
+        fdb.child(PARTICLES_NODE).child(safe).delete()
+        return jsonify({"result": "success", "message": "粒子已刪除"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 
