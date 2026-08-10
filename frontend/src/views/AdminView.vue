@@ -698,8 +698,11 @@
           </form>
 
           <!-- 圖片分層 -->
-          <div class="gallery-admin">
-            <p class="label">圖片分層</p>
+          <div class="gallery-admin" :class="{ 'is-loading': elementLoading }">
+            <p class="label">
+              圖片分層
+              <span v-if="elementLoading" class="loading-tag">載入中…</span>
+            </p>
             <p class="field-hint">
               把代表圖拆成原子核、電子、手寫元素名三層。<br>
               <strong>設定原子核之後才會啟用分層呈現</strong>，在那之前一律沿用上面的代表圖。<br>
@@ -754,7 +757,7 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="button" :disabled="layerSaving || !selectedSymbol" @click="handleSaveLayers">
+              <button class="button" type="button" :disabled="layerSaving || elementLoading || !selectedSymbol" @click="handleSaveLayers">
                 {{ layerSaving ? 'Saving…' : '儲存圖層' }}
               </button>
               <span class="ai-quota">
@@ -764,8 +767,11 @@
           </div>
 
           <!-- 其他樣貌（gallery） -->
-          <div class="gallery-admin">
-            <p class="label">其他樣貌</p>
+          <div class="gallery-admin" :class="{ 'is-loading': elementLoading }">
+            <p class="label">
+              其他樣貌
+              <span v-if="elementLoading" class="loading-tag">載入中…</span>
+            </p>
             <p class="field-hint">
               代表圖以外的照片，會顯示在元素頁故事下方的獨立區塊，最多 {{ GALLERY_MAX }} 張。<br>
               比照昆蟲、鳥類圖鑑：同一個元素的不同型態或狀態（例如純金屬、氧化物、礦石）。
@@ -803,7 +809,7 @@
             />
 
             <div class="link-actions">
-              <button class="button" type="button" :disabled="gallerySaving || !selectedSymbol" @click="handleSaveGallery">
+              <button class="button" type="button" :disabled="gallerySaving || elementLoading || !selectedSymbol" @click="handleSaveGallery">
                 {{ gallerySaving ? 'Saving…' : '儲存其他樣貌' }}
               </button>
               <span class="ai-quota">{{ galleryItems.length }} / {{ GALLERY_MAX }} 張</span>
@@ -930,6 +936,7 @@ export default {
       imageDatas: {},
       hasImageMap: {},
       selectedSymbol: '',
+      elementLoading: false,
       storyText: '',
       defaultImgData: '',
       defaultImgSaving: false,
@@ -1047,7 +1054,12 @@ export default {
   },
   async mounted() {
     if (this.authState.loggedIn) {
-      await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(), this.loadElectronStyles(), this.loadMolecules()])
+      this.loading = true
+      try {
+        await this.loadAll()
+      } finally {
+        this.loading = false
+      }
     }
   },
   beforeUnmount() {
@@ -1055,6 +1067,13 @@ export default {
     this.revokeDefaultImgPreview()
   },
   methods: {
+    loadAll() {
+      return Promise.all([
+        this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(),
+        this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(),
+        this.loadElectronStyles(), this.loadMolecules()
+      ])
+    },
     // ── 圖片裁切流程 ──
     // 三個 1:1 顯示的圖片（元素代表圖、預設圖、其他樣貌）上傳後先進裁切；
     // 首頁背景圖是全螢幕 cover，固定比例沒有意義，維持原本的壓縮流程
@@ -1151,7 +1170,7 @@ export default {
       try {
         const result = await login(this.email, this.password)
         if (result.ok) {
-          await Promise.all([this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(), this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(), this.loadElectronStyles(), this.loadMolecules()])
+          await this.loadAll()
         } else {
           this.msg = result.message || 'Login failed'
         }
@@ -1741,8 +1760,9 @@ export default {
       // 有未發布的草稿就優先帶出來，避免使用者以為之前寫的東西不見了
       this.storyText = this.draftDatas[this.selectedSymbol]
         || this.storyDatas[this.selectedSymbol] || ''
-      this.loadGallery()
-      this.loadLayers()
+      this.elementLoading = true
+      Promise.all([this.loadGallery(), this.loadLayers()])
+        .finally(() => { this.elementLoading = false })
       // AI 的方向、參考資料與建議都是針對前一個元素寫的，換元素時一併清掉，
       // 否則會把上一個元素的設定帶到下一個
       this.aiDirection = ''
@@ -3203,5 +3223,17 @@ button.button:disabled {
   vertical-align: baseline;
   position: relative;
   bottom: -0.2em;
+}
+
+.loading-tag {
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(228, 251, 255, 0.5);
+}
+
+.gallery-admin.is-loading {
+  opacity: 0.55;
+  pointer-events: none;
 }
 </style>

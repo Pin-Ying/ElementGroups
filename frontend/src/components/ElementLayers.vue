@@ -4,15 +4,6 @@
     <img class="layer layer--nucleus" :src="nucleus" alt="" />
 
     <div v-if="electronImg && count" class="electrons">
-      <!-- 每顆電子的軌道線，讓不同的傾角與扁率看得出來 -->
-      <i
-        v-for="(e, i) in orbits"
-        :key="'path' + i"
-        class="orbit-path"
-        :class="'orbit-path--' + e.orbitalType"
-        :style="e.pathStyle"
-      ></i>
-
       <span
         v-for="(e, i) in orbits"
         :key="i"
@@ -113,17 +104,8 @@ export default {
         const duration = ((this.motion === 'free' ? 7 + (i % 4) * 2.5 : 6.5 + (i % 3) * 2.2)
           / shape.speed)
 
-        // 軌道線的尺寸用容器百分比，與電子的 translateX 換算基準不同
-        const pathSize = radiusPct * 2
-
         return {
           orbitalType: type,
-          pathStyle: {
-            width: `${pathSize}%`,
-            height: `${pathSize}%`,
-            '--flatten': flatten,
-            '--tilt': `${tilt}deg`
-          },
           style: {
             '--angle': `${angle}deg`,
             '--delay': `${-(i * duration) / n}s`,
@@ -231,24 +213,6 @@ export default {
   transform: rotate(var(--angle)) translateX(var(--radius, 225%)) rotate(calc(-1 * var(--angle)));
 }
 
-/* 軌道線（僅繞行模式）：讓「各自有軌道」這件事看得出來。
-   依軌域上色，s／p／d 的差別才看得出來 */
-.orbit-path--s { border-color: rgba(0, 0, 0, 0.13); }
-.orbit-path--p { border-color: rgba(43, 108, 176, 0.22); }
-.orbit-path--d { border-color: rgba(160, 60, 200, 0.2); }
-.orbit-path--f { border-color: rgba(200, 120, 40, 0.2); }
-
-.layers--orbit .orbit-path,
-.layers--free .orbit-path {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  border: 1px dashed rgba(0, 0, 0, 0.12);
-  border-radius: 50%;
-  pointer-events: none;
-  transform: translate(-50%, -50%) rotate(var(--tilt, 0deg)) scaleY(var(--flatten, 1));
-}
-
 @media (prefers-reduced-motion: reduce) {
   .electron { animation: none !important; }
   .layers--orbit .electron,
@@ -258,6 +222,5 @@ export default {
       rotate(var(--angle)) translateX(var(--radius, 225%))
       rotate(calc(-1 * var(--angle))) scaleY(calc(1 / var(--flatten, 1))) rotate(calc(-1 * var(--tilt, 0deg)));
   }
-  .orbit-path { display: none; }
 }
 </style>
