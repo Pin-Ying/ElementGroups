@@ -112,6 +112,29 @@ def backfill_img_data():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
+@admin_bp.route("/admin/page-suggest", methods=["POST"])
+@login_required
+def page_suggest():
+    """頁面內容的 AI 協助（issue #19）。與故事共用每日額度。"""
+    if not ai.is_enabled():
+        return jsonify({"result": "failure", "message": "AI 功能未啟用"}), 400
+
+    data = request.get_json() or {}
+    topic = (data.get("topic") or "").strip()
+    if not topic:
+        return jsonify({"result": "failure", "message": "請先描述頁面主題"}), 400
+
+    try:
+        text, used, limit = ai.generate_page(
+            topic,
+            draft=(data.get("draft") or "").strip(),
+            direction=(data.get("direction") or "").strip(),
+        )
+        return jsonify({"result": "success", "suggestion": text, "used": used, "limit": limit})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 502
+
+
 @admin_bp.route("/admin/story-suggest", methods=["POST"])
 @login_required
 def story_suggest():

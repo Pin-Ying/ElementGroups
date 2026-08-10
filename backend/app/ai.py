@@ -162,6 +162,57 @@ def _call_gemini(prompt):
     return text
 
 
+def build_page_prompt(topic, draft="", direction=""):
+    """頁面內容的提示。與元素故事不同：輸出 Markdown，並支援本站自訂區塊。"""
+    parts = [
+        "你是一個元素週期表科普網站的編輯，正在撰寫網站的說明頁面。",
+        "",
+        f"頁面主題：{topic}",
+        "",
+        "撰寫要求：",
+        "- 使用繁體中文",
+        "- 使用 Markdown 語法（# 標題、**粗體**、- 清單、--- 分隔線）",
+        "- 本站另外支援三種區塊語法，適合時可以使用：",
+        "  :::cards 區塊：每個 ### 標題一張卡片，標題可用 | 分隔附註，適合並列的名詞解釋",
+        "  :::note 區塊：提示或補充說明",
+        "  （以 ::: 開始、以 ::: 結尾）",
+        "- 內容正確、語氣親切、適合一般讀者",
+        "- 只輸出頁面內文，不要說明你在做什麼",
+    ]
+
+    if direction:
+        parts += ["", f"額外的風格或方向要求：{direction}"]
+
+    if draft:
+        parts += [
+            "",
+            "使用者目前已經寫了以下內容，請在保留原意與既有結構的前提下延伸或潤飾，"
+            "不要整段捨棄重寫：",
+            draft,
+        ]
+
+    return "\n".join(parts)
+
+
+def generate_page(topic, draft="", direction=""):
+    """產生頁面內容建議。回傳 (內容, 今日已用, 上限)。"""
+    if not is_enabled():
+        raise RuntimeError("AI 功能未啟用")
+
+    used, limit = get_usage()
+    if limit > 0 and used >= limit:
+        raise RuntimeError(f"今日 AI 呼叫已達上限（{limit} 次），請明天再試")
+
+    if settings.AI_PROVIDER != "gemini":
+        raise RuntimeError(f"尚未支援的 AI_PROVIDER：{settings.AI_PROVIDER}")
+
+    prompt = build_page_prompt(topic, draft=draft, direction=direction)
+    text = _call_gemini(prompt)
+
+    _increment_usage()
+    return text, used + 1, limit
+
+
 def generate_story(element, draft="", direction="", reference=""):
     """產生故事建議。回傳 (內容, 今日已用, 上限)。"""
     if not is_enabled():

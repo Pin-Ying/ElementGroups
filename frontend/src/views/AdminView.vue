@@ -124,9 +124,56 @@
 
             <div class="label-row">
               <label class="label">內容（Markdown）</label>
-              <button class="ai-toggle" type="button" @click="showMarkdownHelp = !showMarkdownHelp">
-                {{ showMarkdownHelp ? '收起語法說明' : '語法說明' }}
-              </button>
+              <span class="label-row-actions">
+                <button
+                  v-if="ai.enabled"
+                  class="ai-toggle"
+                  type="button"
+                  :class="{ active: pageAiOpen }"
+                  @click="pageAiOpen = !pageAiOpen"
+                >✧ AI 協助</button>
+                <button class="ai-toggle" type="button" @click="showMarkdownHelp = !showMarkdownHelp">
+                  {{ showMarkdownHelp ? '收起語法說明' : '語法說明' }}
+                </button>
+              </span>
+            </div>
+
+            <!-- 頁面內容的 AI 協助（issue #19），與元素故事共用每日額度 -->
+            <div v-if="ai.enabled && pageAiOpen" class="ai-panel">
+              <p class="ai-hint">
+                描述這個頁面要講什麼，AI 會產生 Markdown 內容（含本站的 :::cards、:::note 區塊）
+                <template v-if="pageForm.content.trim()">；你目前已寫的內容會一併帶入，AI 會延伸潤飾而不是整段重寫</template>。
+              </p>
+
+              <label class="label ai-label">頁面主題</label>
+              <input
+                class="input"
+                type="text"
+                v-model="pageAiTopic"
+                :placeholder="pageForm.title ? `留空會用頁面標題「${pageForm.title}」` : '例如：介紹週期表的讀法'"
+                aria-label="頁面主題"
+              />
+
+              <label class="label ai-label">風格／方向（選填）</label>
+              <input class="input" type="text" v-model="pageAiDirection" aria-label="頁面風格方向" />
+
+              <div class="ai-actions">
+                <button class="button" type="button" :disabled="pageAiLoading" @click="handlePageSuggest">
+                  {{ pageAiLoading ? '產生中…' : (pageAiSuggestion ? '重新產生' : '產生建議') }}
+                </button>
+                <span v-if="ai.limit > 0" class="ai-quota">今日已用 {{ ai.used }} / {{ ai.limit }}</span>
+              </div>
+
+              <div v-if="pageAiSuggestion" class="ai-result">
+                <p class="preview-label">AI 建議（尚未套用）</p>
+                <div class="ai-suggestion">{{ pageAiSuggestion }}</div>
+                <div class="ai-actions">
+                  <button class="button secondary" type="button" @click="applyPageSuggestion('append')">附加到編輯框</button>
+                  <button class="button secondary" type="button" @click="applyPageSuggestion('replace')">直接覆蓋</button>
+                  <button class="button secondary" type="button" @click="pageAiSuggestion = ''">捨棄</button>
+                </div>
+                <p class="ai-note">套用後仍需按發布或存成草稿才會真正儲存。</p>
+              </div>
             </div>
 
             <div v-if="showMarkdownHelp" class="md-help">
@@ -1045,7 +1092,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1167,6 +1214,11 @@ export default {
       newStyleInfo: null,
       styleSaving: false,
       pageList: [],
+      pageAiOpen: false,
+      pageAiTopic: '',
+      pageAiDirection: '',
+      pageAiSuggestion: '',
+      pageAiLoading: false,
       pageForm: EMPTY_PAGE(),
       pageSaving: false,
       particleList: [],
@@ -1751,6 +1803,36 @@ export default {
     subscript(formula) {
       return String(formula || '').replace(/\d/g, d => `<sub>${d}</sub>`)
     },
+    async handlePageSuggest() {
+      const topic = this.pageAiTopic.trim() || this.pageForm.title.trim()
+      if (!topic) {
+        showToast('請先填頁面主題或標題', 'error')
+        return
+      }
+      this.pageAiLoading = true
+      try {
+        const res = await suggestPage({
+          topic,
+          draft: this.pageForm.content,
+          direction: this.pageAiDirection.trim()
+        })
+        this.pageAiSuggestion = res.data.suggestion || ''
+        if (res.data.used != null) this.ai.used = res.data.used
+      } catch (e) {
+        showToast(e.response?.data?.message || 'AI 產生失敗', 'error')
+      } finally {
+        this.pageAiLoading = false
+      }
+    },
+    applyPageSuggestion(mode) {
+      if (!this.pageAiSuggestion) return
+      if (mode === 'replace' || !this.pageForm.content.trim()) {
+        this.pageForm.content = this.pageAiSuggestion
+      } else {
+        this.pageForm.content = this.pageForm.content.trimEnd() + '\n\n' + this.pageAiSuggestion
+      }
+      this.pageAiSuggestion = ''
+    },
     async loadPages() {
       try {
         const res = await getAdminPages()
@@ -1770,6 +1852,9 @@ export default {
       showToast(`已載入「${b.title}」的內建內容，編輯後按發布即可套用`, 'success')
     },
     selectPage(p) {
+      this.pageAiTopic = ''
+      this.pageAiDirection = ''
+      this.pageAiSuggestion = ''
       this.pageForm = {
         original_slug: p.slug, slug: p.slug, title: p.title,
         content: p.content || '', nav_position: p.nav_position,
@@ -1778,6 +1863,9 @@ export default {
     },
     newPage() {
       this.pageForm = EMPTY_PAGE()
+      this.pageAiTopic = ''
+      this.pageAiDirection = ''
+      this.pageAiSuggestion = ''
     },
     async saveAsDraft() {
       this.pageForm.published = false
@@ -3511,6 +3599,11 @@ button.secondary {
 button.button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.label-row-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .mol-toolbar {

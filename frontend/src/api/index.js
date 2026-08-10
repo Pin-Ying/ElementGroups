@@ -78,6 +78,10 @@ export function getMolecule(slug) {
   return api.get(`/molecules/${slug}`)
 }
 
+export function suggestPage(payload) {
+  return api.post('/admin/page-suggest', payload)
+}
+
 export function getParticles() {
   return api.get('/particles')
 }
