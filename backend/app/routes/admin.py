@@ -16,6 +16,7 @@ from app.gallery import normalize_gallery
 from app.pages import normalize_pages, serialize_page, normalize_slug, PAGES_NODE
 from app.molecules import normalize_molecules, serialize_molecule, normalize_slug as molecule_slug, MOLECULES_NODE
 from app import pubchem
+from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, serialize_group
 from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app import ai
@@ -263,6 +264,32 @@ def manage_layers(symbol):
         # 用 update：只送了原子核時不該把手寫名那層清掉
         fdb.child(LAYERS_NODE).child(symbol).update(record)
         return jsonify({"result": "success", "message": "圖層已儲存"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/element-groups", methods=["GET"])
+@login_required
+def list_element_groups():
+    try:
+        return jsonify({"groups": normalize_groups(show_fdb(GROUPS_NODE))})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/element-groups/<key>", methods=["POST"])
+@login_required
+def update_element_group(key):
+    if key not in GROUP_KEYS:
+        return jsonify({"result": "failure", "message": f"沒有 {key} 這個族"}), 400
+
+    try:
+        record = serialize_group(request.get_json() or {})
+        if record is None:
+            return jsonify({"result": "failure", "message": "無效的資料"}), 400
+        record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        fdb.child(GROUPS_NODE).child(key).set(record)
+        return jsonify({"result": "success", "message": "主族形象已儲存"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 

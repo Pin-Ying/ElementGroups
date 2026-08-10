@@ -298,6 +298,64 @@
           </form>
         </div>
 
+        <!-- Element Groups（主族形象） -->
+        <div v-if="section === 'groups'" class="box">
+          <p class="title is-4">ELEMENT GROUPS</p>
+          <p class="desc">
+            同族元素性質相近，可以共用一套設計形象（例如 7A 鹵素是型態不穩定的獵食鳥類、
+            8A 惰性氣體是圓胖胖的穩定物種）。<br>
+            設定後會顯示在該族每個元素的介紹頁。
+          </p>
+
+          <div class="group-key-list">
+            <button
+              v-for="g in GROUP_INFO"
+              :key="g.key"
+              class="group-key"
+              type="button"
+              :class="{ active: groupForm.key === g.key, filled: groupHasContent(g.key) }"
+              @click="selectGroup(g.key)"
+            >
+              <span class="group-key-label">{{ g.label }}</span>
+              <span class="group-key-name">{{ g.name }}</span>
+            </button>
+          </div>
+
+          <form v-if="groupForm.key" @submit.prevent="handleSaveGroup">
+            <label class="label">形象名稱</label>
+            <input class="input" type="text" v-model="groupForm.name" aria-label="形象名稱" />
+            <p class="field-hint">這一族的形象稱呼，例如「獵食鳥系」；留空表示尚未定名</p>
+
+            <label class="label">共同特色</label>
+            <textarea class="textarea" v-model="groupForm.description" rows="5" aria-label="共同特色"></textarea>
+            <p class="field-hint">同族設計時共用的特色，會顯示在元素頁的主族形象區塊</p>
+
+            <label class="label">形象代表圖</label>
+            <div class="mol-image-row">
+              <div class="mol-image-preview">
+                <img v-if="groupForm.img_data" :src="groupForm.img_data" alt="主族形象圖" />
+                <span v-else class="layer-empty">未設定</span>
+              </div>
+              <div class="mol-image-actions">
+                <input type="file" accept="image/*" @change="onGroupImgChange" />
+                <button
+                  v-if="groupForm.img_data"
+                  class="button secondary"
+                  type="button"
+                  @click="groupForm.img_data = ''"
+                >移除圖片</button>
+              </div>
+            </div>
+
+            <div class="link-actions">
+              <button class="button" type="submit" :disabled="groupSaving">
+                {{ groupSaving ? 'Saving…' : '儲存形象' }}
+              </button>
+              <span class="ai-quota">{{ groupElements(groupForm.key) }}</span>
+            </div>
+          </form>
+        </div>
+
         <!-- Site Settings -->
         <div v-if="section === 'site'" class="box">
           <p class="title is-4">SITE SETTINGS</p>
@@ -859,7 +917,7 @@
 </template>
 
 <script>
-import { getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
+import { getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -874,6 +932,9 @@ import FormulaBuilder from '../components/FormulaBuilder.vue'
 import { BUILTIN_PAGES } from '../utils/builtinPages'
 import { outerElectronCount } from '../utils/valence'
 import { parseFormula } from '../utils/formula'
+import { GROUP_INFO } from '../utils/elementGroups'
+import { buildTableGroups } from '../utils/periodicTableGroups'
+import { elementsState, ensureElements } from '../store/elements'
 
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
@@ -909,6 +970,7 @@ const SECTIONS = [
   { key: 'site', label: '網站設定', icon: '⚙' },
   { key: 'default-img', label: '預設圖片', icon: '▣' },
   { key: 'electrons', label: '圖層素材', icon: '◌' },
+  { key: 'groups', label: '主族形象', icon: '❖' },
   { key: 'links', label: '社群連結', icon: '⚯' },
   { key: 'maintenance', label: '維護工具', icon: '⚒' }
 ]
@@ -953,6 +1015,7 @@ export default {
       platforms: PLATFORMS,
       FRAME_STYLES,
       GALLERY_MAX,
+      GROUP_INFO,
       NAV_POSITIONS,
       layerForm: { nucleus: '', name_img: '', electron_style: '', motion: 'orbit' },
       layerSaving: false,
@@ -968,6 +1031,9 @@ export default {
       pageList: [],
       pageForm: EMPTY_PAGE(),
       pageSaving: false,
+      groupList: [],
+      groupForm: { key: '', name: '', description: '', img_data: '' },
+      groupSaving: false,
       moleculeList: [],
       moleculeForm: EMPTY_MOLECULE(),
       moleculeSaving: false,
@@ -1071,7 +1137,7 @@ export default {
       return Promise.all([
         this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(),
         this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(),
-        this.loadElectronStyles(), this.loadMolecules()
+        this.loadElectronStyles(), this.loadMolecules(), this.loadGroups()
       ])
     },
     // ── 圖片裁切流程 ──
@@ -1263,6 +1329,69 @@ export default {
         showToast(e.response?.data?.message || 'Save failed', 'error')
       } finally {
         this.gallerySaving = false
+      }
+    },
+    async loadGroups() {
+      try {
+        const res = await getAdminGroups()
+        this.groupList = res.data.groups || []
+      } catch (e) {
+        console.error('Failed to load groups:', e)
+      }
+    },
+    groupHasContent(key) {
+      const g = this.groupList.find(x => x.key === key)
+      return !!(g && (g.name || g.description || g.img_data))
+    },
+    groupElements(key) {
+      // 顯示這一族有哪些元素，幫助確認設定對象
+      const map = buildTableGroups(elementsState.elements)
+      const syms = Object.keys(map).filter(s => map[s] === key)
+      if (!syms.length) return ''
+      const head = syms.slice(0, 12).join('、')
+      return syms.length > 12 ? `${head}⋯ 共 ${syms.length} 個元素` : `${head}`
+    },
+    selectGroup(key) {
+      ensureElements()
+      const g = this.groupList.find(x => x.key === key)
+      this.groupForm = {
+        key,
+        name: g?.name || '',
+        description: g?.description || '',
+        img_data: g?.img_data || ''
+      }
+    },
+    async onGroupImgChange(e) {
+      const file = e.target.files[0]
+      e.target.value = ''
+      if (!file) return
+      try {
+        // 形象圖與電子一樣多為去背 PNG，保留透明
+        const result = await compressImage(file, { keepTransparency: true })
+        this.groupForm.img_data = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(result.blob)
+        })
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+      }
+    },
+    async handleSaveGroup() {
+      this.groupSaving = true
+      try {
+        const res = await saveGroup(this.groupForm.key, {
+          name: this.groupForm.name,
+          description: this.groupForm.description,
+          img_data: this.groupForm.img_data
+        })
+        showToast(res.data.message || '已儲存', 'success')
+        await this.loadGroups()
+      } catch (e) {
+        showToast(e.response?.data?.message || '儲存失敗', 'error')
+      } finally {
+        this.groupSaving = false
       }
     },
     async loadMolecules() {

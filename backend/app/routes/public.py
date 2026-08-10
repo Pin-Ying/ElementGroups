@@ -13,6 +13,7 @@ from app.completion import get_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_page, normalize_pages, PAGES_NODE
 from app.molecules import normalize_molecule, normalize_molecules, MOLECULES_NODE
+from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, has_content
 from app.layers import normalize_layers, normalize_electron_styles, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
@@ -225,6 +226,27 @@ def get_element_layers(symbol):
             if isinstance(style, dict):
                 electron_img = (style.get("img_data") or "").strip()
         return jsonify({**layers, "electron_style": style_id, "electron_img": electron_img})
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/element-groups", methods=["GET"])
+def get_element_groups():
+    """所有已設定形象的族。"""
+    try:
+        groups = [g for g in normalize_groups(show_fdb(GROUPS_NODE)) if has_content(g)]
+        return jsonify({"groups": groups})
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/element-groups/<key>", methods=["GET"])
+def get_element_group(key):
+    """單一族的形象，元素頁用族別對照後來拿。"""
+    if key not in GROUP_KEYS:
+        return jsonify({"result": "failure", "message": "not found"}), 404
+    try:
+        return jsonify(normalize_group(key, show_fdb(f"{GROUPS_NODE}/{key}")))
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 

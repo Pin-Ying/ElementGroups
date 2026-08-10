@@ -78,6 +78,22 @@ export function getMolecule(slug) {
   return api.get(`/molecules/${slug}`)
 }
 
+export function getElementGroups() {
+  return api.get('/element-groups')
+}
+
+export function getElementGroup(key) {
+  return api.get(`/element-groups/${key}`)
+}
+
+export function getAdminGroups() {
+  return api.get('/admin/element-groups')
+}
+
+export function saveGroup(key, payload) {
+  return api.post(`/admin/element-groups/${key}`, payload)
+}
+
 export function getAdminMolecules() {
   return api.get('/admin/molecules')
 }

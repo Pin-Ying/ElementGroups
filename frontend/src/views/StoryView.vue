@@ -173,6 +173,7 @@
               <template v-else>Still Creating...</template>
             </section>
 
+            <GroupArchetype class="gallery-span" :element="elInfo" />
             <ElementGallery class="gallery-span" :images="gallery" :color="elInfo.CPKHexColor" />
             <RelatedMolecules class="gallery-span" :symbol="elInfo.Symbol" :color="elInfo.CPKHexColor" />
           </div>
@@ -205,6 +206,7 @@ import ElementGallery from '../components/ElementGallery.vue'
 import ElementLayers from '../components/ElementLayers.vue'
 import StoryEditor from '../components/StoryEditor.vue'
 import RelatedMolecules from '../components/RelatedMolecules.vue'
+import GroupArchetype from '../components/GroupArchetype.vue'
 import { outerElectronCount, outerElectronOrbitals } from '../utils/valence'
 
 // 圖層與圖庫資料在同一次瀏覽中不會變，快取起來：切換動態／靜態只是換
@@ -218,7 +220,7 @@ import { showToast } from '../store/toast'
 import { elementsState, ensureElements } from '../store/elements'
 
 export default {
-  components: { AbilityChart, AbilityBars, PokedexFrame, ElementGallery, ElementLayers, StoryEditor, RelatedMolecules, LoadingSpinner },
+  components: { AbilityChart, AbilityBars, PokedexFrame, ElementGallery, ElementLayers, StoryEditor, RelatedMolecules, GroupArchetype, LoadingSpinner },
   props: { symbol: { type: String, required: true } },
   data() {
     return {
