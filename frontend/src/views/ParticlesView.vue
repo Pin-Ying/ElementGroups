@@ -2,11 +2,11 @@
   <div class="particles">
     <LoadingSpinner v-if="loading" />
 
-    <p class="title">基本粒子</p>
-    <p class="subtitle">組成元素的更小單位，每種粒子都有自己的形象。</p>
+    <p class="title">{{ metaText('particles', 'title') }}</p>
+    <p v-if="metaText('particles', 'subtitle')" class="subtitle">{{ metaText('particles', 'subtitle') }}</p>
 
     <div v-if="!loading && !particles.length" class="no-results">
-      還沒有建立任何粒子
+      {{ metaText('particles', 'empty_text') }}
     </div>
 
     <section v-for="p in particles" :key="p.slug" class="particle-card">
@@ -28,6 +28,7 @@
 
 <script>
 import { getParticles } from '../api'
+import { ensurePageMeta, metaText } from '../store/pageMeta'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
@@ -35,7 +36,9 @@ export default {
   data() {
     return { particles: [], loading: false }
   },
+  methods: { metaText },
   async created() {
+    ensurePageMeta()
     this.loading = true
     try {
       const res = await getParticles()

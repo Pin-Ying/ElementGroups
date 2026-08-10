@@ -2,7 +2,8 @@
   <div class="molecules">
     <LoadingSpinner v-if="loading" />
 
-    <p class="title">Molecule Groups</p>
+    <p class="title">{{ metaText("molecules", "title") }}</p>
+    <p v-if="metaText('molecules', 'subtitle')" class="page-subtitle">{{ metaText("molecules", "subtitle") }}</p>
 
     <div class="search-bar">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -13,12 +14,12 @@
     </div>
 
     <p v-if="element" class="filter-note">
-      只顯示含有 <strong>{{ element }}</strong> 的分子
+      {{ filterNote }}
       <router-link to="/molecules">查看全部</router-link>
     </p>
 
     <div v-if="!loading && !filtered.length" class="no-results">
-      {{ molecules.length ? `沒有符合「${query}」的分子` : '還沒有建立任何分子' }}
+      {{ molecules.length ? `沒有符合「${query}」的分子` : metaText('molecules', 'empty_text') }}
     </div>
 
     <div v-else class="molecule-grid">
@@ -41,6 +42,7 @@
 
 <script>
 import { getMolecules } from '../api'
+import { ensurePageMeta, metaText } from '../store/pageMeta'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 const SUBSCRIPTS = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉']
@@ -55,6 +57,9 @@ export default {
     return { molecules: [], query: '', loading: false }
   },
   computed: {
+    filterNote() {
+      return metaText('molecules', 'filter_note').replace('{element}', this.element)
+    },
     filtered() {
       const q = this.query.trim().toLowerCase()
       if (!q) return this.molecules
@@ -68,7 +73,11 @@ export default {
   watch: {
     element: { immediate: true, handler: 'load' }
   },
+  created() {
+    ensurePageMeta()
+  },
   methods: {
+    metaText,
     async load() {
       this.loading = true
       try {
@@ -94,6 +103,14 @@ export default {
   max-width: 1000px;
   margin: 0 auto;
   padding: 20px 18px 40px;
+}
+
+.page-subtitle {
+  text-align: center;
+  font-size: 14px;
+  color: rgba(228, 251, 255, 0.55);
+  margin: 6px 0 18px;
+  white-space: pre-wrap;
 }
 
 .filter-note {

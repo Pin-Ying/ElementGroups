@@ -82,6 +82,14 @@ export function suggestPage(payload) {
   return api.post('/admin/page-suggest', payload)
 }
 
+export function getPageMeta() {
+  return api.get('/page-meta')
+}
+
+export function savePageMeta(key, payload) {
+  return api.post(`/admin/page-meta/${key}`, payload)
+}
+
 export function getParticles() {
   return api.get('/particles')
 }

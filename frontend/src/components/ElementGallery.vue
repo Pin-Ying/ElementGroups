@@ -1,6 +1,6 @@
 <template>
   <section v-if="images.length" class="gallery">
-    <h2 class="gallery-title">其他樣貌</h2>
+    <h2 class="gallery-title">{{ metaText("story", "gallery_title") }}</h2>
     <div class="gallery-grid">
       <figure
         v-for="(img, i) in images"
@@ -30,7 +30,12 @@
 </template>
 
 <script>
+import { ensurePageMeta, metaText } from '../store/pageMeta'
+
 export default {
+  created() {
+    ensurePageMeta()
+  },
   props: {
     images: { type: Array, default: () => [] },
     color: { type: String, default: '64b8e8' }
@@ -39,6 +44,7 @@ export default {
     return { viewerIndex: null }
   },
   methods: {
+    metaText,
     open(i) {
       this.viewerIndex = i
       window.addEventListener('keydown', this.onKey)

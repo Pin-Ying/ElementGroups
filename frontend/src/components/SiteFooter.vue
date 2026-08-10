@@ -22,7 +22,7 @@
           </router-link>
         </template>
         <span v-if="navItems.length" class="footer-sep">·</span>
-        <a href="https://pubchem.ncbi.nlm.nih.gov/periodic-table/" target="_blank" rel="noopener noreferrer">資料來源 PubChem</a>
+        <a href="https://pubchem.ncbi.nlm.nih.gov/periodic-table/" target="_blank" rel="noopener noreferrer">{{ metaText("footer", "source_label") }}</a>
       </nav>
 
       <AdminLogin v-if="!authState.loggedIn" />
@@ -32,6 +32,7 @@
 
 <script>
 import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
+import { ensurePageMeta, metaText } from '../store/pageMeta'
 import SocialLink from './SocialLink.vue'
 import AdminLogin from './AdminLogin.vue'
 import { authState } from '../store/auth'
@@ -51,7 +52,9 @@ export default {
       return this.pagesState.loaded || true ? navItemsFor('footer') : []
     }
   },
+  methods: { metaText },
   created() {
+    ensurePageMeta()
     ensureCreatorLinks()
     ensurePages()
   }

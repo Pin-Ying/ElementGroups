@@ -15,7 +15,7 @@
       <div class="dex-body">
         <!-- 左：組成元素，可點回元素頁 -->
         <aside class="dex-tags">
-          <p class="dex-label">組成元素</p>
+          <p class="dex-label">{{ metaText("molecule", "elements_label") }}</p>
           <router-link
             v-for="sym in molecule.elements"
             :key="sym"
@@ -51,13 +51,13 @@
       <section v-if="molecule.description" class="dex-story">{{ molecule.description }}</section>
 
       <p class="back-link">
-        <router-link to="/molecules">← 回 Molecule Groups</router-link>
+        <router-link to="/molecules">{{ metaText("molecule", "back_label") }}</router-link>
       </p>
     </template>
 
     <div v-else-if="!loading" class="no-results">
-      找不到這個分子
-      <router-link to="/molecules">回 Molecule Groups</router-link>
+      {{ metaText('molecule', 'not_found') }}
+      <router-link to="/molecules">{{ metaText('molecule', 'back_label') }}</router-link>
     </div>
   </div>
 </template>
@@ -65,6 +65,7 @@
 <script>
 import { getMolecule } from '../api'
 import { elementsState, ensureElements } from '../store/elements'
+import { ensurePageMeta, metaText } from '../store/pageMeta'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
@@ -98,8 +99,10 @@ export default {
   },
   created() {
     ensureElements()
+    ensurePageMeta()
   },
   methods: {
+    metaText,
     async load() {
       this.loading = true
       this.molecule = null

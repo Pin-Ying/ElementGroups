@@ -1,6 +1,6 @@
 <template>
   <section v-if="hasContent" class="archetype">
-    <h2 class="archetype-title">主族形象</h2>
+    <h2 class="archetype-title">{{ metaText("story", "groups_title") }}</h2>
 
     <div class="archetype-body">
       <div v-if="group.img_data" class="archetype-figure">
@@ -23,6 +23,7 @@
 // 元素頁的主族形象區塊：同族元素共用一套設計形象（issue #16）。
 // 族別由週期表位置推得，形象內容從 _element_groups 取回並以族為單位快取。
 import { getElementGroup } from '../api'
+import { ensurePageMeta, metaText } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { groupInfo } from '../utils/elementGroups'
 
@@ -55,7 +56,11 @@ export default {
   watch: {
     groupKey: { immediate: true, handler: 'load' }
   },
+  created() {
+    ensurePageMeta()
+  },
   methods: {
+    metaText,
     async load(key) {
       if (!key) { this.group = null; return }
       if (cache.has(key)) {

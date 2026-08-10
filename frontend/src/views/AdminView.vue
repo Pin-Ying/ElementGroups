@@ -219,6 +219,57 @@
               >刪除此頁</button>
             </div>
           </form>
+
+          <!-- 內建頁面文案（issue #20）：附加頁面的標題與零碎文字都可覆寫 -->
+          <div class="meta-admin">
+            <p class="label">內建頁面文案</p>
+            <p class="field-hint">
+              附加頁面（分子圖鑑、基本粒子⋯）的標題與零碎文字。<br>
+              留空表示使用內建預設值；部署更新預設文案不會影響你改過的欄位。
+            </p>
+
+            <div class="meta-key-list">
+              <button
+                v-for="d in PAGE_META_DEFS"
+                :key="d.key"
+                class="page-item"
+                type="button"
+                :class="{ active: metaKey === d.key }"
+                @click="selectMetaKey(d.key)"
+              >
+                <span class="page-item-title">{{ d.label }}</span>
+              </button>
+            </div>
+
+            <form v-if="metaDef" @submit.prevent="handleSaveMeta">
+              <div v-for="f in metaDef.fields" :key="f.name" class="meta-field">
+                <label class="label">{{ f.label }}</label>
+                <textarea
+                  v-if="f.multiline"
+                  class="textarea"
+                  rows="3"
+                  v-model="metaForm[f.name]"
+                  :placeholder="f.default || '（預設為空）'"
+                  :aria-label="f.label"
+                ></textarea>
+                <input
+                  v-else
+                  class="input"
+                  type="text"
+                  v-model="metaForm[f.name]"
+                  :placeholder="f.default || '（預設為空）'"
+                  :aria-label="f.label"
+                />
+              </div>
+
+              <div class="link-actions">
+                <button class="button" type="submit" :disabled="metaSaving">
+                  {{ metaSaving ? 'Saving…' : '儲存文案' }}
+                </button>
+                <span class="ai-quota">欄位留空＝使用預設值（顯示在灰字提示）</span>
+              </div>
+            </form>
+          </div>
         </div>
 
         <!-- Molecules -->
@@ -1106,7 +1157,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1122,6 +1173,8 @@ import { BUILTIN_PAGES } from '../utils/builtinPages'
 import { outerElectronCount } from '../utils/valence'
 import { parseFormula } from '../utils/formula'
 import { GROUP_SECTIONS } from '../utils/elementGroups'
+import { PAGE_META_DEFS, metaDef as pageMetaDef } from '../utils/pageMeta'
+import { refreshPageMeta } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
 
@@ -1215,6 +1268,7 @@ export default {
       FRAME_STYLES,
       GALLERY_MAX,
       GROUP_SECTIONS,
+      PAGE_META_DEFS,
       CATEGORY_PRESETS,
       NAV_POSITIONS,
       layerForm: { nucleus: '', name_img: '', electron_style: '', motion: 'orbit' },
@@ -1229,6 +1283,10 @@ export default {
       newStyleInfo: null,
       styleSaving: false,
       pageList: [],
+      pageMetaAll: {},
+      metaKey: '',
+      metaForm: {},
+      metaSaving: false,
       pageAiOpen: false,
       pageAiTopic: '',
       pageAiDirection: '',
@@ -1277,6 +1335,9 @@ export default {
     }
   },
   computed: {
+    metaDef() {
+      return pageMetaDef(this.metaKey)
+    },
     moleculeCategories() {
       return [...new Set(this.moleculeList.map(m => m.category).filter(Boolean))].sort()
     },
@@ -1380,7 +1441,7 @@ export default {
       return Promise.all([
         this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(),
         this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(),
-        this.loadElectronStyles(), this.loadMolecules(), this.loadGroups(), this.loadParticles()
+        this.loadElectronStyles(), this.loadMolecules(), this.loadGroups(), this.loadParticles(), this.loadPageMeta()
       ])
     },
     // ── 圖片裁切流程 ──
@@ -1863,6 +1924,35 @@ export default {
         this.pageForm.content = this.pageForm.content.trimEnd() + '\n\n' + this.pageAiSuggestion
       }
       this.pageAiSuggestion = ''
+    },
+    async loadPageMeta() {
+      try {
+        const res = await getPageMeta()
+        this.pageMetaAll = res.data.meta || {}
+      } catch (e) {
+        console.error('Failed to load page meta:', e)
+      }
+    },
+    selectMetaKey(key) {
+      this.metaKey = key
+      const overrides = this.pageMetaAll[key] || {}
+      const form = {}
+      for (const f of pageMetaDef(key).fields) form[f.name] = overrides[f.name] || ''
+      this.metaForm = form
+    },
+    async handleSaveMeta() {
+      this.metaSaving = true
+      try {
+        const res = await savePageMeta(this.metaKey, this.metaForm)
+        showToast(res.data.message || '已儲存', 'success')
+        await this.loadPageMeta()
+        // 讓前台立即反映
+        await refreshPageMeta()
+      } catch (e) {
+        showToast(e.response?.data?.message || '儲存失敗', 'error')
+      } finally {
+        this.metaSaving = false
+      }
     },
     async loadPages() {
       try {
@@ -3858,4 +3948,20 @@ button.button:disabled {
   font-size: 11px;
   opacity: 0.7;
 }
+
+/* ── 內建頁面文案 ── */
+.meta-admin {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(228, 251, 255, 0.12);
+}
+
+.meta-key-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.meta-field { margin-bottom: 4px; }
 </style>

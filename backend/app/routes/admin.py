@@ -15,6 +15,7 @@ from app.completion import update_completion, rebuild_completion
 from app.gallery import normalize_gallery
 from app.pages import normalize_pages, serialize_page, normalize_slug, PAGES_NODE
 from app.molecules import normalize_molecules, serialize_molecule, normalize_slug as molecule_slug, MOLECULES_NODE
+from app.page_meta import PAGE_META_NODE, META_KEYS, normalize_meta
 from app.particles import normalize_particles, serialize_particle, normalize_slug as particle_slug, PARTICLES_NODE
 from app import pubchem
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, serialize_group, group_key_for, has_content as group_has_content
@@ -329,6 +330,20 @@ def update_element_group(key):
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         fdb.child(GROUPS_NODE).child(key).set(record)
         return jsonify({"result": "success", "message": "主族形象已儲存"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/page-meta/<key>", methods=["POST"])
+@login_required
+def update_page_meta(key):
+    """儲存單一內建頁面的文案覆寫；欄位值為空字串表示還原成內建預設。"""
+    if key not in META_KEYS:
+        return jsonify({"result": "failure", "message": f"沒有 {key} 這個頁面"}), 400
+    try:
+        record = normalize_meta(request.get_json() or {})
+        fdb.child(PAGE_META_NODE).child(key).set(record)
+        return jsonify({"result": "success", "message": "文案已儲存"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 

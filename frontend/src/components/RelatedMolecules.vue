@@ -1,6 +1,6 @@
 <template>
   <section v-if="molecules.length" class="related">
-    <h2 class="related-title">含有這個元素的分子</h2>
+    <h2 class="related-title">{{ metaText("story", "molecules_title") }}</h2>
 
     <div class="related-list">
       <router-link
@@ -27,6 +27,7 @@
 // 元素頁下方列出含有該元素的分子。依回饋只顯示最近五個，其餘用「查看更多」
 // 導到分子圖鑑的篩選結果——像氫這種元素會出現在非常多分子裡。
 import { getMolecules } from '../api'
+import { ensurePageMeta, metaText } from '../store/pageMeta'
 
 const LIMIT = 5
 const cache = new Map()
@@ -42,7 +43,11 @@ export default {
   watch: {
     symbol: { immediate: true, handler: 'load' }
   },
+  created() {
+    ensurePageMeta()
+  },
   methods: {
+    metaText,
     async load(symbol) {
       if (!symbol) return
       if (cache.has(symbol)) {

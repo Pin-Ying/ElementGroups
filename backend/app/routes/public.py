@@ -14,6 +14,7 @@ from app.gallery import normalize_gallery
 from app.pages import normalize_page, normalize_pages, PAGES_NODE
 from app.molecules import normalize_molecule, normalize_molecules, MOLECULES_NODE
 from app.particles import normalize_particles, PARTICLES_NODE
+from app.page_meta import PAGE_META_NODE, normalize_all
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, has_content
 from app.layers import normalize_layers, normalize_electron_styles, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
 from app.stats import get_all_views, record_view
@@ -248,6 +249,15 @@ def get_element_group(key):
         return jsonify({"result": "failure", "message": "not found"}), 404
     try:
         return jsonify(normalize_group(key, show_fdb(f"{GROUPS_NODE}/{key}")))
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
+@public_bp.route("/page-meta", methods=["GET"])
+def get_page_meta():
+    """全部內建頁面的文案覆寫，一次回傳（資料量小、頁面共用）。"""
+    try:
+        return jsonify({"meta": normalize_all(show_fdb(PAGE_META_NODE))})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 
