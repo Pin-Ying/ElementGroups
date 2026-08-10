@@ -4,7 +4,7 @@
 
 **專案名稱:** ElementGroups
 **建立追蹤時間:** 2026-02-23
-**最後更新:** 2026-08-09
+**最後更新:** 2026-08-10
 **專案類型:** Fullstack Web Application
 **主要技術:** Python Flask (後端) + Vue 3 + Vite (前端)
 
@@ -221,3 +221,22 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 ---
 
 *此文檔由 project-manager skill 維護*
+
+## 開發注意事項（2026-08-10 補充）
+
+### 文案與內容的覆寫原則
+- 附加頁面的標題與零碎文案一律走 `_page_meta` 覆寫層（`utils/pageMeta.js` 定義欄位與預設值），**不要寫死在元件裡**；新增附加頁面時後端 `META_KEYS` 補 key、前端補欄位定義即可
+- 內建頁面（guide/links）的模板更新是 opt-in：使用者按「載入最新內建模板」才會換，部署不得覆蓋 DB 內容
+
+### 表單與手機
+- 全站表單元件在 ≤760px 一律 16px（iOS 聚焦縮放）；scoped class 選擇器會蓋過全域規則，新元件需自帶斷點
+
+### 後台載入
+- AdminView 資料載入走 `bootstrap()`（含 watch authState.loggedIn）；新增後台資料來源時把 loader 掛進 `loadAll()`，不要在 mounted 直接呼叫
+
+### 批次修改程式碼的教訓
+- 以字串替換批改檔案時，每一段替換都要 assert 命中次數，否則錨點沒對上會靜默 no-op（曾造成樣式全缺與 /particles 路由漏掛）
+- 建置後用 bundle 字串掃描防呆：預期出現的關鍵字串 grep 一次
+
+### 憑證
+- 對話／部署流程中出現過 GitHub token 與 Gemini API key 明碼，開發告一段落時提醒使用者輪替

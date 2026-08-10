@@ -1,254 +1,329 @@
 {
-  "generated_at": "2026-08-09T09:15:00Z",
-  "root_path": ".",
-  "directories": {
-    "backend": {
-      "type": "source",
-      "description": "Flask 後端應用",
-      "subdirectories": [
-        "app",
-        "app/routes"
-      ]
-    },
-    "backend/app": {
-      "type": "source",
-      "description": "Flask 應用核心模組",
-      "files": [
-        "__init__.py",
-        "auth.py",
-        "color.py",
-        "config.py",
-        "elements.py",
-        "firebase.py",
-        "models.py"
-      ]
-    },
-    "backend/app/routes": {
-      "type": "source",
-      "description": "API 路由定義",
-      "files": [
-        "__init__.py",
-        "public.py",
-        "admin.py"
-      ]
-    },
-    "frontend": {
-      "type": "source",
-      "description": "Vue 3 前端應用",
-      "subdirectories": [
-        "src"
-      ]
-    },
-    "frontend/src": {
-      "type": "source",
-      "description": "前端原始碼",
-      "subdirectories": [
-        "api",
-        "assets",
-        "components",
-        "router",
-        "views"
-      ]
-    },
-    "frontend/src/components": {
-      "type": "source",
-      "description": "可重用 Vue 元件",
-      "files": [
-        "AbilityChart.vue",
-        "GroupBox.vue",
-        "PeriodicTable.vue"
-      ]
-    },
-    "frontend/src/views": {
-      "type": "source",
-      "description": "頁面級 Vue 元件",
-      "files": [
-        "AdminView.vue",
-        "HomeView.vue",
-        "StoryView.vue"
-      ]
-    }
+ "generated_at": "2026-08-10T05:40:00Z",
+ "root_path": ".",
+ "directories": {
+  "backend": {
+   "type": "source",
+   "description": "Flask 後端應用",
+   "subdirectories": [
+    "app",
+    "app/routes"
+   ]
   },
-  "key_files": {
-    "backend/run.py": {
-      "type": "entry",
-      "role": "app_entry",
-      "importance": "critical"
-    },
-    "backend/app/__init__.py": {
-      "type": "source",
-      "role": "app_factory",
-      "importance": "critical"
-    },
-    "backend/app/config.py": {
-      "type": "config",
-      "role": "settings_management",
-      "importance": "critical"
-    },
-    "backend/app/models.py": {
-      "type": "source",
-      "role": "database_models",
-      "importance": "high"
-    },
-    "backend/app/firebase.py": {
-      "type": "source",
-      "role": "firebase_integration",
-      "importance": "high"
-    },
-    "backend/app/auth.py": {
-      "type": "source",
-      "role": "authentication",
-      "importance": "high"
-    },
-    "backend/requirements.txt": {
-      "type": "config",
-      "role": "dependency_management",
-      "importance": "critical"
-    },
-    "backend/.env.example": {
-      "type": "config",
-      "role": "env_template",
-      "importance": "high"
-    },
-    "backend/Procfile": {
-      "type": "config",
-      "role": "render_deployment",
-      "importance": "medium",
-      "note": "已被 Docker 部署取代"
-    },
-    "frontend/package.json": {
-      "type": "config",
-      "role": "dependency_management",
-      "importance": "critical"
-    },
-    "frontend/vite.config.js": {
-      "type": "config",
-      "role": "build_config",
-      "importance": "high"
-    },
-    "frontend/src/main.js": {
-      "type": "entry",
-      "role": "app_entry",
-      "importance": "critical"
-    },
-    "frontend/src/App.vue": {
-      "type": "component",
-      "role": "root_component",
-      "importance": "critical"
-    },
-    "frontend/src/api/index.js": {
-      "type": "service",
-      "role": "api_client",
-      "importance": "high"
-    },
-    "docker-compose.yml": {
-      "type": "config",
-      "role": "docker_orchestration",
-      "importance": "critical"
-    },
-    "backend/Dockerfile": {
-      "type": "config",
-      "role": "backend_container",
-      "importance": "critical"
-    },
-    "frontend/Dockerfile": {
-      "type": "config",
-      "role": "frontend_container",
-      "importance": "critical"
-    },
-    "backend/app/completion.py": {
-      "type": "source",
-      "role": "元素故事/圖片完成度摘要（_completion 節點）",
-      "importance": "normal"
-    },
-    "backend/app/stats.py": {
-      "type": "source",
-      "role": "元素頁點閱統計（_stats 節點）",
-      "importance": "normal"
-    },
-    "backend/app/gallery.py": {
-      "type": "source",
-      "role": "其他樣貌圖庫的資料正規化",
-      "importance": "normal"
-    },
-    "backend/app/links.py": {
-      "type": "source",
-      "role": "社群連結正規化，相容三種歷史格式",
-      "importance": "normal"
-    },
-    "backend/app/ai.py": {
-      "type": "source",
-      "role": "Gemini 串接與每日用量控制",
-      "importance": "high"
-    },
-    "frontend/vite-plugin-seo.js": {
-      "type": "config",
-      "role": "build 時將網站文案與 og/twitter 標籤注入 index.html",
-      "importance": "high"
-    },
-    "frontend/src/utils/imageCompress.js": {
-      "type": "source",
-      "role": "上傳前的等比縮放與 JPEG 壓縮",
-      "importance": "high"
-    },
-    "frontend/src/utils/socialPlatforms.js": {
-      "type": "source",
-      "role": "社群平台清單與品牌色",
-      "importance": "normal"
-    },
-    "frontend/src/store/siteSettings.js": {
-      "type": "source",
-      "role": "網站文案、背景圖、圖鑑外框的全站狀態",
-      "importance": "high"
-    },
-    "frontend/src/store/creatorLinks.js": {
-      "type": "source",
-      "role": "社群連結全站狀態（頁尾與 /links 共用）",
-      "importance": "normal"
-    },
-    "frontend/.dockerignore": {
-      "type": "config",
-      "role": "排除 node_modules/dist，避免覆蓋 image 內的依賴",
-      "importance": "critical"
-    },
-    "backend/.dockerignore": {
-      "type": "config",
-      "role": "排除 __pycache__ 與 .env",
-      "importance": "normal"
-    },
-    "render.yaml": {
-      "type": "config",
-      "role": "Render 前端 static site 部署設定",
-      "importance": "high"
-    }
+  "backend/app": {
+   "type": "source",
+   "description": "Flask 應用核心模組",
+   "files": [
+    "__init__.py",
+    "auth.py",
+    "color.py",
+    "config.py",
+    "elements.py",
+    "firebase.py",
+    "models.py"
+   ]
   },
-  "file_count": {
-    "total": 84,
-    "by_extension": {
-      ".vue": 22,
-      ".py": 16,
-      ".json": 15,
-      ".js": 13,
-      ".jpg": 8,
-      ".md": 3,
-      ".yml": 1,
-      ".yaml": 1,
-      ".txt": 1,
-      ".html": 1,
-      ".example": 1,
-      ".css": 1,
-      ".conf": 1
-    }
+  "backend/app/routes": {
+   "type": "source",
+   "description": "API 路由定義",
+   "files": [
+    "__init__.py",
+    "public.py",
+    "admin.py"
+   ]
   },
-  "ignored_patterns": [
-    "node_modules",
-    "__pycache__",
-    ".git",
-    "dist",
-    ".venv",
-    "*.db"
-  ],
-  "notes": [
-    "PeriodicTable.vue 已於 2026-08-09 移除，職責由 ElementIconGrid.vue 涵蓋"
-  ]
+  "frontend": {
+   "type": "source",
+   "description": "Vue 3 前端應用",
+   "subdirectories": [
+    "src"
+   ]
+  },
+  "frontend/src": {
+   "type": "source",
+   "description": "前端原始碼",
+   "subdirectories": [
+    "api",
+    "assets",
+    "components",
+    "router",
+    "views"
+   ]
+  },
+  "frontend/src/components": {
+   "type": "source",
+   "description": "可重用 Vue 元件",
+   "files": [
+    "AbilityChart.vue",
+    "GroupBox.vue",
+    "PeriodicTable.vue"
+   ]
+  },
+  "frontend/src/views": {
+   "type": "source",
+   "description": "頁面級 Vue 元件",
+   "files": [
+    "AdminView.vue",
+    "HomeView.vue",
+    "StoryView.vue"
+   ]
+  }
+ },
+ "key_files": {
+  "backend/run.py": {
+   "type": "entry",
+   "role": "app_entry",
+   "importance": "critical"
+  },
+  "backend/app/__init__.py": {
+   "type": "source",
+   "role": "app_factory",
+   "importance": "critical"
+  },
+  "backend/app/config.py": {
+   "type": "config",
+   "role": "settings_management",
+   "importance": "critical"
+  },
+  "backend/app/models.py": {
+   "type": "source",
+   "role": "database_models",
+   "importance": "high"
+  },
+  "backend/app/firebase.py": {
+   "type": "source",
+   "role": "firebase_integration",
+   "importance": "high"
+  },
+  "backend/app/auth.py": {
+   "type": "source",
+   "role": "authentication",
+   "importance": "high"
+  },
+  "backend/requirements.txt": {
+   "type": "config",
+   "role": "dependency_management",
+   "importance": "critical"
+  },
+  "backend/.env.example": {
+   "type": "config",
+   "role": "env_template",
+   "importance": "high"
+  },
+  "backend/Procfile": {
+   "type": "config",
+   "role": "render_deployment",
+   "importance": "medium",
+   "note": "已被 Docker 部署取代"
+  },
+  "frontend/package.json": {
+   "type": "config",
+   "role": "dependency_management",
+   "importance": "critical"
+  },
+  "frontend/vite.config.js": {
+   "type": "config",
+   "role": "build_config",
+   "importance": "high"
+  },
+  "frontend/src/main.js": {
+   "type": "entry",
+   "role": "app_entry",
+   "importance": "critical"
+  },
+  "frontend/src/App.vue": {
+   "type": "component",
+   "role": "root_component",
+   "importance": "critical"
+  },
+  "frontend/src/api/index.js": {
+   "type": "service",
+   "role": "api_client",
+   "importance": "high"
+  },
+  "docker-compose.yml": {
+   "type": "config",
+   "role": "docker_orchestration",
+   "importance": "critical"
+  },
+  "backend/Dockerfile": {
+   "type": "config",
+   "role": "backend_container",
+   "importance": "critical"
+  },
+  "frontend/Dockerfile": {
+   "type": "config",
+   "role": "frontend_container",
+   "importance": "critical"
+  },
+  "backend/app/completion.py": {
+   "type": "source",
+   "role": "元素故事/圖片完成度摘要（_completion 節點）",
+   "importance": "normal"
+  },
+  "backend/app/stats.py": {
+   "type": "source",
+   "role": "元素頁點閱統計（_stats 節點）",
+   "importance": "normal"
+  },
+  "backend/app/gallery.py": {
+   "type": "source",
+   "role": "其他樣貌圖庫的資料正規化",
+   "importance": "normal"
+  },
+  "backend/app/links.py": {
+   "type": "source",
+   "role": "社群連結正規化，相容三種歷史格式",
+   "importance": "normal"
+  },
+  "backend/app/ai.py": {
+   "type": "source",
+   "role": "Gemini 串接與每日用量控制",
+   "importance": "high"
+  },
+  "frontend/vite-plugin-seo.js": {
+   "type": "config",
+   "role": "build 時將網站文案與 og/twitter 標籤注入 index.html",
+   "importance": "high"
+  },
+  "frontend/src/utils/imageCompress.js": {
+   "type": "source",
+   "role": "上傳前的等比縮放與 JPEG 壓縮",
+   "importance": "high"
+  },
+  "frontend/src/utils/socialPlatforms.js": {
+   "type": "source",
+   "role": "社群平台清單與品牌色",
+   "importance": "normal"
+  },
+  "frontend/src/store/siteSettings.js": {
+   "type": "source",
+   "role": "網站文案、背景圖、圖鑑外框的全站狀態",
+   "importance": "high"
+  },
+  "frontend/src/store/creatorLinks.js": {
+   "type": "source",
+   "role": "社群連結全站狀態（頁尾與 /links 共用）",
+   "importance": "normal"
+  },
+  "frontend/.dockerignore": {
+   "type": "config",
+   "role": "排除 node_modules/dist，避免覆蓋 image 內的依賴",
+   "importance": "critical"
+  },
+  "backend/.dockerignore": {
+   "type": "config",
+   "role": "排除 __pycache__ 與 .env",
+   "importance": "normal"
+  },
+  "render.yaml": {
+   "type": "config",
+   "role": "Render 前端 static site 部署設定",
+   "importance": "high"
+  },
+  "backend/app/molecules.py": {
+   "type": "source",
+   "role": "分子資料 normalize/serialize，slug 取自 IUPACName",
+   "importance": "high"
+  },
+  "backend/app/pubchem.py": {
+   "type": "source",
+   "role": "PubChem 化合物查詢（name/fastformula）",
+   "importance": "normal"
+  },
+  "backend/app/groups.py": {
+   "type": "source",
+   "role": "主族形象＋原子序→族別對照（group_key_for）",
+   "importance": "high"
+  },
+  "backend/app/particles.py": {
+   "type": "source",
+   "role": "基本粒子形象資料",
+   "importance": "normal"
+  },
+  "backend/app/page_meta.py": {
+   "type": "source",
+   "role": "內建頁面文案覆寫層（_page_meta）",
+   "importance": "high"
+  },
+  "frontend/src/utils/pageMeta.js": {
+   "type": "source",
+   "role": "內建頁面文案欄位定義與預設值（新頁面在此補欄位）",
+   "importance": "high"
+  },
+  "frontend/src/store/pageMeta.js": {
+   "type": "source",
+   "role": "文案覆寫 store，metaText(key, field) 附 fallback",
+   "importance": "high"
+  },
+  "frontend/src/utils/elementGroups.js": {
+   "type": "source",
+   "role": "族別中文名與後台分區定義",
+   "importance": "normal"
+  },
+  "frontend/src/utils/formula.js": {
+   "type": "source",
+   "role": "分子式節點結構 serialize/parse",
+   "importance": "normal"
+  },
+  "frontend/src/components/FormulaBuilder.vue": {
+   "type": "source",
+   "role": "視覺化分子式建構器",
+   "importance": "high"
+  },
+  "frontend/src/components/GroupArchetype.vue": {
+   "type": "source",
+   "role": "元素頁主族形象區塊",
+   "importance": "normal"
+  },
+  "frontend/src/components/RelatedMolecules.vue": {
+   "type": "source",
+   "role": "元素頁相關分子區塊（最近 5 個）",
+   "importance": "normal"
+  },
+  "frontend/src/views/MoleculesView.vue": {
+   "type": "source",
+   "role": "Molecule Groups 圖鑑頁",
+   "importance": "normal"
+  },
+  "frontend/src/views/MoleculeView.vue": {
+   "type": "source",
+   "role": "分子詳細頁",
+   "importance": "normal"
+  },
+  "frontend/src/views/ParticlesView.vue": {
+   "type": "source",
+   "role": "基本粒子頁",
+   "importance": "normal"
+  }
+ },
+ "file_count": {
+  "total": 84,
+  "by_extension": {
+   ".vue": 22,
+   ".py": 16,
+   ".json": 15,
+   ".js": 13,
+   ".jpg": 8,
+   ".md": 3,
+   ".yml": 1,
+   ".yaml": 1,
+   ".txt": 1,
+   ".html": 1,
+   ".example": 1,
+   ".css": 1,
+   ".conf": 1
+  }
+ },
+ "ignored_patterns": [
+  "node_modules",
+  "__pycache__",
+  ".git",
+  "dist",
+  ".venv",
+  "*.db"
+ ],
+ "notes": [
+  "PeriodicTable.vue 已於 2026-08-09 移除，職責由 ElementIconGrid.vue 涵蓋"
+ ]
 }

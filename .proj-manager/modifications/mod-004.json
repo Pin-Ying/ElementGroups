@@ -1,0 +1,51 @@
+{
+ "modification_id": "mod-004",
+ "feature_id": "feature-005",
+ "type": "bugfix",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "後台重整後資料全空（initAuth 競態）、iPhone 聚焦輸入框整頁放大、後台手機排版、載入提示、隱藏電子軌道線",
+ "created_at": "2026-08-10T04:00:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "bootstrap()：watch authState.loggedIn 補載資料；elementLoading 區塊提示；760px 下表單 16px、page-editor 單欄"
+   },
+   {
+    "path": "frontend/src/assets/style.css",
+    "change_type": "modified",
+    "diff_summary": "≤760px 全站 input/select/textarea/.search-input 字級 16px"
+   },
+   {
+    "path": "frontend/src/components/StoryEditor.vue",
+    "change_type": "modified",
+    "diff_summary": "手機表單 16px（與後台同因）"
+   },
+   {
+    "path": "frontend/src/components/AdminLogin.vue",
+    "change_type": "modified",
+    "diff_summary": "頁尾登入框手機 16px"
+   },
+   {
+    "path": "frontend/src/components/ElementLayers.vue",
+    "change_type": "modified",
+    "diff_summary": "移除軌道線渲染與樣式 (issue #14)"
+   }
+  ]
+ },
+ "root_cause": "三個獨立根因：(1) initAuth 非同步且 fire-and-forget，AdminView mounted 檢查 loggedIn 時常常還是 false，loadAll 整個被跳過——畫面空資料、pageList 空還會誤顯「內建頁面尚未轉成可編輯」，使用者一點載入就把編輯內容蓋掉；(2) iOS Safari 聚焦字級 <16px 的表單元件會放大整頁且卡住（select 實測 13.3px、textarea 14px）；(3) 401 攔截器會把 loggedIn 打回 false，修 (1) 後這條路徑才真正生效。",
+ "notes": [
+  "issue #10/#13/#14/#15 與 #16 的「編輯內容不見了」都收斂到根因 (1)",
+  "iOS 16px 規則：新元件的表單樣式若是 scoped class 選擇器，優先度會蓋過全域規則，需自帶 760px 斷點的 16px"
+ ]
+}

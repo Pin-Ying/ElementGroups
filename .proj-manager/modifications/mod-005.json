@@ -1,0 +1,36 @@
+{
+ "modification_id": "mod-005",
+ "feature_id": "feature-009",
+ "type": "bugfix",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "兩處程式碼插入靜默失敗的補救：主族形象選擇器樣式全缺、/particles 路由漏掛",
+ "created_at": "2026-08-10T04:40:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "補上 .group-section/.group-key 系列樣式（原插入錨點沒對上）"
+   },
+   {
+    "path": "frontend/src/router/index.js",
+    "change_type": "modified",
+    "diff_summary": "補上 /particles 路由（原錨點是單行格式、檔案是多行格式）"
+   }
+  ]
+ },
+ "root_cause": "以字串替換批次修改檔案時錨點沒對上且未 assert，替換靜默 no-op。樣式問題讓選擇器變成無框純文字；路由問題讓前台 /particles 一片空白（模板／API 都在 bundle，只缺路由註冊）。",
+ "notes": [
+  "防範：多段字串替換每一段都要 assert count==1，或改用逐段 Edit；建置後用 bundle 字串掃描防呆（grep 關鍵字串應出現的次數）",
+  "此教訓已寫入 context.md 開發注意事項"
+ ]
+}
