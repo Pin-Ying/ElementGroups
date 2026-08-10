@@ -327,3 +327,16 @@ a {
         font-size: 13px;
     }
 }
+
+/* ── iOS 聚焦縮放 ──
+   iPhone 上聚焦到字級小於 16px 的表單元件會自動放大整頁且不會縮回，
+   手機寬度下把所有表單元件字級固定在 16px (issue #15)。
+   .search-input 等 class 選擇器的優先度高於元素選擇器，需一併列出 */
+@media (max-width: 760px) {
+    input,
+    select,
+    textarea,
+    .search-input {
+        font-size: 16px;
+    }
+}

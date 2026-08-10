@@ -488,4 +488,12 @@ export default {
   margin: 10px 0 4px;
   opacity: 0.75;
 }
+
+@media (max-width: 760px) {
+  /* 與後台一致：16px 以下的表單元件在 iOS 聚焦會放大整頁 */
+  .textarea,
+  .input {
+    font-size: 16px;
+  }
+}
 </style>

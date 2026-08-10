@@ -2,7 +2,7 @@
   <div class="molecules">
     <LoadingSpinner v-if="loading" />
 
-    <p class="title">分子圖鑑</p>
+    <p class="title">Molecule Groups</p>
 
     <div class="search-bar">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

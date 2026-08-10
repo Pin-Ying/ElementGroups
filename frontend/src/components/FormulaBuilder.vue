@@ -217,6 +217,11 @@ export default {
   cursor: not-allowed;
 }
 
+@media (max-width: 760px) {
+  /* 與後台一致：16px 以下的輸入框在 iOS 聚焦會放大整頁 */
+  .fb-search { font-size: 16px; }
+}
+
 .fb-elements {
   display: flex;
   flex-wrap: wrap;

@@ -51,13 +51,13 @@
       <section v-if="molecule.description" class="dex-story">{{ molecule.description }}</section>
 
       <p class="back-link">
-        <router-link to="/molecules">← 回分子圖鑑</router-link>
+        <router-link to="/molecules">← 回 Molecule Groups</router-link>
       </p>
     </template>
 
     <div v-else-if="!loading" class="no-results">
       找不到這個分子
-      <router-link to="/molecules">回分子圖鑑</router-link>
+      <router-link to="/molecules">回 Molecule Groups</router-link>
     </div>
   </div>
 </template>

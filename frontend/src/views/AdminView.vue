@@ -2101,6 +2101,16 @@ export default {
     margin-left: 4px;
     padding-left: 12px;
   }
+
+  /* 編輯區與即時預覽並排在手機上各剩不到半欄，改為上下排列 */
+  .page-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .page-form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
 }
 
 /* 更窄的螢幕：選單再縮一級，圖示與文字都收小 */
@@ -3235,5 +3245,19 @@ button.button:disabled {
 .gallery-admin.is-loading {
   opacity: 0.55;
   pointer-events: none;
+}
+
+/* iOS Safari 聚焦到字級小於 16px 的表單元件時會自動放大整頁，
+   而且常常卡在放大狀態，看起來就是「後台版面變太大」(issue #10)。
+   手機上把表單字級固定在 16px 從根源避免縮放。
+   放在樣式表末端，才不會被前面的基礎字級規則蓋掉 */
+@media (max-width: 760px) {
+  .input,
+  .select,
+  select.select,
+  .textarea,
+  .layer-slot .input {
+    font-size: 16px;
+  }
 }
 </style>

@@ -117,4 +117,9 @@ export default {
   font-size: 13px;
   border-radius: 5px;
 }
+
+@media (max-width: 760px) {
+  /* 避免 iPhone 聚焦自動放大 (issue #15) */
+  .login-form .input { font-size: 16px; }
+}
 </style>
