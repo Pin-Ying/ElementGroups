@@ -176,9 +176,32 @@
             網址代稱取自 IUPAC 名稱；查不到的分子也可以手動填寫後儲存。
           </p>
 
+          <!-- 清單工具列：仿化學資料庫的「搜尋＋分類＋組成元素」三種切入點 -->
+          <div class="mol-toolbar">
+            <input
+              class="input mol-filter-input"
+              type="text"
+              v-model="moleculeFilter"
+              placeholder="搜尋名稱、分子式或網址代稱"
+              aria-label="搜尋分子"
+            />
+            <select class="select mol-filter-select" v-model="moleculeCategoryFilter" aria-label="分類篩選">
+              <option value="">全部分類</option>
+              <option v-for="c in moleculeCategories" :key="c" :value="c">{{ c }}</option>
+              <option value="__none__">未分類</option>
+            </select>
+            <select class="select mol-filter-select" v-model="moleculeElementFilter" aria-label="元素篩選">
+              <option value="">全部元素</option>
+              <option v-for="sym in moleculeElements" :key="sym" :value="sym">{{ sym }}</option>
+            </select>
+          </div>
+          <p v-if="moleculeList.length" class="field-hint mol-count">
+            {{ filteredMolecules.length }} / {{ moleculeList.length }} 個分子
+          </p>
+
           <div class="page-list">
             <button
-              v-for="m in moleculeList"
+              v-for="m in filteredMolecules"
               :key="m.slug"
               class="page-item"
               type="button"
@@ -188,6 +211,7 @@
               <span class="page-item-title" v-html="subscript(m.formula)"></span>
               <span class="page-item-meta">
                 {{ m.name }}
+                <span v-if="m.category" class="mol-category-tag">{{ m.category }}</span>
                 <span v-if="!m.published" class="draft-tag">草稿</span>
               </span>
             </button>
@@ -256,6 +280,13 @@
                 <input class="input" type="text" v-model="moleculeForm.weight" aria-label="分子量" />
               </div>
             </div>
+
+            <label class="label">分類</label>
+            <input class="input" type="text" v-model="moleculeForm.category" list="mol-category-presets" aria-label="分類" />
+            <datalist id="mol-category-presets">
+              <option v-for="c in CATEGORY_PRESETS" :key="c" :value="c" />
+            </datalist>
+            <p class="field-hint">可從常用分類挑選或自行輸入，後台清單可依分類篩選</p>
 
             <label class="label">SMILES</label>
             <input class="input" type="text" v-model="moleculeForm.smiles" aria-label="SMILES" />
@@ -946,9 +977,12 @@ const NAV_POSITIONS = [
   { key: 'none', label: '不顯示於導覽' }
 ]
 
+// 常用化合物分類，datalist 建議用；可自由輸入其他分類
+const CATEGORY_PRESETS = ['有機', '無機', '酸', '鹼', '鹽', '氧化物', '生物分子', '氣體', '溶劑', '高分子']
+
 const EMPTY_MOLECULE = () => ({
   original_slug: '', name: '', iupac_name: '', formula: '', weight: '',
-  smiles: '', cid: null, description: '', img_data: '', nodes: [],
+  smiles: '', cid: null, description: '', category: '', img_data: '', nodes: [],
   source: 'manual', published: true
 })
 
@@ -1016,6 +1050,7 @@ export default {
       FRAME_STYLES,
       GALLERY_MAX,
       GROUP_INFO,
+      CATEGORY_PRESETS,
       NAV_POSITIONS,
       layerForm: { nucleus: '', name_img: '', electron_style: '', motion: 'orbit' },
       layerSaving: false,
@@ -1035,6 +1070,9 @@ export default {
       groupForm: { key: '', name: '', description: '', img_data: '' },
       groupSaving: false,
       moleculeList: [],
+      moleculeFilter: '',
+      moleculeCategoryFilter: '',
+      moleculeElementFilter: '',
       moleculeForm: EMPTY_MOLECULE(),
       moleculeSaving: false,
       moleculeQuery: '',
@@ -1065,6 +1103,22 @@ export default {
     }
   },
   computed: {
+    moleculeCategories() {
+      return [...new Set(this.moleculeList.map(m => m.category).filter(Boolean))].sort()
+    },
+    moleculeElements() {
+      return [...new Set(this.moleculeList.flatMap(m => m.elements || []))].sort()
+    },
+    filteredMolecules() {
+      const q = this.moleculeFilter.trim().toLowerCase()
+      return this.moleculeList.filter(m => {
+        if (q && !(m.name?.toLowerCase().includes(q) || m.formula?.toLowerCase().includes(q) || m.slug?.includes(q))) return false
+        if (this.moleculeCategoryFilter === '__none__') { if (m.category) return false }
+        else if (this.moleculeCategoryFilter && m.category !== this.moleculeCategoryFilter) return false
+        if (this.moleculeElementFilter && !(m.elements || []).includes(this.moleculeElementFilter)) return false
+        return true
+      })
+    },
     moleculeSlug() {
       const raw = this.moleculeForm.iupac_name || this.moleculeForm.name
       return raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -1408,7 +1462,8 @@ export default {
       this.moleculeForm = {
         original_slug: m.slug, name: m.name, iupac_name: m.iupac_name || '',
         formula: m.formula || '', weight: m.weight || '', smiles: m.smiles || '',
-        cid: m.cid || null, description: m.description || '', img_data: m.img_data || '',
+        cid: m.cid || null, description: m.description || '',
+        category: m.category || '', img_data: m.img_data || '',
         // 舊資料沒存建構器節點時，從分子式反推一份，仍然可以繼續編輯
         nodes: m.nodes?.length ? m.nodes : parseFormula(m.formula),
         source: m.source || 'manual', published: m.published !== false
@@ -3277,6 +3332,36 @@ button.secondary {
 button.button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.mol-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.mol-toolbar .mol-filter-input {
+  flex: 2 1 200px;
+  margin: 0;
+}
+
+.mol-toolbar .mol-filter-select {
+  flex: 1 1 120px;
+  margin: 0;
+}
+
+.mol-count {
+  text-align: left;
+  margin: 4px 0 8px;
+}
+
+.mol-category-tag {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(157, 140, 255, 0.4);
+  color: rgba(200, 190, 255, 0.85);
 }
 
 .mol-lookup {

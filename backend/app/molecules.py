@@ -54,6 +54,8 @@ def normalize_molecule(slug, data):
         "smiles": (data.get("smiles") or "").strip(),
         "cid": data.get("cid") or None,
         "description": data.get("description") or "",
+        # 化合物分類（有機、無機、酸、鹼、鹽⋯），後台清單用它篩選
+        "category": (data.get("category") or "").strip(),
         # 自訂代表圖；沒有就用 PubChem 的結構圖
         "img_data": (data.get("img_data") or "").strip(),
         # 建構器的節點結構，讓之後可以再編輯
@@ -107,6 +109,7 @@ def serialize_molecule(payload):
         "smiles": (payload.get("smiles") or "").strip(),
         "cid": payload.get("cid") or None,
         "description": payload.get("description") or "",
+        "category": (payload.get("category") or "").strip(),
         "img_data": (payload.get("img_data") or "").strip(),
         "nodes": nodes,
         "elements": elements_in_formula(formula),
