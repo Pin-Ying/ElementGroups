@@ -3801,4 +3801,61 @@ button.button:disabled {
 .ai-check input {
   accent-color: #9d8cff;
 }
+
+/* ── 主族形象選擇器 ── */
+.group-section {
+  margin-bottom: 16px;
+}
+
+.group-section-title {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: rgba(228, 251, 255, 0.45);
+  text-align: left;
+  margin: 0 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(228, 251, 255, 0.1);
+}
+
+.group-key-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.group-key {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid rgba(228, 251, 255, 0.15);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(228, 251, 255, 0.65);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.group-key:hover { border-color: rgba(228, 251, 255, 0.4); }
+
+.group-key.filled {
+  border-color: rgba(110, 231, 110, 0.45);
+}
+
+.group-key.active {
+  background: rgba(228, 251, 255, 0.1);
+  border-color: #e4fbff;
+  color: #e4fbff;
+}
+
+.group-key-label {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.group-key-name {
+  font-size: 11px;
+  opacity: 0.7;
+}
 </style>
