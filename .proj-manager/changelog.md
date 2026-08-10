@@ -641,3 +641,15 @@ StoryView Stats tab 整合
 
 ### 憑證備忘
 - 對話中出現過 GitHub token 與 Gemini key 明碼，收尾時要提醒輪替
+
+---
+
+## [功能] - 2026-08-10 | commits db11995 → 79a03dd
+
+### 變更類型
+全站附加頁面文案皆可後台編輯（issue #20，feature-011）
+
+### 重點
+- `_page_meta/{key}` 覆寫層：只存改過欄位、退回內建預設、部署不影響已編輯內容
+- 涵蓋 molecules／molecule／particles／story 區塊標題／footer
+- 後台「頁面管理 → 內建頁面文案」編輯器，placeholder 即預設值，清空＝還原

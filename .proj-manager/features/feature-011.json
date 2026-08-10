@@ -1,0 +1,48 @@
+{
+ "feature_id": "feature-011",
+ "name": "內建頁面文案覆寫",
+ "description": "附加頁面（分子圖鑑、分子頁、基本粒子、元素頁區塊標題、頁尾）的標題與零碎文案可在後台編輯。_page_meta/{key} 只存改過的欄位，讀不到退回內建預設，部署更新不影響已編輯內容。",
+ "status": "completed",
+ "created_at": "2026-08-10T05:20:00Z",
+ "files": [
+  "backend/app/page_meta.py",
+  "backend/app/routes/admin.py",
+  "backend/app/routes/public.py",
+  "frontend/src/utils/pageMeta.js",
+  "frontend/src/store/pageMeta.js",
+  "frontend/src/views/MoleculesView.vue",
+  "frontend/src/views/MoleculeView.vue",
+  "frontend/src/views/ParticlesView.vue",
+  "frontend/src/components/GroupArchetype.vue",
+  "frontend/src/components/RelatedMolecules.vue",
+  "frontend/src/components/ElementGallery.vue",
+  "frontend/src/components/SiteFooter.vue",
+  "frontend/src/views/AdminView.vue"
+ ],
+ "dependencies": [],
+ "api_endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/page-meta",
+   "description": "公開；全部覆寫值一次回傳"
+  },
+  {
+   "method": "POST",
+   "path": "/api/admin/page-meta/<key>",
+   "description": "登入；整份覆寫該頁欄位，空值＝還原預設"
+  }
+ ],
+ "data_model": [
+  {
+   "name": "_page_meta/{key}",
+   "fields": [
+    "自由字串欄位（只存非空覆寫值）"
+   ]
+  }
+ ],
+ "notes": [
+  "欄位定義（label、預設值、multiline）集中在前端 utils/pageMeta.js；後端只做通用字串儲存，新頁面補 META_KEYS 一個 key 即可",
+  "編輯器整合在後台「頁面管理」區塊最下方，placeholder 顯示預設值",
+  "對應 issue #20，源自 #16 的討論"
+ ]
+}
