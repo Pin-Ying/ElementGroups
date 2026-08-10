@@ -126,6 +126,12 @@
               <label class="label">內容（Markdown）</label>
               <span class="label-row-actions">
                 <button
+                  v-if="editingBuiltinPage"
+                  class="ai-toggle"
+                  type="button"
+                  @click="reloadBuiltinTemplate"
+                >載入最新內建模板</button>
+                <button
                   v-if="ai.enabled"
                   class="ai-toggle"
                   type="button"
@@ -385,18 +391,21 @@
             設定後會顯示在該族每個元素的介紹頁。
           </p>
 
-          <div class="group-key-list">
-            <button
-              v-for="g in GROUP_INFO"
-              :key="g.key"
-              class="group-key"
-              type="button"
-              :class="{ active: groupForm.key === g.key, filled: groupHasContent(g.key) }"
-              @click="selectGroup(g.key)"
-            >
-              <span class="group-key-label">{{ g.label }}</span>
-              <span class="group-key-name">{{ g.name }}</span>
-            </button>
+          <div v-for="sec in GROUP_SECTIONS" :key="sec.title" class="group-section">
+            <p class="group-section-title">{{ sec.title }}</p>
+            <div class="group-key-list">
+              <button
+                v-for="g in sec.groups"
+                :key="g.key"
+                class="group-key"
+                type="button"
+                :class="{ active: groupForm.key === g.key, filled: groupHasContent(g.key) }"
+                @click="selectGroup(g.key)"
+              >
+                <span class="group-key-label">{{ g.label }}</span>
+                <span class="group-key-name">{{ g.name }}</span>
+              </button>
+            </div>
           </div>
 
           <form v-if="groupForm.key" @submit.prevent="handleSaveGroup">
@@ -861,6 +870,11 @@
                 <template v-if="storyText.trim()">，以及你目前已經寫的內容（AI 會延伸潤飾而不是整段重寫）</template>。
               </p>
 
+              <label class="ai-check">
+                <input type="checkbox" v-model="aiIncludeGroup" />
+                帶入主族形象設定（後台「主族形象」的共同設計特色）
+              </label>
+
               <label class="label ai-label">風格／方向（選填）</label>
               <input
                 class="input"
@@ -1107,7 +1121,7 @@ import FormulaBuilder from '../components/FormulaBuilder.vue'
 import { BUILTIN_PAGES } from '../utils/builtinPages'
 import { outerElectronCount } from '../utils/valence'
 import { parseFormula } from '../utils/formula'
-import { GROUP_INFO } from '../utils/elementGroups'
+import { GROUP_SECTIONS } from '../utils/elementGroups'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
 
@@ -1170,6 +1184,7 @@ export default {
         ? localStorage.getItem('adminSection')
         : 'story',
       loading: false,
+      bootstrapped: false,
       email: '',
       password: '',
       msg: '',
@@ -1199,7 +1214,7 @@ export default {
       platforms: PLATFORMS,
       FRAME_STYLES,
       GALLERY_MAX,
-      GROUP_INFO,
+      GROUP_SECTIONS,
       CATEGORY_PRESETS,
       NAV_POSITIONS,
       layerForm: { nucleus: '', name_img: '', electron_style: '', motion: 'orbit' },
@@ -1255,6 +1270,7 @@ export default {
       ai: { enabled: false, used: 0, limit: 0 },
       aiPanelOpen: false,
       aiDirection: '',
+      aiIncludeGroup: true,
       aiReference: '',
       aiSuggestion: '',
       aiLoading: false
@@ -1308,6 +1324,9 @@ export default {
       })
     },
     // 內建頁面中尚未存進資料庫的，提供一鍵載入
+    editingBuiltinPage() {
+      return !!BUILTIN_PAGES[this.pageForm.slug]
+    },
     importablePages() {
       const existing = new Set(this.pageList.map(p => p.slug))
       return Object.entries(BUILTIN_PAGES)
@@ -1330,14 +1349,16 @@ export default {
       return this.elementOptions.filter(o => o.hasImage).length
     }
   },
+  watch: {
+    // initAuth 是非同步的：硬重整 /admin 時 mounted 執行當下可能還沒完成登入檢查，
+    // 等狀態翻成已登入再補載，否則後台會顯示一片空資料（issue #13/#16 的元凶）
+    'authState.loggedIn'(loggedIn) {
+      if (loggedIn) this.bootstrap()
+    }
+  },
   async mounted() {
     if (this.authState.loggedIn) {
-      this.loading = true
-      try {
-        await this.loadAll()
-      } finally {
-        this.loading = false
-      }
+      await this.bootstrap()
     }
   },
   beforeUnmount() {
@@ -1345,6 +1366,16 @@ export default {
     this.revokeDefaultImgPreview()
   },
   methods: {
+    async bootstrap() {
+      if (this.bootstrapped) return
+      this.bootstrapped = true
+      this.loading = true
+      try {
+        await this.loadAll()
+      } finally {
+        this.loading = false
+      }
+    },
     loadAll() {
       return Promise.all([
         this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(),
@@ -1448,7 +1479,7 @@ export default {
       try {
         const result = await login(this.email, this.password)
         if (result.ok) {
-          await this.loadAll()
+          await this.bootstrap()
         } else {
           this.msg = result.message || 'Login failed'
         }
@@ -1841,6 +1872,14 @@ export default {
         console.error('Failed to load pages:', e)
       }
     },
+    reloadBuiltinTemplate() {
+      // 模板更新是選擇性的：只換編輯框的內容，按發布前不影響線上頁面。
+      // 這樣部署更新內建模板時，已編輯的版本不會被悄悄蓋掉（issue #16）
+      const b = BUILTIN_PAGES[this.pageForm.slug]
+      if (!b) return
+      this.pageForm.content = b.content
+      showToast('已載入最新內建模板到編輯框，按發布才會套用；不想要可以重新選取頁面還原', 'success')
+    },
     importBuiltin(slug) {
       const b = BUILTIN_PAGES[slug]
       if (!b) return
@@ -2026,7 +2065,8 @@ export default {
           symbol: this.selectedSymbol,
           draft: this.storyText,
           direction: this.aiDirection,
-          reference: this.aiReference
+          reference: this.aiReference,
+          include_group: this.aiIncludeGroup
         })
         this.aiSuggestion = res.data.suggestion || ''
         this.ai.used = res.data.used ?? this.ai.used
@@ -3745,5 +3785,20 @@ button.button:disabled {
   .layer-slot .input {
     font-size: 16px;
   }
+}
+
+.ai-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(228, 251, 255, 0.7);
+  margin: 6px 0 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ai-check input {
+  accent-color: #9d8cff;
 }
 </style>

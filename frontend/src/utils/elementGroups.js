@@ -23,6 +23,13 @@ export const GROUP_INFO = [
   { key: 'Actinides', label: '錒系', name: '' }
 ]
 
+// 後台選擇器用的分區：主族最常設定放最前面，副族與系列分開排
+export const GROUP_SECTIONS = [
+  { title: '主族（A 族）', groups: GROUP_INFO.filter(g => g.key.endsWith('A')) },
+  { title: '過渡與副族（B 族）', groups: GROUP_INFO.filter(g => g.key.endsWith('B')) },
+  { title: '獨立系列', groups: GROUP_INFO.filter(g => !g.key.endsWith('A') && !g.key.endsWith('B')) }
+]
+
 export function groupInfo(key) {
   return GROUP_INFO.find(g => g.key === key) || { key, label: key, name: '' }
 }

@@ -17,7 +17,7 @@ from app.pages import normalize_pages, serialize_page, normalize_slug, PAGES_NOD
 from app.molecules import normalize_molecules, serialize_molecule, normalize_slug as molecule_slug, MOLECULES_NODE
 from app.particles import normalize_particles, serialize_particle, normalize_slug as particle_slug, PARTICLES_NODE
 from app import pubchem
-from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, serialize_group
+from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, serialize_group, group_key_for, has_content as group_has_content
 from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app import ai
@@ -150,12 +150,27 @@ def story_suggest():
     if not element:
         return jsonify({"result": "failure", "message": f"找不到元素 {symbol}"}), 404
 
+    # 勾選帶入主族形象時，後端自己查該元素所屬族的設定（issue #16）
+    group_info = ""
+    if data.get("include_group"):
+        key = group_key_for(element.get("AtomicNumber"))
+        if key:
+            group = normalize_group(key, show_fdb(f"{GROUPS_NODE}/{key}"))
+            if group_has_content(group):
+                pieces = [f"所屬族：{key}"]
+                if group["name"]:
+                    pieces.append(f"形象名稱：{group['name']}")
+                if group["description"]:
+                    pieces.append(f"共同特色：{group['description']}")
+                group_info = "\n".join(pieces)
+
     try:
         text, used, limit = ai.generate_story(
             element,
             draft=(data.get("draft") or "").strip(),
             direction=(data.get("direction") or "").strip(),
             reference=(data.get("reference") or "").strip(),
+            group_info=group_info,
         )
         return jsonify({"result": "success", "suggestion": text, "used": used, "limit": limit})
     except Exception as e:

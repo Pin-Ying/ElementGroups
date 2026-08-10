@@ -49,7 +49,7 @@ def _increment_usage():
         print(f"Failed to update AI usage: {e}")
 
 
-def build_prompt(element, draft="", direction="", reference=""):
+def build_prompt(element, draft="", direction="", reference="", group_info=""):
     """組出給模型的提示。
 
     element 是 periodic_table 裡該元素的整筆資料，帶進去讓內容扣著這個
@@ -86,6 +86,14 @@ def build_prompt(element, draft="", direction="", reference=""):
         "- 內容必須符合上面的元素資料，不要杜撰數據",
         "- 只輸出故事內文，不要加標題、不要用 Markdown 語法、不要說明你在做什麼",
     ]
+
+    if group_info:
+        parts += [
+            "",
+            "這個元素所屬的族有整體的形象設定，撰寫時請自然地呼應這個形象"
+            "（不必逐字引用）：",
+            group_info,
+        ]
 
     if direction:
         parts += ["", f"額外的風格或方向要求：{direction}"]
@@ -213,7 +221,7 @@ def generate_page(topic, draft="", direction=""):
     return text, used + 1, limit
 
 
-def generate_story(element, draft="", direction="", reference=""):
+def generate_story(element, draft="", direction="", reference="", group_info=""):
     """產生故事建議。回傳 (內容, 今日已用, 上限)。"""
     if not is_enabled():
         raise RuntimeError("AI 功能未啟用")
@@ -225,7 +233,7 @@ def generate_story(element, draft="", direction="", reference=""):
     if settings.AI_PROVIDER != "gemini":
         raise RuntimeError(f"尚未支援的 AI_PROVIDER：{settings.AI_PROVIDER}")
 
-    prompt = build_prompt(element, draft=draft, direction=direction, reference=reference)
+    prompt = build_prompt(element, draft=draft, direction=direction, reference=reference, group_info=group_info)
     text = _call_gemini(prompt)
 
     _increment_usage()

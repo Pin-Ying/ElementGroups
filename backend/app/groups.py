@@ -58,3 +58,48 @@ def serialize_group(payload):
 def has_content(group):
     """判斷這個族是否已經設定過形象，前台只顯示有內容的族。"""
     return bool(group.get("name") or group.get("description") or group.get("img_data"))
+
+
+# 原子序 → 週期表欄位。與前端 periodicTableGroups.js 同一份對照，
+# 後端需要它在產生故事時自動帶入該元素所屬族的形象。
+_POSITION = {
+    1: (1, 1), 2: (1, 18), 3: (2, 1), 4: (2, 2), 5: (2, 13), 6: (2, 14), 7: (2, 15),
+    8: (2, 16), 9: (2, 17), 10: (2, 18), 11: (3, 1), 12: (3, 2), 13: (3, 13),
+    14: (3, 14), 15: (3, 15), 16: (3, 16), 17: (3, 17), 18: (3, 18),
+}
+for n in range(19, 37):
+    _POSITION[n] = (4, n - 18)
+for n in range(37, 55):
+    _POSITION[n] = (5, n - 36)
+_POSITION.update({55: (6, 1), 56: (6, 2)})
+for n in range(72, 87):
+    _POSITION[n] = (6, n - 68)
+_POSITION.update({87: (7, 1), 88: (7, 2)})
+for n in range(104, 119):
+    _POSITION[n] = (7, n - 100)
+for n in range(57, 72):
+    _POSITION[n] = (9, n - 54)
+for n in range(89, 104):
+    _POSITION[n] = (10, n - 86)
+
+_COL_LABEL = {
+    1: "1A", 2: "2A", 3: "3B", 4: "4B", 5: "5B", 6: "6B", 7: "7B",
+    8: "8B", 9: "9B", 10: "10B", 11: "1B", 12: "2B",
+    13: "3A", 14: "4A", 15: "5A", 16: "6A", 17: "7A", 18: "8A",
+}
+
+
+def group_key_for(atomic_number):
+    """由原子序取得所屬族的 key；對不到時回 None。"""
+    try:
+        pos = _POSITION.get(int(atomic_number))
+    except (TypeError, ValueError):
+        return None
+    if not pos:
+        return None
+    row, col = pos
+    if row == 9:
+        return "Lanthanides"
+    if row == 10:
+        return "Actinides"
+    return _COL_LABEL.get(col)

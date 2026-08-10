@@ -36,6 +36,11 @@
         <template v-if="storyText.trim()">，以及你目前已經寫的內容（AI 會延伸潤飾而不是整段重寫）</template>。
       </p>
 
+      <label class="ai-check">
+        <input type="checkbox" v-model="aiIncludeGroup" />
+        帶入主族形象設定（後台「主族形象」的共同設計特色）
+      </label>
+
       <label class="label ai-label">風格／方向（選填）</label>
       <input class="input" type="text" v-model="aiDirection" aria-label="風格或方向" />
 
@@ -118,6 +123,7 @@ export default {
       ai: { enabled: false, used: 0, limit: 0 },
       aiPanelOpen: false,
       aiDirection: '',
+      aiIncludeGroup: true,
       aiReference: '',
       aiSuggestion: '',
       aiLoading: false
@@ -224,7 +230,8 @@ export default {
           symbol: this.symbol,
           draft: this.storyText,
           direction: this.aiDirection,
-          reference: this.aiReference
+          reference: this.aiReference,
+          include_group: this.aiIncludeGroup
         })
         this.aiSuggestion = res.data.suggestion || ''
         this.ai.used = res.data.used ?? this.ai.used
@@ -495,5 +502,20 @@ export default {
   .input {
     font-size: 16px;
   }
+}
+
+.ai-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(228, 251, 255, 0.7);
+  margin: 6px 0 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ai-check input {
+  accent-color: #9d8cff;
 }
 </style>
