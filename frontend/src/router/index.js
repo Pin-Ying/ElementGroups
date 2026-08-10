@@ -23,7 +23,8 @@ const routes = [
     // 元素頁的「查看更多」會帶 ?element=Fe 篩選
     props: route => ({ element: route.query.element || '' })
   },
-  { path: '/molecule/:slug', name: 'Molecule', component: MoleculeView, props: true }
+  { path: '/molecule/:slug', name: 'Molecule', component: MoleculeView, props: true },
+  { path: '/particles', name: 'Particles', component: ParticlesView }
 ]
 
 const router = createRouter({
