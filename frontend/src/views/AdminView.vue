@@ -179,7 +179,7 @@
 
           <!-- ── 編輯：Markdown 頁面（自訂頁與內建頁共用） ── -->
           <template v-else>
-            <div class="section-head">
+            <div class="section-head section-head--sticky">
               <button class="button secondary" type="button" @click="backToList">← 返回列表</button>
               <p class="title is-4">{{ pageForm.original_slug || pageForm.slug ? `編輯頁面：${pageForm.title || pageForm.slug}` : '建立新頁面' }}</p>
               <!-- 動作只放這一組。加了區塊編輯器之後頁面很長，放在底部要一路
@@ -4870,6 +4870,20 @@ button.button:disabled {
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 6px;
+}
+
+/* 頁面編輯有區塊編輯器之後會很長，動作列黏在頁首（sticky，高 63px）
+   底下，捲到哪裡都按得到。負的左右外距＋補回內距，是為了讓背景蓋滿
+   整個 box 寬度，內容才不會從側邊透出來 */
+.section-head--sticky {
+  position: sticky;
+  top: 72px;
+  z-index: 20;
+  margin: -24px -28px 6px;
+  padding: 14px 28px;
+  background: rgba(14, 5, 26, 0.96);
+  border-bottom: 1px solid rgba(228, 251, 255, 0.1);
+  backdrop-filter: blur(4px);
 }
 
 /* 標題吃掉中間的空間，把動作按鈕推到兩端 */

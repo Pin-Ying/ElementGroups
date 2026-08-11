@@ -4,7 +4,7 @@
  "type": "bugfix",
  "scope": "frontend",
  "status": "applied",
- "description": "頁面編輯畫面出現兩顆「發布」按鈕（站長回報）",
+ "description": "頁面編輯畫面出現兩顆「發布」按鈕，且動作列捲動後會消失（站長回報）",
  "created_at": "2026-08-11T06:20:00Z",
  "created_by": "project-manager-skill",
  "impact_analysis": {
@@ -19,7 +19,7 @@
    {
     "path": "frontend/src/views/AdminView.vue",
     "change_type": "modified",
-    "diff_summary": "頂端 section-head 補上「存成草稿」，移除表單底部那組動作按鈕"
+    "diff_summary": "頂端 section-head 補上「存成草稿」、移除表單底部那組；再把該列改為 sticky 黏在頁首下方"
    }
   ]
  },
@@ -28,6 +28,11 @@
   "動作統一放頂端：頁面加了區塊編輯器後很長，放底部要一路捲下去才按得到",
   "頂端按鈕在 <form> 之外，都是 type=button 搭配 @click，不依賴表單送出",
   "實測兩顆都正常：存成草稿 → published false、發布 → published true，兩次的區塊都完整保留",
-  "教訓：重構把動作搬到新位置時，要順手確認舊位置那組有沒有留下"
+  "教訓：重構把動作搬到新位置時，要順手確認舊位置那組有沒有留下",
+  "第一次修只把按鈕搬到頂端就說「捲下去也按得到」，但那列並非 sticky，捲下去一樣看不到——站長立刻回報。已改為 position: sticky，top 72px（頁首是 sticky、高 63px）",
+  "祖先鏈（.box / .admin-content / .admin-layout）都沒有 overflow hidden，sticky 可以生效",
+  "負的左右外距 -28px 加上補回的內距，是為了讓黏住時的背景蓋滿整個 box 寬度，內容不會從側邊透出來",
+  "實測：6 個區塊、頁面高 3043px，捲到 1200px 時動作列停在 72px，三顆按鈕都還在",
+  "教訓：說「放上面就按得到」之前要先確認它真的固定得住，不然只是把問題換個位置"
  ]
 }
