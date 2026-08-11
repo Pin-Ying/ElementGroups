@@ -1,0 +1,45 @@
+{
+ "modification_id": "mod-019",
+ "feature_id": "feature-012",
+ "type": "enhancement",
+ "scope": "fullstack",
+ "status": "applied",
+ "description": "依 issue #23 回饋調整運動方式：移除靜止排開、新增跟隨鼠標、自由飄動改亮改快",
+ "created_at": "2026-08-11T05:45:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": true,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/layers.py",
+    "change_type": "modified",
+    "diff_summary": "MOTIONS 由 (orbit, free, static) 改為 (orbit, free, follow)"
+   },
+   {
+    "path": "frontend/src/components/ElementLayers.vue",
+    "change_type": "modified",
+    "diff_summary": "移除 static 分支與 CSS；新增 offscreen computed 與 follow 的 rAF 跟隨；自由飄動的透明度與週期調整"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "motionOptions 更新"
+   }
+  ]
+ },
+ "root_cause": "站長在 issue #23 回饋：靜止排開沒有存在感、想要跟隨鼠標的效果、自由飄動太淡太慢。",
+ "notes": [
+  "移除 static 不需要資料搬遷：normalize_motion 對不認得的值一律退回 orbit，已實測 static/garbage/None 都回 orbit",
+  "跟隨鼠標用 pointermove + requestAnimationFrame，每顆電子的 ease 不同（0.16 遞減 0.014）才會拖出尾巴。第一幀先把所有電子放到指標位置，否則會從左上角飛過來",
+  "只有 follow 模式才掛監聽與跑 rAF，其餘模式維持純 CSS；beforeUnmount 與切換模式時都會 stopFollow",
+  "free 與 follow 共用 Teleport 到 body 的那一層，用 offscreen computed 判斷",
+  "自由飄動參數：透明度下限 0.55→0.82（實測最低 0.84），週期 38~72s→17~32s（實測 20~27s）",
+  "實測跟隨：指標從右下移到左上，電子跟過去；持續繞圈移動時頭尾距離 60px，確認有拖尾"
+ ]
+}

@@ -3,7 +3,7 @@
   <div class="layers" :class="'layers--' + motion" :style="{ background: bgColor, ...layerVars }">
     <img class="layer layer--nucleus" :src="nucleus" alt="" />
 
-    <div v-if="electronImg && count && motion !== 'free'" class="electrons">
+    <div v-if="electronImg && count && !offscreen" class="electrons">
       <span
         v-for="(e, i) in orbits"
         :key="i"
@@ -18,12 +18,13 @@
     <img v-if="nameImg" class="layer layer--name" :src="nameImg" alt="" />
   </div>
 
-  <!-- 自由飄動不受圖框限制，整頁都是電子的活動範圍，所以掛到 body 上 -->
-  <Teleport v-if="motion === 'free' && electronImg && count" to="body">
-    <div class="free-field" aria-hidden="true">
+  <!-- 自由飄動與跟隨鼠標都不受圖框限制，整頁都是電子的活動範圍，掛到 body 上 -->
+  <Teleport v-if="offscreen && electronImg && count" to="body">
+    <div class="free-field" :class="'free-field--' + motion" aria-hidden="true">
       <span
         v-for="(e, i) in wanderers"
         :key="i"
+        ref="freeEls"
         class="free-electron"
         :style="e.style"
       >
@@ -87,7 +88,7 @@ export default {
     electronImg: { type: String, default: '' },
     // 最外層電子數，決定要放幾顆
     count: { type: Number, default: 0 },
-    // orbit：分層繞著原子核／free：在整個網頁飄／static：均勻排開不動
+    // orbit：分層繞著原子核／free：在整個網頁飄／follow：跟著滑鼠跑
     motion: { type: String, default: 'orbit' },
     // 電子寬度佔容器的百分比，可在後台調整
     size: { type: Number, default: 24 },
@@ -99,6 +100,10 @@ export default {
     bgColor: { type: String, default: '#ffffff' }
   },
   computed: {
+    // 這兩種模式的電子不在圖框裡，而是掛在 body 上跑整頁
+    offscreen() {
+      return this.motion === 'free' || this.motion === 'follow'
+    },
     // 電子多的時候略為縮小，避免彼此重疊
     electronSize() {
       const base = Math.min(Math.max(this.size || 24, 6), 45)
@@ -120,17 +125,6 @@ export default {
         const shape = ORBITAL_SHAPES[type] || ORBITAL_SHAPES.s
         // 同一軌域內第幾顆，用來挑選該軌域的不同方向
         const k = this.orbitals.slice(0, i).filter(o => o.type === type).length
-
-        // 靜止模式是「排開」，角度平均分散就好，不需要軌域的幾何變化
-        if (this.motion === 'static') {
-          return {
-            orbitalType: type,
-            style: {
-              '--angle': `${(360 / n) * i + (offset % 37)}deg`,
-              '--radius': orbitRadius(38 + (offset % 4), this.electronSize)
-            }
-          }
-        }
 
         // 繞行：把電子分配到不同軌道層，層與層之間半徑與遠近對比都拉開
         const layer = ORBIT_LAYERS[i % ORBIT_LAYERS.length]
@@ -162,9 +156,10 @@ export default {
         }
       })
     },
-    // 自由飄動：每顆電子在整個視窗裡沿自己的路徑漫遊
+    // 掛在 body 上的電子。free 走預先算好的路徑（純 CSS），
+    // follow 只需要尺寸與跟隨的靈敏度，位置由 rAF 每幀寫進 transform
     wanderers() {
-      if (this.motion !== 'free') return []
+      if (!this.offscreen) return []
 
       const rand = seededRandom(symbolSeed(this.seed) + 13)
 
@@ -176,18 +171,75 @@ export default {
           waypoints[`--y${w}`] = `${Math.round(rand() * 84 + 8)}vh`
         }
 
+        // 每顆的跟隨速度不同才會拖出尾巴；愈後面的愈慢
+        this._ease = this._ease || []
+        this._ease[i] = 0.16 - i * 0.014
+
         return {
           style: {
             ...waypoints,
             '--size': `${(4.5 + rand() * 3).toFixed(1)}vmin`,
-            // 慢一點才像飄，太快會變成滿版亂竄
-            '--duration': `${Math.round(38 + rand() * 34)}s`,
-            '--spin': `${Math.round(14 + rand() * 16)}s`,
-            '--delay': `${-Math.round(rand() * 30)}s`,
-            '--fade': (0.55 + rand() * 0.35).toFixed(2)
+            // 原本 38~72s 太慢、看起來像沒在動；縮到約一半
+            '--duration': `${Math.round(17 + rand() * 15)}s`,
+            '--spin': `${Math.round(9 + rand() * 10)}s`,
+            '--delay': `${-Math.round(rand() * 20)}s`,
+            // 原本最低 0.55 太淡，幾乎看不見
+            '--fade': (0.82 + rand() * 0.18).toFixed(2)
           }
         }
       })
+    }
+  },
+  watch: {
+    motion: {
+      immediate: true,
+      handler(value) {
+        // 只有跟隨模式需要監聽滑鼠與跑 rAF，其餘模式純 CSS 就夠
+        this.$nextTick(() => (value === 'follow' ? this.startFollow() : this.stopFollow()))
+      }
+    }
+  },
+  beforeUnmount() {
+    this.stopFollow()
+  },
+  methods: {
+    startFollow() {
+      if (this._followRaf) return
+
+      // 從畫面中央開始，滑鼠還沒動過也不會全部擠在角落
+      this._pointer = { x: innerWidth / 2, y: innerHeight / 2 }
+      this._positions = null
+
+      this._onPointerMove = e => {
+        this._pointer.x = e.clientX
+        this._pointer.y = e.clientY
+      }
+      window.addEventListener('pointermove', this._onPointerMove, { passive: true })
+
+      const step = () => {
+        const els = this.$refs.freeEls
+        if (els && els.length) {
+          // 第一幀先讓所有電子落在指標上，否則會從左上角飛過來
+          if (!this._positions || this._positions.length !== els.length) {
+            this._positions = els.map(() => ({ ...this._pointer }))
+          }
+          els.forEach((el, i) => {
+            const pos = this._positions[i]
+            const ease = (this._ease && this._ease[i]) || 0.1
+            pos.x += (this._pointer.x - pos.x) * ease
+            pos.y += (this._pointer.y - pos.y) * ease
+            el.style.transform = `translate(${pos.x}px, ${pos.y}px)`
+          })
+        }
+        this._followRaf = requestAnimationFrame(step)
+      }
+      this._followRaf = requestAnimationFrame(step)
+    },
+    stopFollow() {
+      if (this._followRaf) cancelAnimationFrame(this._followRaf)
+      this._followRaf = null
+      if (this._onPointerMove) window.removeEventListener('pointermove', this._onPointerMove)
+      this._onPointerMove = null
     }
   }
 }
@@ -287,12 +339,6 @@ export default {
   50%      { transform: scale(1); }
 }
 
-/* ── 靜止排開：等角度均分，彼此距離最遠，完全不動 ── */
-.layers--static .electron {
-  z-index: 2;
-  transform: rotate(var(--angle)) translateX(var(--radius, 225%)) rotate(calc(-1 * var(--angle)));
-}
-
 @media (prefers-reduced-motion: reduce) {
   .electron,
   .electron img { animation: none !important; }
@@ -329,6 +375,12 @@ export default {
   animation: wander var(--duration, 45s) ease-in-out infinite;
   animation-delay: var(--delay, 0s);
   will-change: transform;
+}
+
+/* 跟隨模式的位置由 JS 每幀寫進 transform，不能讓 CSS 動畫搶著改 */
+.free-field--follow .free-electron {
+  animation: none;
+  transition: none;
 }
 
 .free-electron img {

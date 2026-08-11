@@ -24,7 +24,9 @@ ELECTRON_DEFAULT_NODE = "_electron_default"
 # 全站電子運動方式
 MOTION_NODE = "_motion"
 
-MOTIONS = ("orbit", "free", "static")
+# 「靜止排開」移除了：實際看起來沒有存在感，站長也判斷不需要。
+# 舊資料存著 static 時 normalize_motion 會自動退回預設，不必特別處理。
+MOTIONS = ("orbit", "free", "follow")
 DEFAULT_MOTION = "orbit"
 
 

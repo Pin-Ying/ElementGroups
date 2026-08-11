@@ -1546,8 +1546,8 @@ export default {
       motionSaving: false,
       motionOptions: [
         { value: 'orbit', label: '繞著原子核', desc: '分層繞行，會轉到原子核前後，有遠近景深' },
-        { value: 'free', label: '自由飄動', desc: '電子脫離圖框，在整個網頁裡緩慢漫遊' },
-        { value: 'static', label: '靜止排開', desc: '等角度均分、彼此距離最遠，完全不動' }
+        { value: 'free', label: '自由飄動', desc: '電子脫離圖框，在整個網頁裡漫遊' },
+        { value: 'follow', label: '跟隨鼠標', desc: '電子跟著滑鼠跑，前後快慢不同會拖出尾巴' }
       ],
       pageList: [],
       SYSTEM_PAGES,
