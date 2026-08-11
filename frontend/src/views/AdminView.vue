@@ -179,18 +179,15 @@
 
           <!-- ── 編輯：Markdown 頁面（自訂頁與內建頁共用） ── -->
           <template v-else>
-            <div class="section-head section-head--sticky">
-              <button class="button secondary" type="button" @click="backToList">← 返回列表</button>
-              <p class="title is-4">{{ pageForm.original_slug || pageForm.slug ? `編輯頁面：${pageForm.title || pageForm.slug}` : '建立新頁面' }}</p>
-              <!-- 動作只放這一組。加了區塊編輯器之後頁面很長，放在底部要一路
-                   捲下去才按得到，而且會和上面這顆重複 -->
-              <button class="button secondary" type="button" :disabled="pageSaving" @click="saveAsDraft">
-                存成草稿
-              </button>
+            <AdminBar :title="pageForm.original_slug || pageForm.slug ? `編輯頁面：${pageForm.title || pageForm.slug}` : '建立新頁面'">
+              <template #lead>
+                <button class="button secondary" type="button" @click="backToList">← 返回列表</button>
+              </template>
+              <button class="button secondary" type="button" :disabled="pageSaving" @click="saveAsDraft">存成草稿</button>
               <button class="button" type="button" :disabled="pageSaving" @click="publishPage">
                 {{ pageSaving ? 'Saving…' : '發布' }}
               </button>
-            </div>
+            </AdminBar>
 
             <p v-if="editingBuiltinPage" class="desc">
               這是內建頁面，網址固定為 {{ '/' + pageForm.slug }}，也不會出現在導覽列。<br>
@@ -419,7 +416,12 @@
 
         <!-- Molecules -->
         <div v-if="section === 'molecules'" class="box">
-          <p class="title is-4">MOLECULES</p>
+          <AdminBar title="MOLECULES">
+            <button class="button secondary" type="button" :disabled="moleculeSaving" @click="saveMoleculeDraft">存成草稿</button>
+            <button class="button" type="button" :disabled="moleculeSaving" @click="publishMolecule">
+              {{ moleculeSaving ? 'Saving…' : '發布' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             用下面的建構器點選元素拼出分子式，再向 PubChem 查詢自動帶入分子量與 IUPAC 名稱。<br>
             網址代稱取自 IUPAC 名稱；查不到的分子也可以手動填寫後儲存。
@@ -571,12 +573,6 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="submit" :disabled="moleculeSaving" @click="moleculeForm.published = true">
-                {{ moleculeSaving ? 'Saving…' : '發布' }}
-              </button>
-              <button class="button secondary" type="button" :disabled="moleculeSaving" @click="saveMoleculeDraft">
-                存成草稿
-              </button>
               <button
                 v-if="moleculeForm.original_slug"
                 class="button secondary"
@@ -590,7 +586,11 @@
 
         <!-- Element Groups（主族形象） -->
         <div v-if="section === 'groups'" class="box">
-          <p class="title is-4">ELEMENT GROUPS</p>
+          <AdminBar title="ELEMENT GROUPS">
+            <button v-if="groupForm.key" class="button" type="button" :disabled="groupSaving" @click="handleSaveGroup">
+              {{ groupSaving ? 'Saving…' : '儲存形象' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             同族元素性質相近，可以共用一套設計形象（例如 7A 鹵素是型態不穩定的獵食鳥類、
             8A 惰性氣體是圓胖胖的穩定物種）。<br>
@@ -651,9 +651,6 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="submit" :disabled="groupSaving">
-                {{ groupSaving ? 'Saving…' : '儲存形象' }}
-              </button>
               <span class="ai-quota">{{ groupElements(groupForm.key) }}</span>
             </div>
           </form>
@@ -661,7 +658,12 @@
 
         <!-- Particles（基本粒子形象） -->
         <div v-if="section === 'particles'" class="box">
-          <p class="title is-4">PARTICLES</p>
+          <AdminBar title="PARTICLES">
+            <button class="button secondary" type="button" :disabled="particleSaving" @click="saveParticleDraft">存成草稿</button>
+            <button class="button" type="button" :disabled="particleSaving" @click="publishParticle">
+              {{ particleSaving ? 'Saving…' : '發布' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             電子、質子、中子這些基本粒子的形象設定，會呈現在前台的「基本粒子」頁。<br>
             可自由新增其他粒子（光子、夸克⋯），用排序控制先後。
@@ -753,12 +755,6 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="submit" :disabled="particleSaving" @click="particleForm.published = true">
-                {{ particleSaving ? 'Saving…' : '發布' }}
-              </button>
-              <button class="button secondary" type="button" :disabled="particleSaving" @click="saveParticleDraft">
-                存成草稿
-              </button>
               <button
                 v-if="particleForm.original_slug"
                 class="button secondary"
@@ -772,7 +768,11 @@
 
         <!-- Site Settings -->
         <div v-if="section === 'site'" class="box">
-          <p class="title is-4">SITE SETTINGS</p>
+          <AdminBar title="SITE SETTINGS">
+            <button class="button" type="button" :disabled="siteSaving" @click="handleUpdateSiteSettings">
+              {{ siteSaving ? 'Saving…' : '儲存' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             網站層級的基本資料。標題與副標題會顯示在每一頁的左上角，
             描述用於搜尋引擎與分享連結時的摘要；留空則沿用系統預設文案。
@@ -853,9 +853,6 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="submit" :disabled="siteSaving">
-                {{ siteSaving ? 'Saving…' : 'Save' }}
-              </button>
               <button
                 v-if="siteBgCurrent"
                 class="button secondary"
@@ -879,7 +876,7 @@
         <!-- 圖層素材：全站共用的素材與設定。原本電子樣式另外養一套圖，
              但「基本粒子」本來就是可自由新增的粒子形象庫，改成直接引用它 -->
         <div v-if="section === 'electrons'" class="box">
-          <p class="title is-4">LAYER ASSETS</p>
+          <AdminBar title="LAYER ASSETS" />
           <p class="desc">
             全站共用的素材與設定。電子的畫法可以套用到任何元素，所以集中管理在這裡；<br>
             設一個<strong>預設</strong>之後，沒有另外指定的元素都會自動使用它。<br>
@@ -1000,10 +997,15 @@
         <!-- 圖庫管理：通用的一組圖，透過 bind_type 決定能用在哪一類東西上。
              要讓新的東西也能有圖庫，只在後端 BINDABLE_TYPES 加一筆即可 -->
         <div v-if="section === 'libraries'" class="box">
-          <div class="section-head">
-            <p class="title is-4">IMAGE LIBRARIES</p>
-            <button class="button" type="button" @click="newLibrary">＋ 建立圖庫</button>
-          </div>
+          <AdminBar title="IMAGE LIBRARIES">
+            <template v-if="libraryForm">
+              <button class="button secondary" type="button" @click="libraryForm = null">取消</button>
+              <button class="button" type="button" :disabled="librarySaving" @click="handleSaveLibrary">
+                {{ librarySaving ? 'Saving…' : '儲存圖庫' }}
+              </button>
+            </template>
+            <button v-else class="button" type="button" @click="newLibrary">＋ 建立圖庫</button>
+          </AdminBar>
           <p class="desc">
             一個圖庫是一組圖，綁在某個對象上（基本粒子、元素、主族、分子，或不綁對象的全站圖庫）。<br>
             綁定類型決定這個圖庫將來能用在哪裡，之後要開放新的對象類型不必再做一套介面。
@@ -1093,18 +1095,16 @@
               @change="onLibraryImages"
             />
 
-            <div class="link-actions">
-              <button class="button" type="submit" :disabled="librarySaving">
-                {{ librarySaving ? 'Saving…' : '儲存圖庫' }}
-              </button>
-              <button class="button secondary" type="button" @click="libraryForm = null">取消</button>
-            </div>
           </form>
         </div>
 
         <!-- Creator Links -->
         <div v-if="section === 'links'" class="box">
-          <p class="title is-4">CREATOR LINKS</p>
+          <AdminBar title="CREATOR LINKS">
+            <button class="button" type="button" :disabled="creatorLinksSaving" @click="handleUpdateCreatorLinks">
+              {{ creatorLinksSaving ? 'Saving…' : '儲存' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             設定要對外顯示的社群連結，數量不限。<br>
             儲存後會出現在每一頁最下方的頁尾，以及 /links 頁面；網址留空的項目會被忽略。<br>
@@ -1191,16 +1191,16 @@
 
             <div class="link-actions">
               <button class="button secondary" type="button" @click="addLink">＋ 新增連結</button>
-              <button class="button" type="submit" :disabled="creatorLinksSaving">
-                {{ creatorLinksSaving ? 'Saving…' : 'Save' }}
-              </button>
             </div>
           </form>
         </div>
 
         <!-- Update Story -->
         <div v-if="section === 'story'" class="box">
-          <p class="title is-4">UPDATE STORY</p>
+          <AdminBar title="UPDATE STORY">
+            <button class="button secondary" type="button" :disabled="loading" @click="handleSaveStoryDraft">存成草稿</button>
+            <button class="button" type="button" :disabled="loading" @click="handleUpdateStory">發布</button>
+          </AdminBar>
           <p class="desc">
             編輯單一元素的故事內容與代表圖片。<br>
             選擇元素後，Story 的文字會顯示在前台該元素的介紹頁（/stroy/{{ selectedSymbol || 'Symbol' }}），
@@ -1309,12 +1309,6 @@
               <button class="draft-link" type="button" @click="loadPublished">改看已發布內容</button>
             </div>
 
-            <div class="link-actions">
-              <button class="button" type="submit" :disabled="loading">發布</button>
-              <button class="button secondary" type="button" :disabled="loading" @click="handleSaveStoryDraft">
-                存成草稿
-              </button>
-            </div>
           </form>
 
           <!-- 圖片分層 -->
@@ -1507,6 +1501,7 @@ import { GROUP_SECTIONS } from '../utils/elementGroups'
 import { metaDef as pageMetaDef, NAV_POSITIONS } from '../utils/pageMeta'
 import { PAGE_BLOCKS, blockType, emptyBlock, emptyItem, blocksFrom } from '../utils/blockTypes'
 import PageBlocks from '../components/PageBlocks.vue'
+import AdminBar from '../components/AdminBar.vue'
 import { refreshPageMeta } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
@@ -1572,7 +1567,7 @@ const SECTIONS = [
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
-  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, FormulaBuilder },
+  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, FormulaBuilder },
   data() {
     return {
       authState,
@@ -2162,6 +2157,10 @@ export default {
         showToast(err.message || '圖片處理失敗', 'error')
       }
     },
+    async publishParticle() {
+      this.particleForm.published = true
+      await this.handleSaveParticle()
+    },
     async saveParticleDraft() {
       this.particleForm.published = false
       await this.handleSaveParticle()
@@ -2346,6 +2345,10 @@ export default {
       } catch (err) {
         showToast(err.message || '圖片處理失敗', 'error')
       }
+    },
+    async publishMolecule() {
+      this.moleculeForm.published = true
+      await this.handleSaveMolecule()
     },
     async saveMoleculeDraft() {
       this.moleculeForm.published = false
