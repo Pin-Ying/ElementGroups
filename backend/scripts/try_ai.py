@@ -106,12 +106,22 @@ def main():
         )
         return 1
 
-    print(f"── 模型：{settings.AI_MODEL} ──", file=sys.stderr)
+    print(f"── 模型：{settings.AI_MODEL} ──", file=sys.stderr, flush=True)
     text = call_gemini(prompt)
 
-    # 這幾項就是要看的：有沒有被 ``` 包起來、有沒有多餘換行、實際多長
-    print(f"── 輸出（{len(text)} 字，{text.count(chr(10)) + 1} 行）──", file=sys.stderr)
-    print(text)
+    # 正文走 stdout，統計走 stderr，這樣 `> out.txt` 拿到的是乾淨的內容。
+    # 統計印在正文之後：docker 把兩個串流分開送，先印也不保證先出現，
+    # 固定放後面至少順序是確定的
+    print(text, flush=True)
+
+    fenced = text.startswith("```")
+    quoted = len(text) > 1 and text[0] in "\"'「『" and text[-1] in "\"'」』"
+    flags = ("，被 ``` 包住" if fenced else "") + ("，被引號包住" if quoted else "")
+    print(
+        f"── 以上 {len(text)} 字，{text.count(chr(10)) + 1} 行{flags} ──",
+        file=sys.stderr,
+        flush=True,
+    )
     return 0
 
 

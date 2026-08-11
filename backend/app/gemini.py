@@ -60,7 +60,7 @@ def call_gemini(prompt):
         if finish_reason == "MAX_TOKENS":
             raise RuntimeError(
                 "AI 的輸出額度用在思考過程上，沒有產生正文。"
-                "請調高 AI_MAX_OUTPUT_TOKENS，或改用非思考型模型（例如 gemini-2.0-flash）"
+                "請調高 AI_MAX_OUTPUT_TOKENS，或改用非思考型模型"
             )
         raise RuntimeError(f"AI 回傳了空白內容（finishReason: {finish_reason or '未知'}）")
 
