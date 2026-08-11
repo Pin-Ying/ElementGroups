@@ -9,17 +9,17 @@
 
 import datetime
 
-import requests
-
 from app.config import settings
 from app.firebase import fdb
+from app.gemini import call_gemini
+from app.prompts import (
+    build_group_prompt,
+    build_page_prompt,
+    build_prompt,
+    build_seo_prompt,
+)
 
 USAGE_NODE = "_ai_usage"
-REQUEST_TIMEOUT = 30
-
-GEMINI_ENDPOINT = (
-    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-)
 
 
 def is_enabled():
@@ -47,228 +47,6 @@ def _increment_usage():
         fdb.child(USAGE_NODE).child(key).set(int(used) + 1)
     except Exception as e:
         print(f"Failed to update AI usage: {e}")
-
-
-def build_prompt(element, draft="", direction="", reference="", group_info=""):
-    """組出給模型的提示。
-
-    element 是 periodic_table 裡該元素的整筆資料，帶進去讓內容扣著這個
-    元素講，而不是產生放諸四海皆準的空泛文字。
-    """
-    facts = []
-    for label, key in [
-        ("名稱", "Name"),
-        ("符號", "Symbol"),
-        ("原子序", "AtomicNumber"),
-        ("原子量", "AtomicMass"),
-        ("分類", "GroupBlock"),
-        ("常溫狀態", "StandardState"),
-        ("電子組態", "ElectronConfiguration"),
-        ("常見氧化態", "OxidationStates"),
-        ("發現年份", "YearDiscovered"),
-        ("熔點(K)", "MeltingPoint"),
-        ("沸點(K)", "BoilingPoint"),
-    ]:
-        value = element.get(key)
-        if value:
-            facts.append(f"- {label}：{value}")
-
-    parts = [
-        "你是一個科普網站的編輯，正在替元素週期表的每個元素撰寫簡短的介紹故事。",
-        "",
-        "請根據以下元素資料撰寫：",
-        "\n".join(facts),
-        "",
-        "撰寫要求：",
-        "- 使用繁體中文",
-        "- 200 到 300 字，分成 2 至 3 段",
-        "- 語氣親切、適合一般讀者，可以帶入生活中的例子或有趣的歷史",
-        "- 內容必須符合上面的元素資料，不要杜撰數據",
-        "- 只輸出故事內文，不要加標題、不要用 Markdown 語法、不要說明你在做什麼",
-    ]
-
-    if group_info:
-        parts += [
-            "",
-            "這個元素所屬的族有整體的形象設定，撰寫時請自然地呼應這個形象"
-            "（不必逐字引用）：",
-            group_info,
-        ]
-
-    if direction:
-        parts += ["", f"額外的風格或方向要求：{direction}"]
-
-    if reference:
-        parts += ["", "請參考以下補充資料：", reference]
-
-    if draft:
-        parts += [
-            "",
-            "使用者目前已經寫了以下內容，請在保留原意與既有語氣的前提下延伸或潤飾，"
-            "不要整段捨棄重寫：",
-            draft,
-        ]
-
-    return "\n".join(parts)
-
-
-def _call_gemini(prompt):
-    url = GEMINI_ENDPOINT.format(model=settings.AI_MODEL)
-    response = requests.post(
-        url,
-        params={"key": settings.AI_API_KEY},
-        json={
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.9,
-                # 一段 300 字的中文約 400~600 tokens，但具備思考能力的模型
-                # 會先花掉一部分預算，額度抓寬一點才不會把正文切斷
-                "maxOutputTokens": settings.AI_MAX_OUTPUT_TOKENS,
-            },
-        },
-        timeout=REQUEST_TIMEOUT,
-    )
-
-    if response.status_code != 200:
-        detail = ""
-        try:
-            detail = response.json().get("error", {}).get("message", "")
-        except Exception:
-            detail = response.text[:200]
-        raise RuntimeError(f"Gemini API 回應 {response.status_code}：{detail}")
-
-    data = response.json()
-    candidates = data.get("candidates") or []
-    if not candidates:
-        # 例如被安全設定擋下時不會有 candidates
-        reason = data.get("promptFeedback", {}).get("blockReason", "沒有回傳內容")
-        raise RuntimeError(f"AI 沒有產生內容（{reason}）")
-
-    candidate = candidates[0]
-    parts = candidate.get("content", {}).get("parts") or []
-    # 具備思考能力的模型會把思考過程也放在 parts 裡並標記 thought=True，
-    # 那不是要給使用者看的內容，必須濾掉，否則會拼出前後不連貫的段落
-    text = "".join(
-        p.get("text", "") for p in parts if not p.get("thought")
-    ).strip()
-
-    finish_reason = candidate.get("finishReason", "")
-    if not text:
-        if finish_reason == "MAX_TOKENS":
-            raise RuntimeError(
-                "AI 的輸出額度用在思考過程上，沒有產生正文。"
-                "請調高 AI_MAX_OUTPUT_TOKENS，或改用非思考型模型（例如 gemini-2.0-flash）"
-            )
-        raise RuntimeError(f"AI 回傳了空白內容（finishReason: {finish_reason or '未知'}）")
-
-    if finish_reason == "MAX_TOKENS":
-        raise RuntimeError(
-            f"AI 回應在寫完之前就達到輸出上限（目前 {settings.AI_MAX_OUTPUT_TOKENS} tokens），"
-            "內容不完整。請調高 AI_MAX_OUTPUT_TOKENS 後重試"
-        )
-
-    return text
-
-
-def build_page_prompt(topic, draft="", direction=""):
-    """頁面內容的提示。與元素故事不同：輸出 Markdown，並支援本站自訂區塊。"""
-    parts = [
-        "你是一個元素週期表科普網站的編輯，正在撰寫網站的說明頁面。",
-        "",
-        f"頁面主題：{topic}",
-        "",
-        "撰寫要求：",
-        "- 使用繁體中文",
-        "- 使用 Markdown 語法（# 標題、**粗體**、- 清單、--- 分隔線）",
-        "- 本站另外支援三種區塊語法，適合時可以使用：",
-        "  :::cards 區塊：每個 ### 標題一張卡片，標題可用 | 分隔附註，適合並列的名詞解釋",
-        "  :::note 區塊：提示或補充說明",
-        "  （以 ::: 開始、以 ::: 結尾）",
-        "- 內容正確、語氣親切、適合一般讀者",
-        "- 只輸出頁面內文，不要說明你在做什麼",
-    ]
-
-    if direction:
-        parts += ["", f"額外的風格或方向要求：{direction}"]
-
-    if draft:
-        parts += [
-            "",
-            "使用者目前已經寫了以下內容，請在保留原意與既有結構的前提下延伸或潤飾，"
-            "不要整段捨棄重寫：",
-            draft,
-        ]
-
-    return "\n".join(parts)
-
-
-def build_group_prompt(key, elements, name="", draft="", direction=""):
-    """主族形象的提示。創作型：要產生的是同族共用的設計特色，不是化學知識。"""
-    parts = [
-        "你是一個元素週期表科普網站的美術設定，正在為週期表的一個族設計共同形象。",
-        "這個站把每個元素當成有個性的角色，同一族的角色共享一組設計語彙。",
-        "",
-        f"族：{key}",
-    ]
-
-    if elements:
-        parts.append(f"這一族的元素：{elements}")
-    if name:
-        parts.append(f"站長已經定的形象名稱：{name}")
-
-    parts += [
-        "",
-        "撰寫要求：",
-        "- 使用繁體中文，寫成一段連貫的說明，不要條列",
-        "- 內容是「共同的設計特色」：外型輪廓、配色傾向、氣質、常見配件之類",
-        "- 可以呼應這一族真實的化學性質（活性、價電子、常見用途），但重點是形象",
-        "- 三到五句，讓站長之後畫每個元素時有依據",
-        "- 只輸出這段說明，不要說明你在做什麼",
-    ]
-
-    if direction:
-        parts += ["", f"額外的風格或方向要求：{direction}"]
-
-    if draft:
-        parts += [
-            "",
-            "站長目前已經寫了以下設定，請在保留原意的前提下延伸或潤飾，不要整段捨棄重寫：",
-            draft,
-        ]
-
-    return "\n".join(parts)
-
-
-def build_seo_prompt(title, content, draft="", direction=""):
-    """頁面 SEO 描述的提示。摘要型：從既有內容濃縮，不要自己發明。"""
-    parts = [
-        "你是一個元素週期表科普網站的編輯，正在為一個頁面寫搜尋結果會顯示的描述。",
-        "",
-        f"頁面標題：{title}",
-    ]
-
-    if content:
-        parts += ["", "頁面內容：", content]
-    else:
-        parts += ["", "（這個頁面還沒有內容，請只依標題推測這頁在講什麼。）"]
-
-    parts += [
-        "",
-        "撰寫要求：",
-        "- 使用繁體中文，一句話，不超過 70 個字",
-        "- 說明這一頁在講什麼，讓人在搜尋結果看到就知道要不要點進來",
-        "- 只根據上面的內容濃縮，不要自己補沒提到的事",
-        "- 純文字，不要 Markdown、不要引號、不要換行",
-        "- 只輸出這一句描述，不要說明你在做什麼",
-    ]
-
-    if direction:
-        parts += ["", f"額外的風格或方向要求：{direction}"]
-
-    if draft:
-        parts += ["", "站長目前寫的版本（請在此基礎上改寫）：", draft]
-
-    return "\n".join(parts)
 
 
 # ── 建議用途的註冊表 ──────────────────────────────────────────────
@@ -379,6 +157,6 @@ def suggest(kind, context=None, draft="", direction=""):
     if settings.AI_PROVIDER != "gemini":
         raise RuntimeError(f"尚未支援的 AI_PROVIDER：{settings.AI_PROVIDER}")
 
-    text = _call_gemini(builder(context or {}, draft, direction))
+    text = call_gemini(builder(context or {}, draft, direction))
     _increment_usage()
     return text, used + 1, limit
