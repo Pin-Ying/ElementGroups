@@ -39,9 +39,13 @@ from app.config import settings  # noqa: E402
 from app.gemini import call_gemini  # noqa: E402
 from app.prompts import (  # noqa: E402
     build_group_prompt,
+    build_molecule_prompt,
     build_page_prompt,
+    build_particle_intro_prompt,
+    build_particle_title_prompt,
     build_prompt,
     build_seo_prompt,
+    build_site_description_prompt,
 )
 
 # 示範用的 context。element-story 在正式流程裡是後端自己去 Firebase 撈
@@ -67,6 +71,29 @@ SAMPLES = {
         "7A",
         elements="F、Cl、Br、I、At、Ts",
         name="鹵素獵食鳥",
+        draft=draft,
+        direction=direction,
+    ),
+    "particle-title": lambda draft, direction: build_particle_title_prompt(
+        "光子", description="", draft=draft, direction=direction
+    ),
+    "particle-intro": lambda draft, direction: build_particle_intro_prompt(
+        "光子", title="跑得最快、沒有重量的發光小球", draft=draft, direction=direction
+    ),
+    "molecule": lambda draft, direction: build_molecule_prompt(
+        [
+            ("顯示名稱", "咖啡因"),
+            ("IUPAC 名稱", "1,3,7-trimethylpurine-2,6-dione"),
+            ("分子式", "C8H10N4O2"),
+            ("分子量", "194.19"),
+            ("分類", "生物鹼"),
+        ],
+        draft=draft,
+        direction=direction,
+    ),
+    "site-description": lambda draft, direction: build_site_description_prompt(
+        "元素圖鑑",
+        subtitle="Explore the components of the world.",
         draft=draft,
         direction=direction,
     ),

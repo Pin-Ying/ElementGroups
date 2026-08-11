@@ -37,6 +37,26 @@ export const AI_KINDS = {
   'page-seo': {
     hint: '會帶入這個頁面的標題與目前的區塊內容，濃縮成一句搜尋結果會顯示的描述。',
     fields: []
+  },
+
+  'particle-title': {
+    hint: '會帶入粒子名稱與目前的介紹，產生一句形象稱呼（25 字內的視覺描述）。',
+    fields: []
+  },
+
+  'particle-intro': {
+    hint: '會帶入粒子名稱與你定的形象稱呼。物理事實要正確，產生後仍請自己確認一次。',
+    fields: []
+  },
+
+  'molecule': {
+    hint: '會帶入表單上已填的名稱、分子式、分子量、分類與 SMILES。化學事實請自己確認一次。',
+    fields: []
+  },
+
+  'site-description': {
+    hint: '會帶入網站標題與副標題，產生搜尋結果與分享預覽會顯示的那段字。',
+    fields: []
   }
 }
 

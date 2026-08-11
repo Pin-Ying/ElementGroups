@@ -1,0 +1,56 @@
+{
+ "id": "mod-031",
+ "date": "2026-08-11",
+ "issue": 26,
+ "branch": "feature/ai-phase3",
+ "title": "AI 協助補齊基本粒子、分子、網站設定（issue #26 第三階段）",
+ "type": "feature",
+ "summary": "接上四個新用途：粒子形象稱呼、粒子介紹、分子科普說明、全站 SEO 描述。同時處理 issue 裡點名的額度問題——掛到八個欄位後額度消耗快得多，用完時直接停用按鈕並說明何時重置。",
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/prompts.py",
+    "change_type": "modified",
+    "diff_summary": "新增 particle-title／particle-intro／molecule／site-description 四個提示"
+   },
+   {
+    "path": "backend/app/ai.py",
+    "change_type": "modified",
+    "diff_summary": "註冊四個 kind，分子的空欄位在組提示前濾掉"
+   },
+   {
+    "path": "frontend/src/utils/aiKinds.js",
+    "change_type": "modified",
+    "diff_summary": "四筆欄位定義，都不需要面板上的額外輸入"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "四個欄位改用 AiField，新增三個 context computed"
+   },
+   {
+    "path": "frontend/src/components/AiAssist.vue",
+    "change_type": "modified",
+    "diff_summary": "額度改顯示剩餘次數，剩 5 次轉黃、用完轉紅並停用產生按鈕"
+   },
+   {
+    "path": "backend/scripts/try_ai.py",
+    "change_type": "modified",
+    "diff_summary": "四個新 kind 的示範 context"
+   },
+   {
+    "path": "docs/verification/issue26-quota-exhausted.jpg",
+    "change_type": "added",
+    "diff_summary": "額度用完時的介面"
+   }
+  ]
+ },
+ "notes": [
+  "粒子拆成兩個 kind 而不是一個：形象稱呼要的是 25 字內的視覺描述，介紹要的是 200 到 300 字的段落，輸出形狀不同就該是不同的提示。兩者互為對方的 context，先寫好其中一個另一個就有東西可扣",
+  "分子的空欄位在後端濾掉。表單上有六個欄位但站長不見得都填，把空的列成「- 分子量：」只會讓模型以為那是個未知數而去猜",
+  "實測 particle-intro 第一版寫成第一人稱（「大家好，我是光子！」），和元素故事的第三人稱不一致——提示裡「把粒子畫成有個性的角色」被讀成要角色自己說話。補上「旁白在介紹這個角色，不是角色自己說話」與明確的第三人稱要求後修正，字數也從 350 收到 229",
+  "額度：issue 裡就點名接到七八個地方後會消耗得快很多。原本只顯示「今日已用 3 / 50」，按下去才會收到超額錯誤。改成顯示剩餘次數，剩 5 次轉黃、用完轉紅並直接停用按鈕，訊息講明「明天會重置」",
+  "四個提示都用真的 Gemini 跑過：particle-title 24 字、site-description 62 字、particle-intro 229 字三段、molecule 596 字三段且確實扣著分子式與 IUPAC 名稱寫。全部沒有 ``` 圍籬或引號包覆",
+  "issue 表格裡的「區塊編輯器的段落／卡片說明」在 mod-027 已經接上（區塊的 Markdown 欄位掛 page-content）。「內建頁面的零碎文案」照 issue 判斷不做，「圖片說明文字」需要 vision model，另案"
+ ]
+}

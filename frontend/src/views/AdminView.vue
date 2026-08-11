@@ -550,8 +550,14 @@
             <label class="label">SMILES</label>
             <input class="input" type="text" v-model="moleculeForm.smiles" aria-label="SMILES" />
 
-            <label class="label">介紹</label>
-            <textarea class="textarea" v-model="moleculeForm.description" rows="5" aria-label="分子介紹"></textarea>
+            <AiField
+              label="介紹"
+              kind="molecule"
+              v-model="moleculeForm.description"
+              :extra="moleculeAiContext"
+              :rows="5"
+              multiline
+            />
 
             <label class="label">代表圖片</label>
             <div class="mol-image-row">
@@ -707,9 +713,13 @@
 
             <div class="page-form-row">
               <div>
-                <label class="label">形象稱呼</label>
-                <input class="input" type="text" v-model="particleForm.title" aria-label="形象稱呼" />
-                <p class="field-hint">例如「黑白相間、變化無常又長翅膀的小圓球」</p>
+                <AiField
+                  label="形象稱呼"
+                  kind="particle-title"
+                  v-model="particleForm.title"
+                  :extra="particleAiContext"
+                  hint="例如「黑白相間、變化無常又長翅膀的小圓球」"
+                />
               </div>
               <div>
                 <label class="label">排序</label>
@@ -718,8 +728,14 @@
               </div>
             </div>
 
-            <label class="label">介紹</label>
-            <textarea class="textarea" v-model="particleForm.description" rows="5" aria-label="粒子介紹"></textarea>
+            <AiField
+              label="介紹"
+              kind="particle-intro"
+              v-model="particleForm.description"
+              :extra="particleAiContext"
+              :rows="5"
+              multiline
+            />
 
             <div v-if="particlesMigratable" class="migrate-hint">
               <span>粒子形象圖可以搬進通用圖庫，之後每顆粒子都能有多個樣貌。</span>
@@ -788,8 +804,14 @@
             <label class="label">副標題</label>
             <input class="input" type="text" v-model="siteForm.subtitle" />
 
-            <label class="label">網站描述（SEO）</label>
-            <textarea class="textarea site-desc" v-model="siteForm.description" rows="2"></textarea>
+            <AiField
+              label="網站描述（SEO）"
+              kind="site-description"
+              v-model="siteForm.description"
+              :extra="siteAiContext"
+              :rows="2"
+              multiline
+            />
 
             <label class="label">首頁背景圖</label>
             <p class="field-hint">{{ uploadHint }}</p>
@@ -1707,6 +1729,29 @@ export default {
         name: this.groupForm.name,
         elements: this.groupElements(this.groupForm.key)
       }
+    },
+    // 形象稱呼與介紹互為對方的 context：先寫好其中一個，另一個就有東西可扣
+    particleAiContext() {
+      return {
+        name: this.particleForm.name,
+        title: this.particleForm.title,
+        description: this.particleForm.description
+      }
+    },
+    // 表單上填了什麼就帶什麼，空欄位由後端濾掉
+    moleculeAiContext() {
+      const f = this.moleculeForm
+      return {
+        name: f.name,
+        iupac_name: f.iupac_name,
+        formula: f.formula,
+        weight: f.weight,
+        category: f.category,
+        smiles: f.smiles
+      }
+    },
+    siteAiContext() {
+      return { title: this.siteForm.title, subtitle: this.siteForm.subtitle }
     },
     // SEO 描述是摘要型：要摘的就是這頁目前的標題與區塊內容
     pageSeoAiContext() {
