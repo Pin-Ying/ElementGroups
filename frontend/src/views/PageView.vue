@@ -19,7 +19,7 @@
 <script>
 import { getPage } from '../api'
 import PageBlocks from '../components/PageBlocks.vue'
-import { blocksFrom } from '../utils/blockTypes'
+import { blocksFrom, blocksToText } from '../utils/blockTypes'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { siteSettingsState } from '../store/siteSettings'
 import { setPageSeo, markdownExcerpt } from '../utils/seo'
@@ -50,7 +50,7 @@ export default {
         setPageSeo({
           title: `${this.page.title}｜${siteSettingsState.title}`,
           // 後台沒寫 SEO 描述就退回內文開頭
-          description: this.page.seo_description || markdownExcerpt(this.page.content),
+          description: this.page.seo_description || markdownExcerpt(blocksToText(this.pageBlocks)),
           path: `/p/${this.slug}`,
           noindex: !this.page.published
         })

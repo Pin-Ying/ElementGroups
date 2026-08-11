@@ -1,0 +1,78 @@
+{
+ "id": "mod-028",
+ "date": "2026-08-11",
+ "issue": 26,
+ "branch": "feature/ai-assist",
+ "title": "AI 協助擴到主族形象與頁面 SEO 描述",
+ "type": "feature",
+ "summary": "用 AiField 接上兩個性質相反的用途，驗證同一套架構吃得下：主族形象是創作型（無中生有一組設計語彙），SEO 描述是摘要型（從既有內容濃縮、不准自己發明）。過程中修掉三個頁面的 SEO 描述都還在讀區塊編輯器上線後就不是真相的舊欄位。",
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/ai.py",
+    "change_type": "modified",
+    "diff_summary": "新增 build_group_prompt / build_seo_prompt 與兩個 builder，註冊 group-archetype、page-seo"
+   },
+   {
+    "path": "frontend/src/utils/aiKinds.js",
+    "change_type": "modified",
+    "diff_summary": "新增兩個 kind 的欄位定義，兩者都不需要額外輸入"
+   },
+   {
+    "path": "frontend/src/utils/blockTypes.js",
+    "change_type": "modified",
+    "diff_summary": "新增 blockToMarkdown（原本在 PageBlocks 內）與 blocksToText"
+   },
+   {
+    "path": "frontend/src/components/PageBlocks.vue",
+    "change_type": "modified",
+    "diff_summary": "改用共用的 blockToMarkdown"
+   },
+   {
+    "path": "frontend/src/components/AiAssist.vue",
+    "change_type": "modified",
+    "diff_summary": "extra 改為比對內容而不是物件引用"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "共同特色與 SEO 描述改用 AiField，新增 groupAiContext / pageSeoAiContext"
+   },
+   {
+    "path": "frontend/src/utils/seo.js",
+    "change_type": "modified",
+    "diff_summary": "markdownExcerpt 剝掉 ::: 區塊圍籬"
+   },
+   {
+    "path": "frontend/src/views/PageView.vue",
+    "change_type": "modified",
+    "diff_summary": "SEO 描述改由區塊內容產生"
+   },
+   {
+    "path": "frontend/src/views/GuideView.vue",
+    "change_type": "modified",
+    "diff_summary": "同上"
+   },
+   {
+    "path": "frontend/src/views/LinksView.vue",
+    "change_type": "modified",
+    "diff_summary": "同上"
+   },
+   {
+    "path": "docs/verification/issue26-group-archetype.jpg",
+    "change_type": "added",
+    "diff_summary": "主族形象「共同特色」帶 AI 的驗收截圖"
+   }
+  ]
+ },
+ "notes": [
+  "兩個新用途都不需要面板上的額外輸入，因為要給 AI 的東西畫面上已經有了——族的 key 與元素清單、頁面的標題與區塊內容。新增一個 kind 的實際成本就是前後端各一筆",
+  "主族形象的元素清單由前端帶入。族與元素的對照兩邊本來就都有，但元素符號只在 periodic_table 節點裡，為了一個提示整包讀那個節點正是先前拖垮 /elements/seo 的那件事",
+  "SEO 提示明講「只根據上面的內容濃縮，不要自己補沒提到的事」，並限一句 70 字內、純文字——摘要型和創作型的差別要寫進提示，不是靠模型自己拿捏",
+  "發現並修好：PageView / GuideView / LinksView 的 SEO 描述 fallback 都讀 page.content，但區塊編輯器上線後那個欄位已經不是真相——用區塊編輯過的頁面會拿到搬遷前的舊文案，全新頁面則直接空白",
+  "發現並修好：markdownExcerpt 沒有剝掉 ::: 圍籬，/links 的 meta description 實際長成「追蹤創作者的社群帳號。 :::links :::」",
+  "PageBlocks 的 toMarkdown 搬到 blockTypes.js 成為 blockToMarkdown，blocksToText 建在它上面再補上標題與圖片說明（那些是內容，只是不走 Markdown）",
+  "AiAssist 原本 deep watch extra 物件，而呼叫端多半傳行內字面值或 computed，每次重繪都是新物件——內容沒變也會把面板重設。改成比對 JSON 內容",
+  "驗證：主族形象與 SEO 描述都跑完整流程，context 確實帶到後端（key/name/elements、title/content）並寫回欄位；/links 的 description 不再漏出 :::links；/p/news 的描述現在含標題與內文"
+ ]
+}

@@ -111,15 +111,18 @@ export default {
     },
     fields() {
       return this.def?.fields || []
+    },
+    // 比對內容而不是物件本身：呼叫端多半是行內字面值或 computed，每次重繪
+    // 都是新物件，deep watch 看的是來源引用，會在內容根本沒變時也重設
+    extraKey() {
+      return JSON.stringify(this.extra)
     }
   },
   watch: {
-    // 換了編輯對象就把上一次的輸入與建議清掉，避免張冠李戴
-    extra: {
-      deep: true,
-      handler() {
-        this.reset()
-      }
+    // 換了編輯對象就把上一次的輸入與建議清掉，避免張冠李戴。
+    // 面板開著時有遮罩擋住，底下的內容不會被改，所以不會打斷輸入到一半的人
+    extraKey() {
+      this.reset()
     }
   },
   methods: {

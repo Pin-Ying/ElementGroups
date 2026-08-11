@@ -130,6 +130,48 @@ export const PAGE_BLOCKS = [
   }
 ]
 
+/**
+ * 單一區塊轉成 Markdown。只處理走 Markdown 渲染的類型——標題、圖片、圖片集、
+ * 分隔線需要真的 DOM，由 PageBlocks 自己畫，這裡回空字串。
+ */
+export function blockToMarkdown(block) {
+  const d = block?.data || {}
+
+  if (block?.type === 'text' || block?.type === 'markdown') return d.body || ''
+  if (block?.type === 'note') return `:::note\n${d.body || ''}\n:::`
+  if (block?.type === 'links') return ':::links\n:::'
+
+  if (block?.type === 'cards') {
+    const items = (d.items || [])
+      .filter(it => (it.title || '').trim() || (it.body || '').trim())
+      .map(it => {
+        // 標題與附註用 | 分隔，是 :::cards 既有的格式
+        const heading = it.note ? `${it.title} | ${it.note}` : it.title
+        return `### ${heading}\n${it.body || ''}`
+      })
+    return items.length ? `:::cards\n${items.join('\n\n')}\n:::` : ''
+  }
+
+  return ''
+}
+
+/**
+ * 整頁區塊剝成純文字，給 SEO 描述之類需要「這頁在講什麼」的地方用。
+ * 與渲染不同的是標題與圖片說明也要算進去——那些是內容，只是不走 Markdown。
+ */
+export function blocksToText(blocks) {
+  return (blocks || [])
+    .map(b => {
+      const d = b?.data || {}
+      if (b?.type === 'heading') return d.text || ''
+      if (b?.type === 'image') return d.caption || ''
+      if (b?.type === 'gallery') return (d.images || []).map(i => i.caption || '').join('　')
+      return blockToMarkdown(b)
+    })
+    .filter(t => t.trim())
+    .join('\n\n')
+}
+
 export function blockType(key) {
   return PAGE_BLOCKS.find(b => b.key === key) || null
 }

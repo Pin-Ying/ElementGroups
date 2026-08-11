@@ -214,9 +214,13 @@
                 <p class="field-hint">網址為 /p/{{ pageForm.slug || '…' }}，只能用小寫英數字與連字號</p>
               </div>
               <div>
-                <label class="label">SEO 描述</label>
-                <input class="input" type="text" v-model="pageForm.seo_description" aria-label="SEO 描述" />
-                <p class="field-hint">搜尋結果顯示的那段字，留空會自動取內文開頭</p>
+                <AiField
+                  label="SEO 描述"
+                  kind="page-seo"
+                  v-model="pageForm.seo_description"
+                  :extra="pageSeoAiContext"
+                  hint="搜尋結果顯示的那段字，留空會自動取內文開頭"
+                />
               </div>
             </div>
 
@@ -623,9 +627,15 @@
             <input class="input" type="text" v-model="groupForm.name" aria-label="形象名稱" />
             <p class="field-hint">這一族的形象稱呼，例如「獵食鳥系」；留空表示尚未定名</p>
 
-            <label class="label">共同特色</label>
-            <textarea class="textarea" v-model="groupForm.description" rows="5" aria-label="共同特色"></textarea>
-            <p class="field-hint">同族設計時共用的特色，會顯示在元素頁的主族形象區塊</p>
+            <AiField
+              label="共同特色"
+              kind="group-archetype"
+              v-model="groupForm.description"
+              :extra="groupAiContext"
+              :rows="5"
+              multiline
+              hint="同族設計時共用的特色，會顯示在元素頁的主族形象區塊"
+            />
 
             <label class="label">形象代表圖</label>
             <div class="mol-image-row">
@@ -1441,7 +1451,7 @@ import { outerElectronCount } from '../utils/valence'
 import { parseFormula } from '../utils/formula'
 import { GROUP_SECTIONS } from '../utils/elementGroups'
 import { metaDef as pageMetaDef, NAV_POSITIONS } from '../utils/pageMeta'
-import { PAGE_BLOCKS, blockType, emptyBlock, emptyItem, blocksFrom } from '../utils/blockTypes'
+import { PAGE_BLOCKS, blockType, emptyBlock, emptyItem, blocksFrom, blocksToText } from '../utils/blockTypes'
 import PageBlocks from '../components/PageBlocks.vue'
 import AdminBar from '../components/AdminBar.vue'
 import AiField from '../components/AiField.vue'
@@ -1687,6 +1697,24 @@ export default {
     // 編輯框，看起來像誤觸
     hasBuiltinTemplate() {
       return !!BUILTIN_PAGES[this.pageForm.slug]?.content?.trim()
+    },
+    // 主族形象要讓 AI 知道對象是哪一族、有哪些元素。族與元素的對照後端也有，
+    // 但元素符號只在 periodic_table 節點裡，為了一個提示整包讀那個節點正是
+    // 拖垮 /elements/seo 的那件事，所以由這裡帶過去
+    groupAiContext() {
+      return {
+        key: this.groupForm.key,
+        name: this.groupForm.name,
+        elements: this.groupElements(this.groupForm.key)
+      }
+    },
+    // SEO 描述是摘要型：要摘的就是這頁目前的標題與區塊內容
+    pageSeoAiContext() {
+      return {
+        title: this.pageForm.title,
+        // 描述只有一句話，內容再長也沒有意義；後端另有一道同樣的上限
+        content: blocksToText(this.pageForm.blocks).slice(0, 4000)
+      }
     },
     // 系統頁面與自訂頁面合成同一份清單。系統頁排在前面（網址固定、順序
     // 也固定），自訂頁接在後面，依導覽位置分組後才照 nav_order 排

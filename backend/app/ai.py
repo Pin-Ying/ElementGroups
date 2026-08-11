@@ -202,6 +202,75 @@ def build_page_prompt(topic, draft="", direction=""):
     return "\n".join(parts)
 
 
+def build_group_prompt(key, elements, name="", draft="", direction=""):
+    """主族形象的提示。創作型：要產生的是同族共用的設計特色，不是化學知識。"""
+    parts = [
+        "你是一個元素週期表科普網站的美術設定，正在為週期表的一個族設計共同形象。",
+        "這個站把每個元素當成有個性的角色，同一族的角色共享一組設計語彙。",
+        "",
+        f"族：{key}",
+    ]
+
+    if elements:
+        parts.append(f"這一族的元素：{elements}")
+    if name:
+        parts.append(f"站長已經定的形象名稱：{name}")
+
+    parts += [
+        "",
+        "撰寫要求：",
+        "- 使用繁體中文，寫成一段連貫的說明，不要條列",
+        "- 內容是「共同的設計特色」：外型輪廓、配色傾向、氣質、常見配件之類",
+        "- 可以呼應這一族真實的化學性質（活性、價電子、常見用途），但重點是形象",
+        "- 三到五句，讓站長之後畫每個元素時有依據",
+        "- 只輸出這段說明，不要說明你在做什麼",
+    ]
+
+    if direction:
+        parts += ["", f"額外的風格或方向要求：{direction}"]
+
+    if draft:
+        parts += [
+            "",
+            "站長目前已經寫了以下設定，請在保留原意的前提下延伸或潤飾，不要整段捨棄重寫：",
+            draft,
+        ]
+
+    return "\n".join(parts)
+
+
+def build_seo_prompt(title, content, draft="", direction=""):
+    """頁面 SEO 描述的提示。摘要型：從既有內容濃縮，不要自己發明。"""
+    parts = [
+        "你是一個元素週期表科普網站的編輯，正在為一個頁面寫搜尋結果會顯示的描述。",
+        "",
+        f"頁面標題：{title}",
+    ]
+
+    if content:
+        parts += ["", "頁面內容：", content]
+    else:
+        parts += ["", "（這個頁面還沒有內容，請只依標題推測這頁在講什麼。）"]
+
+    parts += [
+        "",
+        "撰寫要求：",
+        "- 使用繁體中文，一句話，不超過 70 個字",
+        "- 說明這一頁在講什麼，讓人在搜尋結果看到就知道要不要點進來",
+        "- 只根據上面的內容濃縮，不要自己補沒提到的事",
+        "- 純文字，不要 Markdown、不要引號、不要換行",
+        "- 只輸出這一句描述，不要說明你在做什麼",
+    ]
+
+    if direction:
+        parts += ["", f"額外的風格或方向要求：{direction}"]
+
+    if draft:
+        parts += ["", "站長目前寫的版本（請在此基礎上改寫）：", draft]
+
+    return "\n".join(parts)
+
+
 # ── 建議用途的註冊表 ──────────────────────────────────────────────
 #
 # key 就是前後端之間唯一的約定。後端只管「這個 kind 的提示怎麼組」，
@@ -253,9 +322,40 @@ def _page_content_prompt(context, draft, direction):
     return build_page_prompt(topic, draft=draft, direction=direction)
 
 
+def _group_archetype_prompt(context, draft, direction):
+    from app.groups import GROUP_KEYS
+
+    key = (context.get("key") or "").strip()
+    if key not in GROUP_KEYS:
+        raise ValueError(f"不認得的族：{key or '（未指定）'}")
+
+    # 元素清單由前端帶入。族與元素的對照兩邊都有（groups.py 的 _POSITION 與
+    # periodicTableGroups.js），但符號本身只在 periodic_table 節點裡，為了
+    # 一個提示去整包讀那個節點正是拖垮 /elements/seo 的那件事。
+    return build_group_prompt(
+        key,
+        elements=(context.get("elements") or "").strip(),
+        name=(context.get("name") or "").strip(),
+        draft=draft,
+        direction=direction,
+    )
+
+
+def _page_seo_prompt(context, draft, direction):
+    title = (context.get("title") or "").strip()
+    if not title:
+        raise ValueError("請先填頁面標題")
+
+    # 內容太長沒有意義，描述只有一句話；截斷也省 token
+    content = (context.get("content") or "").strip()[:4000]
+    return build_seo_prompt(title, content, draft=draft, direction=direction)
+
+
 SUGGEST_KINDS = {
     "element-story": _element_story_prompt,
     "page-content": _page_content_prompt,
+    "group-archetype": _group_archetype_prompt,
+    "page-seo": _page_seo_prompt,
 }
 
 

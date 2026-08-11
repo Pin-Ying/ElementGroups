@@ -25,6 +25,18 @@ export const AI_KINDS = {
     fields: [
       { name: 'topic', label: '頁面主題', type: 'text', default: '', placeholder: '例如：介紹週期表的讀法' }
     ]
+  },
+
+  // 創作型：產生的是同族共用的設計語彙，不是化學知識
+  'group-archetype': {
+    hint: '會帶入這一族有哪些元素，以及你已經定的形象名稱。產生的是同族共用的設計特色。',
+    fields: []
+  },
+
+  // 摘要型：從頁面既有內容濃縮，不自己發明
+  'page-seo': {
+    hint: '會帶入這個頁面的標題與目前的區塊內容，濃縮成一句搜尋結果會顯示的描述。',
+    fields: []
   }
 }
 

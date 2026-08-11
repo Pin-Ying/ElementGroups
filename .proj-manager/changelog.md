@@ -743,3 +743,21 @@ AiField：把「帶 AI 的文字欄位」收成一個元件（issue #26，mod-02
 
 ### 備註
 - 新增一種 AI 用途仍要兩筆註冊（`utils/aiKinds.js` 定義輸入、後端 `SUGGEST_KINDS` 定義提示）。那是前後端本質的分工，不是可以消掉的重複
+
+---
+
+## [功能] - 2026-08-11 | feature/ai-assist
+
+### 變更類型
+AI 協助擴到主族形象與頁面 SEO 描述（issue #26，mod-028）
+
+### 重點
+- `group-archetype`（創作型）：產生同族共用的設計語彙，帶入族的 key、元素清單與已定的形象名稱
+- `page-seo`（摘要型）：從頁面標題與區塊內容濃縮成一句描述，提示明講「不要自己補沒提到的事」
+- 兩者都不需要面板上的額外輸入——要給 AI 的東西畫面上已經有了。新增一個 kind 的實際成本就是前後端各一筆
+- `blockTypes.js` 新增 `blockToMarkdown`（原本在 PageBlocks 內）與 `blocksToText`
+
+### 修正的 bug
+1. **三個頁面的 SEO 描述都讀錯欄位**：PageView / GuideView / LinksView 的 fallback 取 `page.content`，但區塊編輯器上線後那個欄位已經不是真相——用區塊編輯過的頁面拿到搬遷前的舊文案，全新頁面直接空白
+2. **`:::` 圍籬漏進 meta description**：`/links` 實際長成「追蹤創作者的社群帳號。 :::links :::」
+3. **AiAssist 的 extra 用 deep watch 比對物件引用**：呼叫端多半傳行內字面值或 computed，每次重繪都是新物件，內容沒變也會把面板重設
