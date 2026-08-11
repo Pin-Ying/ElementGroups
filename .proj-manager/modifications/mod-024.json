@@ -1,0 +1,37 @@
+{
+ "modification_id": "mod-024",
+ "feature_id": "feature-013",
+ "type": "bugfix",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "預渲染頁同時留著全站與元素兩份 meta description",
+ "created_at": "2026-08-11T07:00:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/vite-plugin-prerender.js",
+    "change_type": "modified",
+    "diff_summary": "置換／移除 head 標籤的 regex 由 . 改為 [\\\\s\\\\S]"
+   },
+   {
+    "path": "frontend/vite-plugin-seo.js",
+    "change_type": "modified",
+    "diff_summary": "同上"
+   }
+  ]
+ },
+ "root_cause": "後台的網站描述含換行，而移除舊 description 的 regex 用 `.`——JavaScript 的 `.` 預設不跨行，所以整條規則靜默失配，舊的那個沒被清掉。結果每個預渲染頁的 head 同時有全站與元素兩份 description，搜尋引擎會自己挑一個。",
+ "notes": [
+  "同一個成因也影響 <title> 與 og/twitter 的置換，兩支外掛一起改成 [\\\\s\\\\S]",
+  "本機用含換行的描述重現後修正，重跑 build 確認首頁與預渲染頁的 description 都只剩一個，且預渲染頁那個是元素專屬的",
+  "教訓：處理使用者可自由輸入的文案時，regex 預設不跨行這件事會讓置換靜默失敗——和 mod-005 那次「字串替換錨點沒對上也不報錯」是同一類問題"
+ ]
+}

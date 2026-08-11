@@ -74,10 +74,12 @@ function withElementMeta(html, { title, description, canonical, image, jsonLd })
     `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`
   ].filter(Boolean).join('\n    ')
 
+  // 用 [\s\S] 而不是 . ——後台的網站描述可以有換行，`.` 不跨行會讓這些
+  // 移除全部失效，結果 head 裡同時留著全站與元素兩份 description
   return html
-    .replace(/<title>.*?<\/title>/, `<title>${escapeAttr(title)}</title>`)
-    .replace(/\s*<meta name="description" content=".*?" \/>/, '')
-    .replace(/\s*<meta (?:property="og:|name="twitter:).*?\/>/g, '')
+    .replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeAttr(title)}</title>`)
+    .replace(/\s*<meta name="description" content="[\s\S]*?" \/>/, '')
+    .replace(/\s*<meta (?:property="og:|name="twitter:)[\s\S]*?\/>/g, '')
     .replace(
       '</head>',
       `  <meta name="description" content="${escapeAttr(description)}" />\n    ${tags}\n  </head>`

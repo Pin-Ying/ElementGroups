@@ -75,10 +75,11 @@ export default function seoPlugin() {
         image ? `<meta name="twitter:image" content="${escapeAttr(image)}" />` : ''
       ].filter(Boolean).join('\n    ')
 
+      // 同樣用 [\s\S]：後台文案可以有換行，`.` 不跨行會讓置換靜默失效
       return html
-        .replace(/<title>.*?<\/title>/, `<title>${escapeAttr(title)}</title>`)
+        .replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeAttr(title)}</title>`)
         .replace(
-          /<meta name="description" content=".*?" \/>/,
+          /<meta name="description" content="[\s\S]*?" \/>/,
           `<meta name="description" content="${escapeAttr(description)}" />`
         )
         .replace('</head>', `  ${tags}\n  </head>`)
