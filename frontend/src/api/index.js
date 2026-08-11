@@ -228,6 +228,23 @@ export function setElectronMotion(motion) {
   return api.post('/admin/electron-motion', { motion })
 }
 
+// ── 通用圖庫 ──
+export function getLibraries() {
+  return api.get('/admin/libraries')
+}
+
+export function saveLibrary(payload) {
+  return api.post('/admin/libraries', payload)
+}
+
+export function deleteLibrary(id) {
+  return api.delete(`/admin/libraries/${id}`)
+}
+
+export function getBindableTargets(bindType) {
+  return api.get(`/admin/bindable/${bindType}`)
+}
+
 export function getElementGallery(symbol) {
   return api.get(`/elements/${symbol}/gallery`)
 }

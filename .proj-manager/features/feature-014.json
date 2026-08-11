@@ -1,0 +1,60 @@
+{
+ "feature_id": "feature-014",
+ "name": "通用圖庫",
+ "description": "把「一組圖」抽成獨立實體。一個圖庫有自己的名稱與多張圖，透過 bind_type 決定能用在哪一類東西上（基本粒子、元素、主族、分子，或不綁對象的全站圖庫），bind_id 指到具體哪一個。要讓新的東西也能有圖庫，只需在後端 BINDABLE_TYPES 加一筆。",
+ "status": "in_progress",
+ "created_at": "2026-08-11T02:30:00Z",
+ "files": [
+  "backend/app/libraries.py",
+  "backend/app/routes/admin.py",
+  "frontend/src/api/index.js",
+  "frontend/src/views/AdminView.vue"
+ ],
+ "dependencies": [],
+ "api_endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/admin/libraries",
+   "description": "登入；全部圖庫，一併回傳接點定義（bindable）與單庫圖片上限"
+  },
+  {
+   "method": "POST",
+   "path": "/api/admin/libraries",
+   "description": "登入；新增或整份更新一個圖庫（含圖片陣列）"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/admin/libraries/<library_id>",
+   "description": "登入；刪除圖庫"
+  },
+  {
+   "method": "GET",
+   "path": "/api/admin/bindable/<bind_type>",
+   "description": "登入；該類型底下可綁的對象清單，統一成 {id, name}"
+  }
+ ],
+ "data_model": [
+  {
+   "name": "_libraries/{library_id}",
+   "fields": [
+    "name",
+    "bind_type（必須是 BINDABLE_TYPES 的 key）",
+    "bind_id（不綁對象的類型為空字串）",
+    "default_image（圖片 id，指向不存在時自動清空）",
+    "images/{image_id} = {name, img_data, order}",
+    "updated_at"
+   ]
+  }
+ ],
+ "notes": [
+  "設計動機：專案裡帶圖的東西原本各自為政，散在 7 個節點，每加一個就重寫一套 CRUD，而且結構不一致（_gallery 是陣列＋caption，_electron_styles 是 map＋name）。這個模組補的是缺少的抽象層",
+  "接點就是 BINDABLE_TYPES：node 指出對象清單在哪、id_field 與 name_field 說明怎麼取識別碼與顯示名。前端的下拉與後端的驗證都讀這一份，不會有第二個地方要同步",
+  "periodic_table 是陣列、其餘節點是 map，bindable_targets 端點統一處理兩種形狀後才回傳",
+  "圖片以 map 存（好單張增刪），對外一律轉成依 order 排序的陣列",
+  "單庫上限 12 張。base64 直接存 Realtime DB，太多會讓單次讀取過重",
+  "上傳沿用 normalizeSprite（裁掉透明邊距、置中為 240×240），與電子樣式同一套處理，不同來源的圖疊起來才一致",
+  "刻意只做新增的一層，完全沒有動既有節點。_electron_styles、_gallery、_particles 等照常運作",
+  "未完成：前台尚未消費圖庫（繞行電子仍讀 _electron_styles）；既有的 _electron_styles 與 _gallery 尚未搬進來。搬遷時建議用向下相容讀取，不做破壞性遷移",
+  "在 feature/image-libraries 分支開發，尚未合併"
+ ]
+}

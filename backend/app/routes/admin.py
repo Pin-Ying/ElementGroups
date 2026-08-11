@@ -21,6 +21,8 @@ from app import pubchem
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, serialize_group, group_key_for, has_content as group_has_content
 from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, normalize_motion, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE, MOTIONS
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
+from app.libraries import (normalize_libraries, serialize_library, bindable_definitions,
+                           BINDABLE_TYPES, LIBRARIES_NODE, MAX_IMAGES)
 from app import ai
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api")
@@ -365,6 +367,77 @@ def update_page_meta(key):
         record = normalize_meta(request.get_json() or {})
         fdb.child(PAGE_META_NODE).child(key).set(record)
         return jsonify({"result": "success", "message": "文案已儲存"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/libraries", methods=["GET", "POST"])
+@login_required
+def manage_libraries():
+    """通用圖庫。GET 一併回傳接點定義，前端不必自己重複一份。"""
+    if request.method == "GET":
+        try:
+            return jsonify({
+                "libraries": normalize_libraries(show_fdb(LIBRARIES_NODE)),
+                "bindable": bindable_definitions(),
+                "max_images": MAX_IMAGES,
+            })
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    try:
+        library_id, record = serialize_library(request.get_json() or {})
+        if not library_id:
+            return jsonify({"result": "failure", "message": record}), 400
+        fdb.child(LIBRARIES_NODE).child(library_id).set(record)
+        return jsonify({"result": "success", "message": "圖庫已儲存", "id": library_id})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/libraries/<library_id>", methods=["DELETE"])
+@login_required
+def delete_library(library_id):
+    try:
+        fdb.child(LIBRARIES_NODE).child(library_id).delete()
+        return jsonify({"result": "success", "message": "圖庫已刪除"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/bindable/<bind_type>", methods=["GET"])
+@login_required
+def bindable_targets(bind_type):
+    """某個接點類型底下可以綁的對象清單，給後台下拉用。
+
+    對象散在不同節點、識別欄位也不一樣，統一在這裡依 BINDABLE_TYPES 的
+    定義取出來，前端只認得 {id, name}。
+    """
+    cfg = BINDABLE_TYPES.get(bind_type)
+    if not cfg:
+        return jsonify({"result": "failure", "message": "不認得的綁定類型"}), 400
+    if cfg["node"] is None:
+        return jsonify({"targets": []})
+
+    try:
+        data = show_fdb(cfg["node"])
+        targets = []
+
+        # periodic_table 是陣列，其餘是以 key 當識別碼的 map
+        rows = data.items() if isinstance(data, dict) else enumerate(data or [])
+        for key, raw in rows:
+            if not isinstance(raw, dict):
+                continue
+            target_id = str(raw.get(cfg["id_field"]) if cfg["id_field"] else key)
+            if not target_id or target_id.startswith("_"):
+                continue
+            targets.append({
+                "id": target_id,
+                "name": (raw.get(cfg["name_field"]) or "").strip() or target_id,
+            })
+
+        targets.sort(key=lambda t: t["name"])
+        return jsonify({"targets": targets})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 

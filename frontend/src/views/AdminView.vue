@@ -854,6 +854,111 @@
           </form>
         </div>
 
+        <!-- 圖庫管理：通用的一組圖，透過 bind_type 決定能用在哪一類東西上。
+             要讓新的東西也能有圖庫，只在後端 BINDABLE_TYPES 加一筆即可 -->
+        <div v-if="section === 'libraries'" class="box">
+          <div class="section-head">
+            <p class="title is-4">IMAGE LIBRARIES</p>
+            <button class="button" type="button" @click="newLibrary">＋ 建立圖庫</button>
+          </div>
+          <p class="desc">
+            一個圖庫是一組圖，綁在某個對象上（基本粒子、元素、主族、分子，或不綁對象的全站圖庫）。<br>
+            綁定類型決定這個圖庫將來能用在哪裡，之後要開放新的對象類型不必再做一套介面。
+          </p>
+
+          <div v-if="!libraryList.length" class="placeholder-text">尚未建立任何圖庫。</div>
+
+          <div v-else class="page-table">
+            <div class="page-row page-row--head">
+              <span>名稱</span><span>綁定</span><span>圖片數</span><span>操作</span>
+            </div>
+            <div v-for="lib in libraryList" :key="lib.id" class="page-row library-row">
+              <span class="page-title-cell">{{ lib.name }}</span>
+              <span class="page-path">{{ bindLabel(lib) }}</span>
+              <span class="page-nav-cell">{{ lib.images.length }} 張</span>
+              <span class="page-ops">
+                <button class="button secondary small" type="button" @click="selectLibrary(lib)">編輯</button>
+                <button
+                  class="icon-button danger"
+                  type="button"
+                  :title="pendingDeleteLibrary === lib.id ? '再按一次確認刪除' : '刪除'"
+                  :class="{ confirming: pendingDeleteLibrary === lib.id }"
+                  @click="handleDeleteLibrary(lib)"
+                >{{ pendingDeleteLibrary === lib.id ? '確認' : '✕' }}</button>
+              </span>
+            </div>
+          </div>
+
+          <form v-if="libraryForm" class="page-form" @submit.prevent="handleSaveLibrary">
+            <p class="label">{{ libraryForm.id ? '編輯圖庫' : '建立圖庫' }}</p>
+
+            <div class="page-form-row">
+              <div>
+                <label class="label">圖庫名稱</label>
+                <input class="input" type="text" v-model="libraryForm.name" aria-label="圖庫名稱" />
+              </div>
+              <div>
+                <label class="label">綁定類型</label>
+                <select class="select" v-model="libraryForm.bind_type" @change="onBindTypeChange" aria-label="綁定類型">
+                  <option v-for="b in bindable" :key="b.key" :value="b.key">{{ b.label }}</option>
+                </select>
+                <p class="field-hint">決定這個圖庫能用在哪一類東西上</p>
+              </div>
+            </div>
+
+            <div v-if="currentBindable && currentBindable.needs_target">
+              <label class="label">綁定對象</label>
+              <select class="select" v-model="libraryForm.bind_id" aria-label="綁定對象">
+                <option value="">請選擇…</option>
+                <option v-for="t in bindTargets" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+              <p v-if="!bindTargets.length" class="field-hint">這個類型底下還沒有可綁的對象。</p>
+            </div>
+
+            <label class="label">圖片（{{ libraryForm.images.length }} / {{ libraryMax }}）</label>
+            <p class="field-hint">請使用<strong>去背的 PNG</strong>，正方形構圖。上傳後會縮至 240px 並保留透明背景。</p>
+
+            <div v-if="libraryForm.images.length" class="style-grid">
+              <div
+                v-for="(img, i) in libraryForm.images"
+                :key="img.id"
+                class="style-item"
+                :class="{ 'is-default': img.id === libraryForm.default_image }"
+              >
+                <img :src="img.img_data" alt="" />
+                <input class="input" type="text" v-model="img.name" :aria-label="'圖片名稱 ' + (i + 1)" />
+                <div class="style-actions">
+                  <button
+                    class="style-default-btn"
+                    type="button"
+                    :class="{ active: img.id === libraryForm.default_image }"
+                    @click="libraryForm.default_image = libraryForm.default_image === img.id ? '' : img.id"
+                  >{{ img.id === libraryForm.default_image ? '★ 預設' : '設為預設' }}</button>
+                  <button class="icon-button danger" type="button" title="移除" @click="libraryForm.images.splice(i, 1)">✕</button>
+                </div>
+              </div>
+            </div>
+
+            <input
+              class="input"
+              type="file"
+              accept="image/*"
+              multiple
+              ref="libraryImgInput"
+              :disabled="libraryForm.images.length >= libraryMax"
+              aria-label="新增圖片"
+              @change="onLibraryImages"
+            />
+
+            <div class="link-actions">
+              <button class="button" type="submit" :disabled="librarySaving">
+                {{ librarySaving ? 'Saving…' : '儲存圖庫' }}
+              </button>
+              <button class="button secondary" type="button" @click="libraryForm = null">取消</button>
+            </div>
+          </form>
+        </div>
+
         <!-- Creator Links -->
         <div v-if="section === 'links'" class="box">
           <p class="title is-4">CREATOR LINKS</p>
@@ -1228,7 +1333,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getElectronMotion, setElectronMotion, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, getElectronMotion, setElectronMotion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1302,6 +1407,7 @@ const SECTIONS = [
   { key: 'molecules', label: '分子管理', icon: '⬡' },
   { key: 'site', label: '網站設定', icon: '⚙' },
   { key: 'electrons', label: '圖層素材', icon: '◌' },
+  { key: 'libraries', label: '圖庫管理', icon: '▤' },
   { key: 'groups', label: '主族形象', icon: '❖' },
   { key: 'particles', label: '基本粒子', icon: '◉' },
   { key: 'links', label: '社群連結', icon: '⚯' },
@@ -1355,6 +1461,13 @@ export default {
       layerForm: { nucleus: '', name_img: '', electron_style: '' },
       layerSaving: false,
       layerErrors: { nucleus: '', name_img: '' },
+      libraryList: [],
+      bindable: [],
+      bindTargets: [],
+      libraryMax: 12,
+      libraryForm: null,
+      librarySaving: false,
+      pendingDeleteLibrary: '',
       brokenStyles: [],
       pendingDeleteStyle: '',
       electronStyles: [],
@@ -1564,6 +1677,9 @@ export default {
     outerElectrons() {
       return outerElectronCount(this.selectedConfig)
     },
+    currentBindable() {
+      return this.bindable.find(b => b.key === this.libraryForm?.bind_type) || null
+    },
     motionLabel() {
       return (this.motionOptions.find(o => o.value === this.motion) || {}).label || this.motion
     },
@@ -1611,7 +1727,7 @@ export default {
       return Promise.all([
         this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(),
         this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(),
-        this.loadElectronStyles(), this.loadMolecules(), this.loadGroups(), this.loadParticles(), this.loadPageMeta()
+        this.loadElectronStyles(), this.loadLibraries(), this.loadMolecules(), this.loadGroups(), this.loadParticles(), this.loadPageMeta()
       ])
     },
     // ── 圖片裁切流程 ──
@@ -2637,6 +2753,104 @@ export default {
         showToast(e.response?.data?.message || '儲存失敗', 'error')
       } finally {
         this.layerSaving = false
+      }
+    },
+    // ── 通用圖庫 ──
+    async loadLibraries() {
+      try {
+        const res = await getLibraries()
+        this.libraryList = res.data.libraries || []
+        this.bindable = res.data.bindable || []
+        this.libraryMax = res.data.max_images || 12
+      } catch (e) {
+        console.error('Failed to load libraries:', e)
+      }
+    },
+    bindLabel(lib) {
+      const def = this.bindable.find(b => b.key === lib.bind_type)
+      const label = def?.label || lib.bind_type
+      return lib.bind_id ? `${label}：${lib.bind_id}` : label
+    },
+    newLibrary() {
+      const first = this.bindable[0]?.key || 'particle'
+      this.libraryForm = { id: '', name: '', bind_type: first, bind_id: '', default_image: '', images: [] }
+      this.pendingDeleteLibrary = ''
+      this.loadBindTargets(first)
+    },
+    selectLibrary(lib) {
+      // 深拷貝：編輯中途取消不該影響清單上的資料
+      this.libraryForm = JSON.parse(JSON.stringify(lib))
+      this.pendingDeleteLibrary = ''
+      this.loadBindTargets(lib.bind_type)
+    },
+    onBindTypeChange() {
+      // 換了類型，原本綁的對象一定不適用
+      this.libraryForm.bind_id = ''
+      this.loadBindTargets(this.libraryForm.bind_type)
+    },
+    async loadBindTargets(bindType) {
+      const def = this.bindable.find(b => b.key === bindType)
+      if (!def?.needs_target) {
+        this.bindTargets = []
+        return
+      }
+      try {
+        const res = await getBindableTargets(bindType)
+        this.bindTargets = res.data.targets || []
+      } catch (e) {
+        console.error('Failed to load bindable targets:', e)
+        this.bindTargets = []
+      }
+    },
+    async onLibraryImages(e) {
+      const files = [...e.target.files]
+      e.target.value = ''
+      const room = this.libraryMax - this.libraryForm.images.length
+      if (files.length > room) showToast(`最多再加 ${room} 張，多的已略過`, 'error')
+
+      for (const file of files.slice(0, room)) {
+        try {
+          // 與電子樣式同一套處理：裁掉透明邊距並置中，不同來源的圖疊起來才一致
+          const result = await normalizeSprite(file, { size: 240 })
+          this.libraryForm.images.push({
+            id: '',
+            name: file.name.replace(/\.[^.]+$/, ''),
+            img_data: await this.blobToDataUrl(result.blob)
+          })
+        } catch (err) {
+          showToast(err.message || '圖片處理失敗', 'error')
+        }
+      }
+    },
+    async handleSaveLibrary() {
+      this.librarySaving = true
+      try {
+        const res = await saveLibrary(this.libraryForm)
+        showToast(res.data.message || '已儲存', 'success')
+        this.libraryForm = null
+        await this.loadLibraries()
+      } catch (e) {
+        showToast(e.response?.data?.message || '儲存失敗', 'error')
+      } finally {
+        this.librarySaving = false
+      }
+    },
+    async handleDeleteLibrary(lib) {
+      if (this.pendingDeleteLibrary !== lib.id) {
+        this.pendingDeleteLibrary = lib.id
+        setTimeout(() => {
+          if (this.pendingDeleteLibrary === lib.id) this.pendingDeleteLibrary = ''
+        }, 4000)
+        return
+      }
+      this.pendingDeleteLibrary = ''
+      try {
+        const res = await deleteLibrary(lib.id)
+        showToast(res.data.message || '已刪除', 'success')
+        if (this.libraryForm?.id === lib.id) this.libraryForm = null
+        await this.loadLibraries()
+      } catch (e) {
+        showToast(e.response?.data?.message || '刪除失敗', 'error')
       }
     },
     // ── 電子樣式庫 ──
@@ -4352,6 +4566,11 @@ button.button:disabled {
 }
 
 .button.small { padding: 4px 12px; font-size: 12px; }
+
+/* 圖庫清單比頁面清單少兩欄，沿用同一套列樣式但改欄寬 */
+.library-row {
+  grid-template-columns: minmax(140px, 1.6fr) minmax(120px, 1.2fr) 80px auto;
+}
 
 /* 窄螢幕排不下六欄，改成兩欄的卡片，欄位前面補上名稱 */
 @media (max-width: 700px) {
