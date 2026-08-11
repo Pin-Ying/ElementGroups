@@ -1,8 +1,18 @@
 <template>
-  <div v-if="ai.enabled" class="ai-assist">
-    <button class="ai-toggle" type="button" :class="{ active: open }" @click="open = !open">✧ AI 協助</button>
+  <button v-if="ai.enabled" class="ai-toggle" type="button" :class="{ active: open }" @click="open = !open">
+    ✧ AI 協助
+  </button>
 
-    <div v-if="open" class="ai-panel">
+  <!-- 面板不能留在切換鈕旁邊：呼叫端多半把鈕放在 display:flex 的標題列裡，
+       面板跟著進去就會被壓成細長一條。移到 body 上再用 fixed 定位在
+       編輯區上方，版面不受呼叫端的容器影響 -->
+  <Teleport v-if="ai.enabled && open" to="body">
+    <div class="ai-backdrop" @click="open = false"></div>
+    <div class="ai-panel--float">
+      <div class="ai-head">
+        <span class="ai-title">✧ AI 協助</span>
+        <button class="ai-close" type="button" @click="open = false">✕</button>
+      </div>
       <p class="ai-hint">
         {{ hint }}
         <template v-if="(draft || '').trim()">你目前已寫的內容會一併帶入，AI 會延伸潤飾而不是整段重寫。</template>
@@ -54,7 +64,7 @@
         <p class="ai-note">套用後仍需按儲存才會真正寫入。</p>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script>
@@ -139,6 +149,148 @@ export default {
 }
 </script>
 
-<style scoped>
-.ai-assist { display: contents; }
+<style>
+/* 這一段刻意不加 scoped：面板 teleport 到 body 之後不在元件的 DOM 子樹裡，
+   scoped 樣式吃不到。原本這些規則散在 AdminView 與 StoryEditor 的 scoped
+   區塊，隨著面板收成元件也一起搬過來，成為 AI 面板唯一的樣式來源。 */
+
+.ai-toggle {
+  padding: 3px 12px;
+  font-size: 12px;
+  border: 1px solid rgba(157, 140, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(157, 140, 255, 0.1);
+  color: rgba(210, 200, 255, 0.9);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.ai-toggle:hover,
+.ai-toggle.active {
+  background: rgba(157, 140, 255, 0.25);
+  border-color: rgba(157, 140, 255, 0.8);
+  color: #fff;
+}
+
+/* 蓋住底下的內容，也提供點擊關閉的區域 */
+.ai-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.ai-panel--float {
+  position: fixed;
+  top: 10vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  z-index: 1100;
+  padding: 18px 20px;
+  border: 1px solid rgba(157, 140, 255, 0.4);
+  border-radius: 10px;
+  /* 不能用半透明：浮在內容上方，透出去就看不清楚了 */
+  background: rgb(24, 12, 42);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+  text-align: left;
+}
+
+.ai-panel--float .ai-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ai-panel--float .ai-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #e4fbff;
+}
+
+.ai-panel--float .ai-close {
+  background: none;
+  border: none;
+  color: rgba(228, 251, 255, 0.6);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ai-panel--float .ai-hint {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.6);
+  margin: 0 0 10px;
+  line-height: 1.6;
+}
+
+.ai-panel--float .label {
+  display: block;
+  color: rgba(228, 251, 255, 0.82);
+  margin: 10px 0 4px;
+}
+
+.ai-panel--float .ai-label { font-size: 12px; }
+
+.ai-panel--float .ai-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(228, 251, 255, 0.7);
+  margin: 6px 0 10px;
+  cursor: pointer;
+}
+
+.ai-panel--float .ai-check input { accent-color: #9d8cff; }
+.ai-panel--float .ai-reference { min-height: 60px; }
+
+.ai-panel--float .ai-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ai-panel--float .ai-quota {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.5);
+}
+
+.ai-panel--float .ai-result {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(228, 251, 255, 0.1);
+}
+
+.ai-panel--float .preview-label {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.5);
+  margin: 0 0 6px;
+}
+
+.ai-panel--float .ai-suggestion {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.75;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: rgba(3, 1, 12, 0.6);
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.ai-panel--float .ai-note {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.5);
+  margin: 8px 0 0;
+}
 </style>
