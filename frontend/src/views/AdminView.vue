@@ -149,8 +149,16 @@
             <form v-if="metaDef" @submit.prevent="handleSaveMeta">
               <div v-for="f in metaDef.fields" :key="f.name" class="meta-field">
                 <label class="label">{{ f.label }}</label>
+                <select
+                  v-if="f.type === 'select'"
+                  class="select"
+                  v-model="metaForm[f.name]"
+                  :aria-label="f.label"
+                >
+                  <option v-for="o in f.options" :key="o.key" :value="o.key">{{ o.label }}</option>
+                </select>
                 <textarea
-                  v-if="f.multiline"
+                  v-else-if="f.multiline"
                   class="textarea"
                   rows="3"
                   v-model="metaForm[f.name]"
@@ -160,7 +168,7 @@
                 <input
                   v-else
                   class="input"
-                  type="text"
+                  :type="f.type === 'number' ? 'number' : 'text'"
                   v-model="metaForm[f.name]"
                   :placeholder="f.default || '（預設為空）'"
                   :aria-label="f.label"
@@ -210,7 +218,9 @@
               </div>
             </div>
 
-            <div v-if="!editingBuiltinPage" class="page-form-row">
+            <!-- 導覽位置對內建頁面一樣有意義（/guide、/links 也要能決定
+                 放在側欄還是頁尾），不要因為它是內建頁就藏起來 -->
+            <div class="page-form-row">
               <div>
                 <label class="label">導覽位置</label>
                 <select class="select" v-model="pageForm.nav_position">
@@ -1185,20 +1195,13 @@ import { BUILTIN_PAGES } from '../utils/builtinPages'
 import { outerElectronCount } from '../utils/valence'
 import { parseFormula } from '../utils/formula'
 import { GROUP_SECTIONS } from '../utils/elementGroups'
-import { metaDef as pageMetaDef } from '../utils/pageMeta'
+import { metaDef as pageMetaDef, NAV_POSITIONS } from '../utils/pageMeta'
 import { refreshPageMeta } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
 
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
-
-const NAV_POSITIONS = [
-  { key: 'sidebar', label: '左側導覽' },
-  { key: 'footer', label: '頁尾' },
-  { key: 'header', label: '頁首' },
-  { key: 'none', label: '不顯示於導覽' }
-]
 
 // 網址固定、由程式提供版面的頁面。可以改文案，但不能刪也不能改路徑。
 // 三種編輯方式：
@@ -1456,13 +1459,17 @@ export default {
             system: true
           }
         }
+        // 純文案頁的導覽位置存在 _page_meta，不是「固定」
+        const navKey = pageMetaDef(s.key)?.fields.some(f => f.name === 'nav_position')
+          ? (this.pageMetaAll[s.key]?.nav_position || 'footer')
+          : ''
         return {
           kind: 'meta',
           key: s.key,
           title: s.label || pageMetaDef(s.key)?.label || s.key,
           path: s.path,
           published: true,
-          nav: '固定',
+          nav: navKey ? (NAV_POSITIONS.find(n => n.key === navKey)?.label || navKey) : '固定',
           system: true
         }
       })
@@ -2050,7 +2057,10 @@ export default {
       this.metaKey = key
       const overrides = this.pageMetaAll[key] || {}
       const form = {}
-      for (const f of pageMetaDef(key).fields) form[f.name] = overrides[f.name] || ''
+      for (const f of pageMetaDef(key).fields) {
+        // 下拉與數字沒有「留空＝用預設」的表現方式，直接帶入預設值
+        form[f.name] = overrides[f.name] || (f.type ? f.default : '')
+      }
       this.metaForm = form
     },
     async handleSaveMeta() {

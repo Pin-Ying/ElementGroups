@@ -4,6 +4,68 @@
 
 ---
 
+## [Issue #20~#23 與後續維護] - 2026-08-11 | commit e68d29c..0c6fe80
+
+### 變更類型
+
+新增功能 + 功能修改 + 修復 + 優化
+
+### 變更摘要
+
+處理 GitHub issues #20~#23，共 13 個 commit，全數部署至 Render。
+新增兩個功能模組（SEO 基礎建設、元素分層動畫與繞行粒子），重構後台頁面管理，
+並修掉三個既有缺陷——其中兩個是用瀏覽器實際操作才發現的，不在原本的 issue 範圍。
+
+### 改動
+
+**新增功能**
+- SEO 基礎建設（feature-013，issue #21）：build 時產生 sitemap.xml 與 robots.txt、
+  每頁獨立的 title/description/canonical/og、元素頁 ChemicalSubstance 與分子頁
+  MolecularEntity 的 JSON-LD、118 個元素頁的靜態預渲染；新增 /api/elements/seo
+- 元素分層動畫與繞行粒子（feature-012，issue #23）：三種運動模式真正區分——
+  分層繞行含前後景深、Teleport 到 body 的全頁飄動、等角度靜止排開；
+  繞行粒子與運動方式改為全站統一設定，粒子形象直接引用「基本粒子」
+
+**功能修改**
+- 後台頁面管理統整（mod-006，issue #20）：系統頁與自訂頁併成同一張表格，
+  改為清單／編輯兩段式；頁面資料模型補上 subtitle 與 seo_description
+- 預設文案改英文佔位、內建說明書清空（mod-009）
+
+**修復**
+- 故事頁編輯視窗在矮視窗下超出畫面；關閉鈕與 Bulma `.modal-close` 撞名疊在標題上（mod-007，issue #22）
+- 後台文字對比只有 1.54，整個後台的標題與欄位名幾乎看不見（mod-008，**非 issue**）
+- 導覽列的內建頁面標題與頁面本身不一致：BUILTIN_NAV 是第二個真相來源（mod-009，**非 issue**）
+- 部分頁面無法自行決定導覽位置：內建 Markdown 頁的欄位被 mod-006 藏起來（重構退步），
+  純文案頁（/molecules、/particles）則從來就沒有這個設定（mod-011，**非 issue**）
+- 頁面清單的系統頁標題重複顯示路徑
+
+**維護（非 issue）**
+- docker compose 對外 port 可用 .env 覆寫，預設值不變（mod-010）
+- gitignore 憑證類檔案（*token*.txt、*.pem、service-account*.json）
+- docs/verification/ 新增 5 張驗收截圖
+
+**移除**
+- `_electron_styles` 與 `_electron_default`：只認電子的獨立圖庫，改引用 `_particles`
+- 後台「預設圖片」獨立區塊：併入「圖層素材」
+- 每元素的電子樣式選擇器與 motion 欄位：改為全站設定
+
+### 影響評估
+
+- 風險等級: Medium
+- 受影響功能: feature-003、feature-007、feature-010、feature-011、feature-012、feature-013
+- 破壞性變更: No（舊的 `_electron_styles` 與每元素 motion 資料留著但不再讀取）
+
+### 備註
+
+- **若正式站的資料庫沒有存過 /guide 頁面，清空內建內容後該頁會是空白**，部署後需確認
+- issue #23 的「靜止排開」語意仍待站長確認，已在 issue 留言提出
+- issue #20 的區塊編輯器未納入，理由記錄於 mod-006 與 issue 留言
+- Google Search Console 註冊需站長操作
+- 本次驗證改用 docker compose；真後端需要 Firebase 私鑰，驗證時以 mock 後端替代
+- 站長回饋後台可調整的項目仍偏少（相較 issue #20 附的參考專案），尚未收斂範圍
+
+---
+
 ## [Issue 批次處理：#2~#11] - 2026-08-09 | commit 6199f4c..f384b72
 
 ### 變更類型

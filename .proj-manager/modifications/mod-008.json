@@ -1,0 +1,32 @@
+{
+ "modification_id": "mod-008",
+ "feature_id": null,
+ "type": "bugfix",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "後台文字對比只有 1.54，標題與欄位名幾乎看不見（非 issue，瀏覽器驗證時發現）",
+ "created_at": "2026-08-11T00:15:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "覆寫 .title 與 .label 字色；.desc 與 .field-hint 提高不透明度；頁面清單改為標題／路徑／表頭三階顏色層次"
+   }
+  ]
+ },
+ "root_cause": "專案從 CDN 載入 Bulma，Bulma 是淺色主題，.title 與 .label 的預設字色是深灰 rgb(46,51,61)。套在深色後台上對比只有 1.54，而 WCAG AA 內文需要 4.5。",
+ "notes": [
+  "影響範圍是整個後台而不只是頁面管理——「網站設定」等既有區塊實測也是同一個色值，屬於長期存在但沒被注意到的缺陷",
+  "與 mod-007 是同一個根源：自訂 class 與 Bulma 元件名重疊",
+  "非 GitHub issue，是本次用瀏覽器實際檢視後台時量出來的"
+ ]
+}

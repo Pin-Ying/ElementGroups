@@ -1,0 +1,58 @@
+{
+ "modification_id": "mod-009",
+ "feature_id": "feature-011",
+ "type": "enhancement",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "頁面預設標題統一用英文佔位、內建說明書內容清空，並修掉導覽列標題與頁面本身不一致（非 issue，站長要求）",
+ "created_at": "2026-08-11T00:30:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/utils/pageMeta.js",
+    "change_type": "modified",
+    "diff_summary": "基本粒子頁標題、元素頁三個區塊標題、分子頁組成元素與返回連結、頁尾資料來源，預設值改英文"
+   },
+   {
+    "path": "frontend/src/utils/builtinPages.js",
+    "change_type": "modified",
+    "diff_summary": "guide 標題改 Element Guide、內容清空"
+   },
+   {
+    "path": "frontend/src/store/pages.js",
+    "change_type": "modified",
+    "diff_summary": "BUILTIN_NAV 移除自己那份標題，改用 getter 取自 pageMeta 與內建頁面"
+   },
+   {
+    "path": "frontend/src/components/SiteNav.vue",
+    "change_type": "modified",
+    "diff_summary": "依賴 pageMetaState.loaded，並補上 ensurePageMeta"
+   },
+   {
+    "path": "frontend/src/components/SiteFooter.vue",
+    "change_type": "modified",
+    "diff_summary": "依賴 pageMetaState.loaded"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "內建模板為空時隱藏「載入最新內建模板」按鈕"
+   }
+  ]
+ },
+ "root_cause": "預設值原本中英混雜（Molecule Groups 是英文、基本粒子是中文），站長希望預設值一律用英文當中性佔位，中文自己在後台填。改完後才發現 store/pages.js 的 BUILTIN_NAV 另外寫了一份標題，是第二個真相來源——頁面已顯示 Elementary Particles，頁尾卻還是「基本粒子」。",
+ "notes": [
+  "風險：若正式站的資料庫沒有存過 /guide 頁面，清空內建內容後該頁會變成空白。存過的版本在 DB 優先權較高不受影響",
+  "非標題的描述性預設值（空狀態文字、篩選說明、找不到分子、基本粒子副標題）維持中文，站長決定先這樣，之後自己在後台改",
+  "內建模板為空時隱藏載入按鈕，否則按下去只會清空編輯框，看起來像誤觸",
+  "教訓已寫入 context.md：同一份文案不要有兩個定義處"
+ ]
+}

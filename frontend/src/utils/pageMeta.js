@@ -5,6 +5,22 @@
 // 標題類的預設值一律用英文，當作中性的佔位字。中文由站長在後台自己填，
 // 這樣預設值與實際文案不會混在一起，也不會出現「有些預設是中文、有些
 // 是英文」的不一致。
+// 導覽位置的選項。放在這裡而不是 AdminView，是為了讓內建頁面的欄位定義
+// 與自訂頁面的表單共用同一份，不要又變成兩個真相來源。
+export const NAV_POSITIONS = [
+  { key: 'sidebar', label: '左側導覽' },
+  { key: 'footer', label: '頁尾' },
+  { key: 'header', label: '頁首' },
+  { key: 'none', label: '不顯示於導覽' }
+]
+
+// 純文案的內建頁面（沒有 Markdown 內容、不會進 _pages）也要能決定自己
+// 放在哪個導覽位置，否則站長對這些頁面完全沒有主導權。
+const NAV_FIELDS = [
+  { name: 'nav_position', label: '導覽位置', type: 'select', options: NAV_POSITIONS, default: 'footer' },
+  { name: 'nav_order', label: '導覽排序', type: 'number', default: '0' }
+]
+
 export const PAGE_META_DEFS = [
   {
     key: 'molecules',
@@ -13,7 +29,8 @@ export const PAGE_META_DEFS = [
       { name: 'title', label: '頁面標題', default: 'Molecule Groups' },
       { name: 'subtitle', label: '副標題', default: '', multiline: true },
       { name: 'empty_text', label: '沒有任何分子時的文字', default: '還沒有建立任何分子' },
-      { name: 'filter_note', label: '元素篩選說明（{element} 會代入元素符號）', default: '只顯示含有 {element} 的分子' }
+      { name: 'filter_note', label: '元素篩選說明（{element} 會代入元素符號）', default: '只顯示含有 {element} 的分子' },
+      ...NAV_FIELDS
     ]
   },
   {
@@ -31,7 +48,8 @@ export const PAGE_META_DEFS = [
     fields: [
       { name: 'title', label: '頁面標題', default: 'Elementary Particles' },
       { name: 'subtitle', label: '副標題', default: '組成元素的更小單位，每種粒子都有自己的形象。', multiline: true },
-      { name: 'empty_text', label: '沒有任何粒子時的文字', default: '還沒有建立任何粒子' }
+      { name: 'empty_text', label: '沒有任何粒子時的文字', default: '還沒有建立任何粒子' },
+      ...NAV_FIELDS
     ]
   },
   {

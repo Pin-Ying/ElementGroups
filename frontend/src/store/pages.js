@@ -38,11 +38,26 @@ export function pagesFor(position) {
 // 標題，guide / links 取自內建頁面。否則同一個頁面會有兩個名字，改了一邊
 // 另一邊就對不上——頁面標題已經是 Elementary Particles，頁尾卻還是
 // 「基本粒子」。用 getter 而非常數，pageMeta 晚一步載入時也會跟著更新。
+// 位置同理：molecules / particles 沒有 Markdown 內容、不會進 _pages，
+// 導覽位置改由 pageMeta 決定，站長才有主導權。guide / links 在後台轉成
+// 可編輯頁面之前先用預設位置，轉換後完全依 _pages 的設定。
 const BUILTIN_NAV = [
-  { slug: 'molecules', to: '/molecules', defaultPosition: 'footer', label: () => metaText('molecules', 'title') },
-  { slug: 'particles', to: '/particles', defaultPosition: 'footer', label: () => metaText('particles', 'title') },
-  { slug: 'guide', to: '/guide', defaultPosition: 'footer', label: () => BUILTIN_PAGES.guide.title },
-  { slug: 'links', to: '/links', defaultPosition: 'footer', label: () => BUILTIN_PAGES.links.title }
+  {
+    slug: 'molecules',
+    to: '/molecules',
+    label: () => metaText('molecules', 'title'),
+    position: () => metaText('molecules', 'nav_position'),
+    order: () => Number(metaText('molecules', 'nav_order')) || 0
+  },
+  {
+    slug: 'particles',
+    to: '/particles',
+    label: () => metaText('particles', 'title'),
+    position: () => metaText('particles', 'nav_position'),
+    order: () => Number(metaText('particles', 'nav_order')) || 0
+  },
+  { slug: 'guide', to: '/guide', label: () => BUILTIN_PAGES.guide.title, position: () => 'footer', order: () => 0 },
+  { slug: 'links', to: '/links', label: () => BUILTIN_PAGES.links.title, position: () => 'footer', order: () => 0 }
 ]
 
 /**
@@ -59,20 +74,20 @@ export function navItemsFor(position) {
     if (page) {
       // 已轉成可編輯頁面：位置與標題都以後台設定為準
       if (page.nav_position === position) {
-        items.push({ to: b.to, label: page.title, draft: !page.published })
+        items.push({ to: b.to, label: page.title, draft: !page.published, order: page.nav_order || 0 })
       }
-    } else if (b.defaultPosition === position) {
-      items.push({ to: b.to, label: b.label(), draft: false })
+    } else if (b.position() === position) {
+      items.push({ to: b.to, label: b.label(), draft: false, order: b.order() })
     }
   }
 
   const builtinSlugs = new Set(BUILTIN_NAV.map(b => b.slug))
   for (const p of state.pages) {
     if (p.nav_position !== position || builtinSlugs.has(p.slug)) continue
-    items.push({ to: `/p/${p.slug}`, label: p.title, draft: !p.published })
+    items.push({ to: `/p/${p.slug}`, label: p.title, draft: !p.published, order: p.nav_order || 0 })
   }
 
-  return items
+  return items.sort((a, b) => a.order - b.order)
 }
 
 export const pagesState = state

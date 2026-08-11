@@ -1,0 +1,73 @@
+{
+ "feature_id": "feature-012",
+ "name": "元素分層動畫與繞行粒子",
+ "description": "元素代表圖拆成原子核、手寫元素名兩層靜態疊圖，加上繞著原子核運動的粒子。繞行粒子與運動方式都是全站統一設定；粒子形象直接引用「基本粒子」（_particles），不另外維護圖庫。三種運動模式：分層繞行（含前後景深）、全頁自由飄動、靜止排開。",
+ "status": "completed",
+ "created_at": "2026-08-11T00:00:00Z",
+ "files": [
+  "backend/app/layers.py",
+  "backend/app/routes/admin.py",
+  "backend/app/routes/public.py",
+  "frontend/src/components/ElementLayers.vue",
+  "frontend/src/views/StoryView.vue",
+  "frontend/src/views/AdminView.vue",
+  "frontend/src/api/index.js",
+  "frontend/src/utils/valence.js"
+ ],
+ "dependencies": [
+  "feature-010"
+ ],
+ "api_endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/elements/<symbol>/layers",
+   "description": "公開；原子核、手寫名、全站運動方式與繞行粒子的形象圖"
+  },
+  {
+   "method": "GET/POST",
+   "path": "/api/admin/elements/<symbol>/layers",
+   "description": "登入；每個元素的原子核與手寫名（POST 只更新有帶到的欄位）"
+  },
+  {
+   "method": "GET/POST",
+   "path": "/api/admin/orbit-particle",
+   "description": "登入；全站繞行粒子。候選來自 _particles 中有形象圖的粒子"
+  },
+  {
+   "method": "GET/POST",
+   "path": "/api/admin/electron-motion",
+   "description": "登入；全站運動方式（orbit / free / static）"
+  }
+ ],
+ "data_model": [
+  {
+   "name": "_layers/{Symbol}",
+   "fields": [
+    "nucleus（base64）",
+    "name_img（base64）"
+   ]
+  },
+  {
+   "name": "_orbit_particle",
+   "fields": [
+    "字串；指向 _particles/{slug}"
+   ]
+  },
+  {
+   "name": "_motion",
+   "fields": [
+    "字串；orbit / free / static"
+   ]
+  }
+ ],
+ "notes": [
+  "這個功能早於本次才被記錄，先前版本已存在但沒有建立 feature 檔",
+  "繞行粒子數量由電子組態推算最外層電子數（utils/valence.js），上限 8 顆",
+  "軌域形狀（s 球對稱、p 啞鈴、d 四葉、f）決定扁率與傾角，不是精確的量子力學模型，只取最容易辨認的幾何特徵",
+  "繞行模式的前後景深：粒子分三個軌道層，繞行時同步變化 scale 與 z-index，會轉到原子核後方。.particles 容器刻意不設 z-index，留成 auto 才不會自成堆疊環境",
+  "自由飄動用 Teleport 掛到 body，脫離圖框的 overflow；路徑由元素符號當種子產生，重整不會跳動",
+  "已移除的舊設計：_electron_styles（只認電子的獨立圖庫）與 _electron_default，改引用 _particles；每元素的 motion 與 electron_style 欄位也不再讀取，舊資料留著但忽略",
+  "支援 prefers-reduced-motion",
+  "對應 issue #23"
+ ]
+}

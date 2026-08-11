@@ -48,12 +48,22 @@
 | 網站設定 | Realtime DB `_site_settings` | 文案、背景圖、圖鑑外框 |
 | 社群連結 | Realtime DB `_creator_links` | 描述、頭像形狀、連結清單 |
 | AI 用量 | Realtime DB `_ai_usage/{YYYY-MM-DD}` | 每日呼叫次數 |
+| 基本粒子形象 | Realtime DB `_particles/{slug}` | 電子、質子、中子⋯可自由新增；同時是繞行粒子的來源 |
+| 元素分層素材 | Realtime DB `_layers/{Symbol}` | `{nucleus, name_img}` base64；繞行粒子不存這裡 |
+| 全站繞行粒子 | Realtime DB `_orbit_particle` | 指向 `_particles/{slug}` |
+| 全站運動方式 | Realtime DB `_motion` | `orbit` / `free` / `static` |
+| 內建頁面文案 | Realtime DB `_page_meta/{key}` | 只存被改過的欄位，讀不到退回程式內建預設 |
 
 ## 部署方式
 
 **目前:** Render.com — 前端 static site（elementgroups-frontend）+ 後端 web service（elementtable），
 同一個 repo，push 後兩者皆自動重新部署。
 **本地開發:** Docker Compose（前端 8080，後端 8000），需 `backend/.env` 的 Firebase 憑證。
+對外 port 可用專案根目錄的 `.env` 覆寫（`FRONTEND_PORT` / `BACKEND_PORT`），
+本機已有服務佔用時不必改 `docker-compose.yml`。
+
+> `backend/.env.example` 的 Firebase 私鑰是佔位字串，直接複製會讓憑證初始化失敗
+> （`MalformedFraming`）、worker 開不起來。要跑真後端必須填入真實的 service account。
 
 > 注意：production 的 `VITE_API_URL` 由 Render 環境變數注入為後端絕對網址，
 > 會覆蓋 repo 內 `frontend/.env.production` 的 `/api`。

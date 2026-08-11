@@ -1,0 +1,48 @@
+{
+ "feature_id": "feature-013",
+ "name": "SEO 基礎建設",
+ "description": "sitemap.xml 與 robots.txt、每頁獨立的 title/description/canonical/og、結構化資料（JSON-LD），以及 118 個元素頁的靜態預渲染。目標是讓不執行 JS 的爬蟲（Bing、Facebook、LINE）不會每個元素頁都看到同一份空殼。",
+ "status": "completed",
+ "created_at": "2026-08-11T00:00:00Z",
+ "files": [
+  "frontend/src/utils/seo.js",
+  "frontend/src/data/elementSymbols.js",
+  "frontend/vite-plugin-sitemap.js",
+  "frontend/vite-plugin-prerender.js",
+  "frontend/vite.config.js",
+  "frontend/src/store/siteSettings.js",
+  "frontend/src/views/HomeView.vue",
+  "frontend/src/views/StoryView.vue",
+  "frontend/src/views/MoleculeView.vue",
+  "frontend/src/views/MoleculesView.vue",
+  "frontend/src/views/ParticlesView.vue",
+  "frontend/src/views/GuideView.vue",
+  "frontend/src/views/LinksView.vue",
+  "frontend/src/views/PageView.vue",
+  "frontend/src/views/AdminView.vue",
+  "backend/app/routes/public.py"
+ ],
+ "dependencies": [
+  "feature-003"
+ ],
+ "api_endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/elements/seo",
+   "description": "公開；118 個元素的基本資料與故事開頭（200 字），供 build 期預渲染使用，不含 base64 圖片"
+  }
+ ],
+ "data_model": [],
+ "notes": [
+  "sitemap.xml 與 robots.txt 在 build 產生而非後端端點，三個理由：sitemap 必須與網站同網域而後端是另一個服務；Render 的 /* 重寫只讓實際存在的檔案優先送出；後端在免費方案會休眠，不該讓爬蟲等冷啟動",
+  "代價：新增分子或附加頁面後要重新部署 sitemap 才更新。元素固定 118 個不受影響",
+  "預渲染是複製 index.html 到 stroy/{Symbol}/index.html 並只換 head，body 與載入的 JS 完全不動。若靜態主機沒對應到這些檔案會落回原本的 /* 重寫，不會壞掉——這是安全的加法",
+  "沒有引入 headless browser：對這個專案收益主要在 meta 而不是內文",
+  "utils/seo.js 用 claimed 旗標避免競態——網站設定是非同步載入的，回來得比頁面資料晚時會把頁面自己的標題與描述蓋掉",
+  "分子清單帶 ?element= 時 canonical 一律指回 /molecules，避免 118 個篩選結果被當成重複頁面",
+  "後台與未發布的頁面／分子自動 noindex",
+  "需要 VITE_SITE_URL 才會產生 sitemap 與預渲染，未設定時會 warn 並略過，build 不會失敗",
+  "Google Search Console 註冊與提交 sitemap 需站長操作，未包含在程式碼內",
+  "對應 issue #21"
+ ]
+}

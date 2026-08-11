@@ -1,0 +1,33 @@
+{
+ "modification_id": "mod-007",
+ "feature_id": "feature-007",
+ "type": "bugfix",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "故事頁編輯視窗在矮視窗下超出畫面，且關閉鈕疊在標題上",
+ "created_at": "2026-08-11T00:05:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/views/StoryView.vue",
+    "change_type": "modified",
+    "diff_summary": "modal-box 補 max-height 與 overflow-y；overlay 加內距；標題列改 sticky；480px 以下縮小內距；.modal-close 更名為 .modal-dismiss"
+   }
+  ]
+ },
+ "root_cause": "兩個獨立問題。一是 .modal-box 只設了 width: min(560px, 92vw) 沒有高度上限，視窗一矮內容就撐出畫面外。二是 .modal-close 與 Bulma 的同名元件撞名，Bulma 給它 position: fixed，讓按鈕脫離標題列的 flex 排版疊到標題文字上。",
+ "notes": [
+  "撞名問題是既有缺陷，不是這次 max-height 修正造成的——把 sticky 改動暫時關掉後按鈕位置不變，已實測確認",
+  "驗收：視窗高 407px 時編輯框佔 16→391px 完全在畫面內，且 scrollHeight 469 > clientHeight 371 表示內部可捲動",
+  "教訓：專案從 CDN 載入 Bulma，自訂 class 命名要避開 Bulma 的元件名（modal-close、delete、button、title、label⋯）",
+  "對應 issue #22"
+ ]
+}

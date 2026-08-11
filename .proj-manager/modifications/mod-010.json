@@ -1,0 +1,42 @@
+{
+ "modification_id": "mod-010",
+ "feature_id": null,
+ "type": "chore",
+ "scope": "infrastructure",
+ "status": "applied",
+ "description": "本機開發環境維護：compose 對外 port 可用 .env 覆寫、gitignore 憑證類檔案（非 issue）",
+ "created_at": "2026-08-11T00:25:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "docker-compose.yml",
+    "change_type": "modified",
+    "diff_summary": "ports 改為 ${FRONTEND_PORT:-8080} 與 ${BACKEND_PORT:-8000}"
+   },
+   {
+    "path": ".gitignore",
+    "change_type": "modified",
+    "diff_summary": "新增 *token*.txt、*.pem、*-credentials.json、service-account*.json"
+   },
+   {
+    "path": "docs/verification/",
+    "change_type": "added",
+    "diff_summary": "issue #20 #22 #23 的驗收截圖共 5 張"
+   }
+  ]
+ },
+ "root_cause": "本機 8080 已被其他服務佔用，compose 起不來；而 port 寫死在 docker-compose.yml 裡，改它會污染版本控制。另外驗證過程需要把 GitHub token 放進專案目錄，必須確保不會被 commit。",
+ "notes": [
+  "預設值維持 8080 / 8000，不影響既有用法",
+  "gitignore 的憑證 pattern 刻意寫寬，避免換個檔名就漏掉",
+  "驗證用的 mock 後端與 compose override 放在 session 的 scratchpad，沒有進 repo——真後端需要 Firebase service account 私鑰，.env.example 是佔位字串會讓憑證初始化失敗（MalformedFraming）"
+ ]
+}
