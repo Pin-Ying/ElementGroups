@@ -1,0 +1,34 @@
+{
+ "modification_id": "mod-022",
+ "feature_id": "feature-013",
+ "type": "chore",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "加入 Google Search Console 的 HTML 標記驗證",
+ "created_at": "2026-08-11T06:00:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/index.html",
+    "change_type": "modified",
+    "diff_summary": "head 加入 google-site-verification meta"
+   }
+  ]
+ },
+ "root_cause": "站長在 GSC 加入資源時選了「網域」，那需要 DNS TXT 記錄，但 onrender.com 的 DNS 不在我們手上。改用「網址前置字元」＋HTML 標記驗證。",
+ "notes": [
+  "驗證標記不能移除：GSC 會定期重新檢查，拿掉會失去驗證狀態",
+  "已確認兩條 build 路徑都不會剝掉它——vite-plugin-seo 只置換 description 與 og/twitter，vite-plugin-prerender 的 replace 也只針對那幾個。實測預渲染的 stroy/H/index.html 裡標記還在",
+  "**同時發現 #21 的 SEO 功能在正式站其實沒生效**：/robots.txt 回 404、/sitemap.xml 回傳 index.html、/stroy/H 的 title 是通用的 Element Groups。原因是 Render 沒有設 VITE_SITE_URL，sitemap 與預渲染都會 warn 並跳過",
+  "當初刻意設計成「缺環境變數不讓 build 失敗」，代價是它靜悄悄什麼都沒做，而部署後沒有回頭驗證。已請站長到 Render 補上 VITE_SITE_URL 並重新部署",
+  "教訓：這種「缺設定就跳過」的降級行為，部署後一定要實際打一次正式站的網址確認，不能只看 build 有沒有過"
+ ]
+}
