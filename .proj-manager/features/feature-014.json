@@ -31,6 +31,11 @@
    "method": "GET",
    "path": "/api/admin/bindable/<bind_type>",
    "description": "登入；該類型底下可綁的對象清單，統一成 {id, name}"
+  },
+  {
+   "method": "POST",
+   "path": "/api/admin/electron-styles/migrate",
+   "description": "登入；把 _electron_styles 搬進圖庫，保留原本的樣式 id 當圖片 id"
   }
  ],
  "data_model": [
@@ -54,7 +59,10 @@
   "單庫上限 12 張。base64 直接存 Realtime DB，太多會讓單次讀取過重",
   "上傳沿用 normalizeSprite（裁掉透明邊距、置中為 240×240），與電子樣式同一套處理，不同來源的圖疊起來才一致",
   "刻意只做新增的一層，完全沒有動既有節點。_electron_styles、_gallery、_particles 等照常運作",
-  "未完成：前台尚未消費圖庫（繞行電子仍讀 _electron_styles）；既有的 _electron_styles 與 _gallery 尚未搬進來。搬遷時建議用向下相容讀取，不做破壞性遷移",
-  "在 feature/image-libraries 分支開發，尚未合併"
+  "在 feature/image-libraries 分支開發，尚未合併",
+  "第一個搬進來的是電子樣式：/api/elements/<symbol>/layers 改為優先讀綁在「基本粒子／電子」的圖庫，找不到才退回 _electron_styles",
+  "搬遷刻意保留原本的樣式 id 當圖片 id——每個元素的 _layers/{symbol}.electron_style 存的就是那些 id，保留下來搬遷前後才指得到同一張圖。已實測搬遷前後 style_id 都是 s0 且圖片正常",
+  "舊節點不刪除，留著當退路；後台在搬遷後改為顯示導向「圖庫管理」的入口，避免兩邊各改各的",
+  "尚未搬遷：_gallery（元素其他樣貌）、_particles / _element_groups / _molecules 的單張 img_data"
  ]
 }

@@ -761,6 +761,23 @@
             每個元素放幾顆由電子組態自動決定。原子核與手寫名是每個元素各自的，在「元素故事」的圖層區設定。
           </p>
 
+          <!-- 已經搬進通用圖庫的話，這裡就不再是編輯處，避免兩邊各改各的 -->
+          <div v-if="electronLibrary" class="migrated-notice">
+            電子樣式已搬進通用圖庫「{{ electronLibrary.name }}」（{{ electronLibrary.images.length }} 張）。
+            <button class="draft-link" type="button" @click="section = 'libraries'; selectLibrary(electronLibrary)">
+              到「圖庫管理」編輯
+            </button>
+          </div>
+
+          <template v-else>
+            <div v-if="electronStyles.length" class="migrate-hint">
+              <span>這組樣式可以搬進通用圖庫，之後統一在「圖庫管理」維護。</span>
+              <button class="button secondary small" type="button" :disabled="migrating" @click="handleMigrateElectrons">
+                {{ migrating ? '搬移中…' : '搬進圖庫' }}
+              </button>
+              <p class="field-hint">舊資料會保留當退路，每個元素原本指定的樣式也會照樣指得到。</p>
+            </div>
+
           <div v-if="!electronStyles.length" class="placeholder-text">尚未新增任何電子樣式。</div>
 
           <div v-else class="style-grid">
@@ -813,6 +830,7 @@
               {{ styleSaving ? 'Saving…' : '新增樣式' }}
             </button>
           </div>
+          </template>
 
           <label class="label">運動方式（全站）</label>
           <p class="field-hint">
@@ -1333,7 +1351,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, getElectronMotion, setElectronMotion, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, getElectronMotion, setElectronMotion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1462,6 +1480,7 @@ export default {
       layerSaving: false,
       layerErrors: { nucleus: '', name_img: '' },
       libraryList: [],
+      migrating: false,
       bindable: [],
       bindTargets: [],
       libraryMax: 12,
@@ -1676,6 +1695,10 @@ export default {
     },
     outerElectrons() {
       return outerElectronCount(this.selectedConfig)
+    },
+    // 電子是否已經搬進圖庫。搬了就以圖庫為準，這裡只留入口
+    electronLibrary() {
+      return this.libraryList.find(l => l.bind_type === 'particle' && l.bind_id === 'electron') || null
     },
     currentBindable() {
       return this.bindable.find(b => b.key === this.libraryForm?.bind_type) || null
@@ -2851,6 +2874,18 @@ export default {
         await this.loadLibraries()
       } catch (e) {
         showToast(e.response?.data?.message || '刪除失敗', 'error')
+      }
+    },
+    async handleMigrateElectrons() {
+      this.migrating = true
+      try {
+        const res = await migrateElectronStyles()
+        showToast(res.data.message || '已搬移', 'success')
+        await this.loadLibraries()
+      } catch (e) {
+        showToast(e.response?.data?.message || '搬移失敗', 'error')
+      } finally {
+        this.migrating = false
       }
     },
     // ── 電子樣式庫 ──
@@ -4566,6 +4601,23 @@ button.button:disabled {
 }
 
 .button.small { padding: 4px 12px; font-size: 12px; }
+
+.migrate-hint,
+.migrated-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0 18px;
+  padding: 10px 14px;
+  border: 1px solid rgba(157, 140, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(90, 70, 160, 0.12);
+  font-size: 13px;
+  color: rgba(228, 251, 255, 0.75);
+}
+
+.migrate-hint .field-hint { flex-basis: 100%; margin: 0; }
 
 /* 圖庫清單比頁面清單少兩欄，沿用同一套列樣式但改欄寬 */
 .library-row {

@@ -17,6 +17,7 @@ from app.particles import normalize_particles, PARTICLES_NODE
 from app.page_meta import PAGE_META_NODE, normalize_all
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, has_content
 from app.layers import normalize_layers, normalize_electron_styles, normalize_motion, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE
+from app.libraries import normalize_libraries, libraries_for, resolve_image, LIBRARIES_NODE
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
@@ -259,16 +260,33 @@ def ai_status():
 
 @public_bp.route("/elements/<symbol>/layers", methods=["GET"])
 def get_element_layers(symbol):
-    """元素的圖層設定，連同選用的電子樣式圖一起回傳，前端才不用再打一次。"""
+    """元素的圖層設定，連同選用的電子樣式圖一起回傳，前端才不用再打一次。
+
+    電子的圖優先讀通用圖庫（綁在「基本粒子／電子」的那個庫）；還沒搬進
+    圖庫時退回舊的 `_electron_styles`。兩條路都用同一組 id，所以每個元素
+    原本指定的樣式在搬遷前後都指得到。
+    """
     try:
         layers = normalize_layers(show_fdb(f"{LAYERS_NODE}/{symbol}"))
-        # 元素沒有各自指定電子樣式時退回全站預設
-        style_id = resolve_electron_style(layers, show_fdb(ELECTRON_DEFAULT_NODE))
+        picked = (layers.get("electron_style") or "").strip()
         electron_img = ""
-        if style_id:
-            style = show_fdb(f"{ELECTRON_STYLES_NODE}/{style_id}")
-            if isinstance(style, dict):
-                electron_img = (style.get("img_data") or "").strip()
+        style_id = ""
+
+        library = next(iter(libraries_for(
+            normalize_libraries(show_fdb(LIBRARIES_NODE)), "particle", "electron")), None)
+
+        if library:
+            image = resolve_image(library, picked)
+            if image:
+                style_id = image["id"]
+                electron_img = image["img_data"]
+        else:
+            # 舊路徑：元素沒有各自指定時退回全站預設
+            style_id = resolve_electron_style(layers, show_fdb(ELECTRON_DEFAULT_NODE))
+            if style_id:
+                style = show_fdb(f"{ELECTRON_STYLES_NODE}/{style_id}")
+                if isinstance(style, dict):
+                    electron_img = (style.get("img_data") or "").strip()
         return jsonify({
             **layers,
             # 運動方式是全站統一的，不看元素自己的設定

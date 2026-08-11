@@ -22,7 +22,7 @@ from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_group
 from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, normalize_motion, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE, MOTIONS
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app.libraries import (normalize_libraries, serialize_library, bindable_definitions,
-                           BINDABLE_TYPES, LIBRARIES_NODE, MAX_IMAGES)
+                           libraries_for, BINDABLE_TYPES, LIBRARIES_NODE, MAX_IMAGES)
 from app import ai
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api")
@@ -286,6 +286,49 @@ def delete_electron_style(style_id):
         if (show_fdb(ELECTRON_DEFAULT_NODE) or "") == style_id:
             fdb.child(ELECTRON_DEFAULT_NODE).set("")
         return jsonify({"result": "success", "message": "電子樣式已刪除"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/electron-styles/migrate", methods=["POST"])
+@login_required
+def migrate_electron_styles():
+    """把 `_electron_styles` 搬進通用圖庫，成為綁在「基本粒子／電子」的一個庫。
+
+    刻意保留原本的樣式 id 當作圖片 id：每個元素的 `_layers/{symbol}.electron_style`
+    存的就是那些 id，保留下來搬遷前後才指得到同一張圖。
+
+    舊節點不刪除——確認新的沒問題之前留著當退路，前台也是找不到圖庫才會退回去讀它。
+    """
+    try:
+        styles = normalize_electron_styles(show_fdb(ELECTRON_STYLES_NODE))
+        if not styles:
+            return jsonify({"result": "failure", "message": "沒有可搬移的電子樣式"}), 400
+
+        existing = libraries_for(normalize_libraries(show_fdb(LIBRARIES_NODE)), "particle", "electron")
+        if existing:
+            return jsonify({"result": "failure", "message": "電子的圖庫已經存在，請直接到「圖庫管理」編輯"}), 400
+
+        images = {
+            style["id"]: {"name": style["name"], "img_data": style["img_data"], "order": order}
+            for order, style in enumerate(styles)
+        }
+
+        default_id = (show_fdb(ELECTRON_DEFAULT_NODE) or "").strip()
+        library_id = "particle-electron"
+        fdb.child(LIBRARIES_NODE).child(library_id).set({
+            "name": "電子",
+            "bind_type": "particle",
+            "bind_id": "electron",
+            "default_image": default_id if default_id in images else "",
+            "images": images,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        })
+        return jsonify({
+            "result": "success",
+            "message": f"已搬移 {len(images)} 張到圖庫",
+            "id": library_id,
+        })
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 
