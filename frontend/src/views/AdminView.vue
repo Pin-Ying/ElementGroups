@@ -1454,7 +1454,7 @@ export default {
         return {
           kind: 'meta',
           key: s.key,
-          title: pageMetaDef(s.key)?.label || s.key,
+          title: s.label || pageMetaDef(s.key)?.label || s.key,
           path: s.path,
           published: true,
           nav: '固定',
