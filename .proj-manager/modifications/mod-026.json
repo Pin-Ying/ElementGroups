@@ -1,0 +1,60 @@
+{
+ "modification_id": "mod-026",
+ "feature_id": "feature-005",
+ "type": "refactor",
+ "scope": "fullstack",
+ "status": "applied",
+ "description": "AI 建議收斂成通用架構：一支端點＋註冊表＋共用面板元件（issue #26 第一階段）",
+ "created_at": "2026-08-11T08:20:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": true,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/ai.py",
+    "change_type": "modified",
+    "diff_summary": "generate_page / generate_story 收斂成 suggest(kind, context, draft, direction)＋SUGGEST_KINDS 註冊表"
+   },
+   {
+    "path": "backend/app/routes/admin.py",
+    "change_type": "modified",
+    "diff_summary": "page-suggest 與 story-suggest 兩支端點收斂成 /admin/ai/suggest"
+   },
+   {
+    "path": "frontend/src/utils/aiKinds.js",
+    "change_type": "added",
+    "diff_summary": "各用途的輸入欄位定義，與後端用同一組 key"
+   },
+   {
+    "path": "frontend/src/components/AiAssist.vue",
+    "change_type": "added",
+    "diff_summary": "共用的 AI 面板：切換鈕、欄位、額度、產生、附加／覆蓋／捨棄"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "兩組面板換成元件，移除四個舊方法與相關 data"
+   },
+   {
+    "path": "frontend/src/components/StoryEditor.vue",
+    "change_type": "modified",
+    "diff_summary": "前台故事編輯視窗的面板一併換成元件"
+   }
+  ]
+ },
+ "root_cause": "每個 AI 用途都要湊齊 prompt 建構、generate 函式、專屬端點、前端面板四樣東西，而兩個既有用途的前置檢查與面板 UI 已經幾乎完全重複。再接新用途就是繼續複製。",
+ "notes": [
+  "實際上有三份重複面板不是兩份——StoryEditor.vue（前台故事編輯視窗）也有一份，是建置報錯才發現的。又一次「先盤點消費端」的教訓",
+  "前後端各有一份註冊表是本質的：提示必須在伺服器端（API key 在那裡），輸入介面必須在瀏覽器端。兩邊唯一的約定是 kind 字串與 context 欄位名，已在兩份檔案的開頭寫清楚",
+  "重構過程中一度用「切片刪除」清理舊方法，把中間 39 個無關的方法一起砍掉（loadStoryData、setSection 等），瀏覽器直接報 is not a function。還原後改用 regex 定位「函式起點→下一個同縮排函式起點」精準切出單一方法",
+  "StoryEditor 出現兩個 components 選項，後者覆蓋前者導致 AiAssist 沒被註冊、面板不顯示。這種覆蓋 Vue 不會報錯",
+  "三個消費端逐一實測：元素故事（含 symbol 進 context、附加與覆蓋都正確）、頁面內容（欄位為頁面主題）、前台編輯視窗（額度與欄位都正確）",
+  "下一階段：接上主族形象（創作型）與頁面 SEO 描述（摘要型），驗證同一套架構吃得下兩種性質"
+ ]
+}

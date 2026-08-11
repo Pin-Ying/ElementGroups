@@ -16,54 +16,19 @@
 
     <div class="label-row">
       <label class="label">Story</label>
-      <button
-        v-if="ai.enabled"
-        class="ai-toggle"
-        type="button"
-        :class="{ active: aiPanelOpen }"
-        @click="aiPanelOpen = !aiPanelOpen"
-      >✧ AI 協助</button>
+      <AiAssist
+        ref="aiAssist"
+        kind="element-story"
+        :ai="ai"
+        :draft="storyText"
+        :extra="{ symbol }"
+        @apply="applySuggestion"
+        @used="onAiUsed"
+      />
     </div>
 
-    <!-- 開著 AI 面板時，寬螢幕改為編輯框與建議左右並排 -->
-    <div class="editor-main" :class="{ 'editor-main--split': ai.enabled && aiPanelOpen }">
+    <div class="editor-main">
       <textarea class="textarea" v-model="storyText" :rows="rows" aria-label="故事內容"></textarea>
-
-    <!-- AI 故事協助（只有後端設定了 API key 才會出現） -->
-    <div v-if="ai.enabled && aiPanelOpen" class="ai-panel">
-      <p class="ai-hint">
-        會自動帶入這個元素的週期表資料
-        <template v-if="storyText.trim()">，以及你目前已經寫的內容（AI 會延伸潤飾而不是整段重寫）</template>。
-      </p>
-
-      <label class="ai-check">
-        <input type="checkbox" v-model="aiIncludeGroup" />
-        帶入主族形象設定（後台「主族形象」的共同設計特色）
-      </label>
-
-      <label class="label ai-label">風格／方向（選填）</label>
-      <input class="input" type="text" v-model="aiDirection" aria-label="風格或方向" />
-
-      <label class="label ai-label">補充參考資料（選填）</label>
-      <textarea class="textarea ai-reference" v-model="aiReference" rows="3" aria-label="補充參考資料"></textarea>
-
-      <div class="ai-actions">
-        <button class="button" type="button" :disabled="aiLoading" @click="handleSuggest">
-          {{ aiLoading ? '產生中…' : (aiSuggestion ? '重新產生' : '產生建議') }}
-        </button>
-        <span v-if="ai.limit > 0" class="ai-quota">今日已用 {{ ai.used }} / {{ ai.limit }}</span>
-      </div>
-
-      <div v-if="aiSuggestion" class="ai-result">
-        <p class="preview-label">AI 建議（尚未套用）</p>
-        <div class="ai-suggestion">{{ aiSuggestion }}</div>
-        <div class="ai-actions">
-          <button class="button secondary" type="button" @click="applySuggestion('append')">附加到編輯框</button>
-          <button class="button secondary" type="button" @click="applySuggestion('replace')">直接覆蓋</button>
-          <button class="button secondary" type="button" @click="aiSuggestion = ''">捨棄</button>
-        </div>
-      </div>
-    </div>
     </div>
 
     <label class="label">Image</label>
@@ -95,13 +60,14 @@
 <script>
 // 元素故事的編輯器。後台與元素頁的 inline 編輯共用同一份，
 // 避免兩邊各寫一套而功能長歪（例如一邊有壓縮與草稿、另一邊沒有）。
-import { updateStory, suggestStory, getAiStatus, apiBase } from '../api'
+import { updateStory, getAiStatus, apiBase } from '../api'
+import AiAssist from './AiAssist.vue'
 import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
 import { showToast } from '../store/toast'
 import ImageCropper from './ImageCropper.vue'
 
 export default {
-  components: { ImageCropper },
+  components: { AiAssist, ImageCropper },
   props: {
     symbol: { type: String, required: true },
     story: { type: String, default: '' },
@@ -122,11 +88,7 @@ export default {
       newImagePreviewUrl: '',
       ai: { enabled: false, used: 0, limit: 0 },
       aiPanelOpen: false,
-      aiDirection: '',
-      aiIncludeGroup: true,
-      aiReference: '',
-      aiSuggestion: '',
-      aiLoading: false
+      aiPlaceholder: null
     }
   },
   computed: {
@@ -176,7 +138,7 @@ export default {
       this.revokePreview()
       this.aiDirection = ''
       this.aiReference = ''
-      this.aiSuggestion = ''
+      text = ''
       if (this.$refs.imageInput) this.$refs.imageInput.value = ''
     },
     revokePreview() {
@@ -223,34 +185,19 @@ export default {
         this.cropFile = null
       }
     },
-    async handleSuggest() {
-      this.aiLoading = true
-      try {
-        const res = await suggestStory({
-          symbol: this.symbol,
-          draft: this.storyText,
-          direction: this.aiDirection,
-          reference: this.aiReference,
-          include_group: this.aiIncludeGroup
-        })
-        this.aiSuggestion = res.data.suggestion || ''
-        this.ai.used = res.data.used ?? this.ai.used
-        this.ai.limit = res.data.limit ?? this.ai.limit
-      } catch (e) {
-        showToast(e.response?.data?.message || 'AI 產生失敗', 'error')
-      } finally {
-        this.aiLoading = false
-      }
+    onAiUsed({ used, limit }) {
+      this.ai.used = used
+      this.ai.limit = limit
     },
-    applySuggestion(mode) {
-      if (!this.aiSuggestion) return
+    applySuggestion({ text, mode }) {
+      if (!text) return
       if (mode === 'replace') {
-        this.storyText = this.aiSuggestion
+        this.storyText = text
       } else {
         const current = this.storyText.trim()
-        this.storyText = current ? current + '\n\n' + this.aiSuggestion : this.aiSuggestion
+        this.storyText = current ? current + '\n\n' + text : text
       }
-      this.aiSuggestion = ''
+      text = ''
       showToast('已套用到編輯框，記得儲存', 'success')
     },
     async submit(asDraft) {

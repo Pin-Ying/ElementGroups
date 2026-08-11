@@ -202,8 +202,73 @@ def build_page_prompt(topic, draft="", direction=""):
     return "\n".join(parts)
 
 
-def generate_page(topic, draft="", direction=""):
-    """產生頁面內容建議。回傳 (內容, 今日已用, 上限)。"""
+# ── 建議用途的註冊表 ──────────────────────────────────────────────
+#
+# key 就是前後端之間唯一的約定。後端只管「這個 kind 的提示怎麼組」，
+# 前端只管「這個 kind 要收哪些輸入」——提示必須在伺服器端（API key 在
+# 這裡），輸入介面必須在瀏覽器端，這個分工是本質上的，不是重複。
+#
+# 要新增一個 AI 用途：這裡補一個 builder，前端 utils/aiKinds.js 補對應
+# 的欄位定義。不必再寫端點，也不必再做一組面板。
+#
+# builder 收到 (context, draft, direction)，context 是前端送來的原始
+# 物件，各自決定怎麼解讀、需要時自己去查資料。
+
+def _element_story_prompt(context, draft, direction):
+    from app.firebase import get_element_by_symbol, show_fdb
+    from app.groups import GROUPS_NODE, normalize_group, group_key_for, has_content
+
+    symbol = (context.get("symbol") or "").strip()
+    element = get_element_by_symbol(symbol)
+    if not element:
+        raise ValueError(f"找不到元素 {symbol}")
+
+    # 勾選帶入主族形象時，後端自己查該元素所屬族的設定（issue #16）
+    group_info = ""
+    if context.get("include_group"):
+        key = group_key_for(element.get("AtomicNumber"))
+        if key:
+            group = normalize_group(key, show_fdb(f"{GROUPS_NODE}/{key}"))
+            if has_content(group):
+                pieces = [f"所屬族：{key}"]
+                if group["name"]:
+                    pieces.append(f"形象名稱：{group['name']}")
+                if group["description"]:
+                    pieces.append(f"共同特色：{group['description']}")
+                group_info = "\n".join(pieces)
+
+    return build_prompt(
+        element,
+        draft=draft,
+        direction=direction,
+        reference=(context.get("reference") or "").strip(),
+        group_info=group_info,
+    )
+
+
+def _page_content_prompt(context, draft, direction):
+    topic = (context.get("topic") or "").strip()
+    if not topic:
+        raise ValueError("請先描述頁面主題")
+    return build_page_prompt(topic, draft=draft, direction=direction)
+
+
+SUGGEST_KINDS = {
+    "element-story": _element_story_prompt,
+    "page-content": _page_content_prompt,
+}
+
+
+def suggest(kind, context=None, draft="", direction=""):
+    """產生一則建議。回傳 (內容, 今日已用, 上限)。
+
+    所有用途共用的前置檢查（是否啟用、每日額度、provider）都收在這裡，
+    各用途只負責把提示組出來。
+    """
+    builder = SUGGEST_KINDS.get(kind)
+    if not builder:
+        raise ValueError(f"不認得的建議類型：{kind}")
+
     if not is_enabled():
         raise RuntimeError("AI 功能未啟用")
 
@@ -214,27 +279,6 @@ def generate_page(topic, draft="", direction=""):
     if settings.AI_PROVIDER != "gemini":
         raise RuntimeError(f"尚未支援的 AI_PROVIDER：{settings.AI_PROVIDER}")
 
-    prompt = build_page_prompt(topic, draft=draft, direction=direction)
-    text = _call_gemini(prompt)
-
-    _increment_usage()
-    return text, used + 1, limit
-
-
-def generate_story(element, draft="", direction="", reference="", group_info=""):
-    """產生故事建議。回傳 (內容, 今日已用, 上限)。"""
-    if not is_enabled():
-        raise RuntimeError("AI 功能未啟用")
-
-    used, limit = get_usage()
-    if limit > 0 and used >= limit:
-        raise RuntimeError(f"今日 AI 呼叫已達上限（{limit} 次），請明天再試")
-
-    if settings.AI_PROVIDER != "gemini":
-        raise RuntimeError(f"尚未支援的 AI_PROVIDER：{settings.AI_PROVIDER}")
-
-    prompt = build_prompt(element, draft=draft, direction=direction, reference=reference, group_info=group_info)
-    text = _call_gemini(prompt)
-
+    text = _call_gemini(builder(context or {}, draft, direction))
     _increment_usage()
     return text, used + 1, limit
