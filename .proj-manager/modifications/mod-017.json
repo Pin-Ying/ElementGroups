@@ -1,0 +1,31 @@
+{
+ "modification_id": "mod-017",
+ "feature_id": null,
+ "type": "chore",
+ "scope": "infrastructure",
+ "status": "applied",
+ "description": "把 frontend/package-lock.json 納入版本控制",
+ "created_at": "2026-08-11T05:00:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": true,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/package-lock.json",
+    "change_type": "added",
+    "diff_summary": "lockfileVersion 3，110 個套件的解析結果"
+   }
+  ]
+ },
+ "root_cause": "先前一直是未追蹤狀態。package.json 用的是 ^ 範圍版本，沒有 lock 檔的話 Render 每次 build 都可能裝到不同的次版本，本機通過不代表線上一樣。",
+ "notes": [
+  "Render 的 buildCommand 是 npm install；有 lock 檔時會依它安裝，環境才可重現",
+  "與 backend/requirements.txt 的角色相同——後端本來就有鎖版本，前端這邊補齊"
+ ]
+}
