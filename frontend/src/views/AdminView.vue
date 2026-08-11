@@ -4872,16 +4872,18 @@ button.button:disabled {
   margin-bottom: 6px;
 }
 
-/* 頁面編輯有區塊編輯器之後會很長，動作列黏在頁首（sticky，高 63px）
-   底下，捲到哪裡都按得到。負的左右外距＋補回內距，是為了讓背景蓋滿
-   整個 box 寬度，內容才不會從側邊透出來 */
+/* 頁面編輯有區塊編輯器之後會很長，動作列黏在頁首底下，捲到哪裡都按得到。
+   頁首是 sticky、底緣固定在 63px，所以這裡貼齊 63 而不是留空隙。
+   上方多給 12px 內距並用 -12px 抵銷，讓背景往上多蓋一段——只要 top 和
+   頁首底緣差一點點，捲動的內容就會從那條縫透出來。
+   負的左右外距＋補回內距則是讓背景蓋滿整個 box 寬度。 */
 .section-head--sticky {
   position: sticky;
-  top: 72px;
+  top: 63px;
   z-index: 20;
-  margin: -24px -28px 6px;
-  padding: 14px 28px;
-  background: rgba(14, 5, 26, 0.96);
+  margin: -36px -28px 6px;
+  padding: 26px 28px 14px;
+  background: rgba(14, 5, 26, 0.97);
   border-bottom: 1px solid rgba(228, 251, 255, 0.1);
   backdrop-filter: blur(4px);
 }
