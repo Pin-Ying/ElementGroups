@@ -1258,11 +1258,13 @@ const SYSTEM_PAGES = [
   { kind: 'site', key: 'home', label: '首頁', path: '/' },
   { kind: 'markdown', key: 'guide', path: '/guide' },
   { kind: 'markdown', key: 'links', path: '/links' },
-  { kind: 'meta', key: 'molecules', path: '/molecules' },
-  { kind: 'meta', key: 'molecule', path: '/molecule/…' },
-  { kind: 'meta', key: 'particles', path: '/particles' },
-  { kind: 'meta', key: 'story', path: '/stroy/…' },
-  { kind: 'meta', key: 'footer', path: '（全站頁尾）' }
+  // 這裡自己給名稱，不用 PAGE_META_DEFS 的 label：那份 label 帶著網址
+  // 是為了舊版的單一清單，現在路徑已經是獨立欄位，再帶一次只是重複
+  { kind: 'meta', key: 'molecules', label: '分子圖鑑', path: '/molecules' },
+  { kind: 'meta', key: 'molecule', label: '分子頁', path: '/molecule/…' },
+  { kind: 'meta', key: 'particles', label: '基本粒子', path: '/particles' },
+  { kind: 'meta', key: 'story', label: '元素頁區塊標題', path: '/stroy/…' },
+  { kind: 'meta', key: 'footer', label: '頁尾', path: '（全站頁尾）' }
 ]
 
 // 常用化合物分類，datalist 建議用；可自由輸入其他分類
@@ -2972,9 +2974,19 @@ export default {
   margin-top: 12px;
 }
 
+/* Bulma 是淺色主題，.title 與 .label 的預設字色是深灰（rgb(46,51,61)），
+   套在這個深色後台上對比只有 1.54，幾乎看不見。整個後台一起覆寫。 */
+.title {
+  color: #e4fbff;
+}
+
+.label {
+  color: rgba(228, 251, 255, 0.82);
+}
+
 .desc {
   font-size: 13px;
-  opacity: 0.55;
+  opacity: 0.62;
   margin: 2px 0 14px;
   line-height: 1.5;
 }
@@ -3355,7 +3367,7 @@ export default {
 
 .field-hint {
   font-size: 12px;
-  opacity: 0.45;
+  opacity: 0.58;
   margin: 0 0 6px;
   line-height: 1.5;
 }
@@ -4240,11 +4252,13 @@ button.button:disabled {
 
 .page-row:first-child { border-top: none; }
 
+/* 清單的顏色分三階：標題最亮、路徑與導覽位置次之、表頭最淡，
+   讓一眼能先掃到標題 */
 .page-row--head {
-  background: rgba(228, 251, 255, 0.05);
+  background: rgba(228, 251, 255, 0.06);
   font-size: 12px;
   letter-spacing: 0.04em;
-  opacity: 0.65;
+  color: rgba(228, 251, 255, 0.6);
 }
 
 .page-order { display: flex; gap: 2px; }
@@ -4255,12 +4269,13 @@ button.button:disabled {
   align-items: center;
   gap: 7px;
   font-weight: bold;
+  color: #e4fbff;
 }
 
 .page-path {
   font-family: monospace;
   font-size: 12px;
-  opacity: 0.7;
+  color: rgba(228, 251, 255, 0.72);
   overflow-wrap: anywhere;
 }
 
@@ -4268,9 +4283,9 @@ button.button:disabled {
   padding: 1px 6px;
   border-radius: 4px;
   background: rgba(228, 251, 255, 0.12);
+  color: rgba(228, 251, 255, 0.8);
   font-size: 11px;
   font-weight: normal;
-  opacity: 0.75;
 }
 
 .status-tag {
@@ -4283,7 +4298,7 @@ button.button:disabled {
 .status-tag.is-live { background: rgba(110, 231, 110, 0.14); color: #6ee76e; }
 .status-tag.is-draft { background: rgba(255, 196, 107, 0.14); color: #ffc46b; }
 
-.page-nav-cell { font-size: 12px; opacity: 0.7; }
+.page-nav-cell { font-size: 12px; color: rgba(228, 251, 255, 0.72); }
 
 .page-ops {
   display: flex;
