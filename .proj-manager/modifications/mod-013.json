@@ -1,0 +1,32 @@
+{
+ "modification_id": "mod-013",
+ "feature_id": "feature-014",
+ "type": "bugfix",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "電子搬進圖庫後，後台仍有兩處讀舊的 _electron_styles，改了圖庫的預設圖不會反映",
+ "created_at": "2026-08-11T03:10:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "新增 electronChoices / electronDefaultId 兩個 computed 當單一來源；基本粒子的「帶入預設電子圖」與元素故事的每元素樣式選擇器改讀它們"
+   }
+  ]
+ },
+ "root_cause": "把電子搬進圖庫時只改了後端 /elements/<symbol>/layers 的讀取路徑，前端還有兩個消費端直接讀 electronStyles / defaultStyleId：基本粒子的「帶入預設電子圖」（站長回報）與元素故事的每元素樣式選擇器（同批問題，站長尚未遇到）。等於搬遷做了一半，資料又變成兩個來源。",
+ "notes": [
+  "修法不是逐處補判斷，而是加 electronChoices / electronDefaultId 兩個 computed：搬進圖庫後以圖庫為準，否則沿用舊節點。所有消費端只讀這兩個",
+  "這是本次第四次踩到同一類問題（BUILTIN_NAV 的標題、PAGE_META_DEFS 的 label、導覽位置、這次）。搬遷既有資料時要先把消費端全部找出來，而不是改完主要路徑就當作完成",
+  "已實測：在圖庫把預設改成 s2 後，基本粒子按「帶入預設電子圖」帶入的確實是 s2 的圖"
+ ]
+}

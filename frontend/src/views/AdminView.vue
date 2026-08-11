@@ -613,7 +613,7 @@
               <div class="mol-image-actions">
                 <input type="file" accept="image/*" @change="onParticleImgChange" />
                 <button
-                  v-if="electronStyles.length"
+                  v-if="electronChoices.length"
                   class="button secondary"
                   type="button"
                   @click="useDefaultElectronImg"
@@ -1223,23 +1223,23 @@
 
               <div class="layer-slot">
                 <p class="preview-label">電子（{{ outerElectrons }} 顆）</p>
-                <div v-if="electronStyles.length" class="electron-picker">
+                <div v-if="electronChoices.length" class="electron-picker">
                   <button
-                    v-for="st in electronStyles"
+                    v-for="st in electronChoices"
                     :key="st.id"
                     class="electron-option"
                     type="button"
                     :class="{ active: layerForm.electron_style === st.id }"
-                    :title="st.name + (st.id === defaultStyleId ? '（預設）' : '')"
+                    :title="st.name + (st.id === electronDefaultId ? '（預設）' : '')"
                     @click="layerForm.electron_style = layerForm.electron_style === st.id ? '' : st.id"
                   >
                     <img :src="st.img_data" alt="" />
-                    <span v-if="st.id === defaultStyleId" class="electron-default-mark">★</span>
+                    <span v-if="st.id === electronDefaultId" class="electron-default-mark">★</span>
                   </button>
                 </div>
-                <p v-else class="layer-empty">尚無樣式，請先到「圖層素材」新增</p>
-                <p v-if="electronStyles.length && !layerForm.electron_style" class="layer-empty">
-                  {{ defaultStyleId ? '未指定，將使用預設電子' : '未指定，且尚未設定預設電子' }}
+                <p v-else class="layer-empty">尚無樣式，請先到「圖庫管理」新增</p>
+                <p v-if="electronChoices.length && !layerForm.electron_style" class="layer-empty">
+                  {{ electronDefaultId ? '未指定，將使用預設電子' : '未指定，且尚未設定預設電子' }}
                 </p>
 
                 <p class="layer-empty">
@@ -1700,6 +1700,17 @@ export default {
     electronLibrary() {
       return this.libraryList.find(l => l.bind_type === 'particle' && l.bind_id === 'electron') || null
     },
+    // 電子目前可選的樣式與預設。搬進圖庫後以圖庫為準，否則沿用舊節點。
+    // 所有消費端只讀這兩個，不要各自判斷該讀哪一邊——搬遷時漏改一處就會
+    // 出現「圖庫改了但別的地方沒跟著改」
+    electronChoices() {
+      const lib = this.electronLibrary
+      if (lib) return lib.images.map(i => ({ id: i.id, name: i.name, img_data: i.img_data }))
+      return this.electronStyles
+    },
+    electronDefaultId() {
+      return this.electronLibrary ? this.electronLibrary.default_image : this.defaultStyleId
+    },
     currentBindable() {
       return this.bindable.find(b => b.key === this.libraryForm?.bind_type) || null
     },
@@ -1965,7 +1976,8 @@ export default {
     },
     useDefaultElectronImg() {
       // 電子的形象圖直接沿用圖層素材的預設電子，不必重新上傳
-      const style = this.electronStyles.find(st => st.id === this.defaultStyleId) || this.electronStyles[0]
+      const choices = this.electronChoices
+      const style = choices.find(st => st.id === this.electronDefaultId) || choices[0]
       if (style?.img_data) this.particleForm.img_data = style.img_data
     },
     async onParticleImgChange(e) {
