@@ -726,6 +726,25 @@
             每個元素放幾顆由電子組態自動決定。
           </p>
 
+          <label class="label">運動方式（全站）</label>
+          <p class="field-hint">
+            這是整體的視覺風格，全站元素共用一種，不需要逐個元素設定。儲存後前台立即反映。
+          </p>
+          <div class="motion-picker">
+            <button
+              v-for="opt in motionOptions"
+              :key="opt.value"
+              class="motion-option"
+              type="button"
+              :class="{ active: motion === opt.value }"
+              :disabled="motionSaving"
+              @click="handleSaveMotion(opt.value)"
+            >
+              <span class="motion-name">{{ opt.label }}</span>
+              <span class="motion-desc">{{ opt.desc }}</span>
+            </button>
+          </div>
+
           <div v-if="!electronStyles.length" class="placeholder-text">尚未新增任何電子樣式。</div>
 
           <div v-else class="style-grid">
@@ -1045,12 +1064,9 @@
                   {{ defaultStyleId ? '未指定，將使用預設電子' : '未指定，且尚未設定預設電子' }}
                 </p>
 
-                <label class="label ai-label">運動方式</label>
-                <select class="select" v-model="layerForm.motion" aria-label="電子運動方式">
-                  <option value="orbit">繞著原子核轉</option>
-                  <option value="free">自由飄動</option>
-                  <option value="static">靜止排開</option>
-                </select>
+                <p class="layer-empty">
+                  運動方式是全站統一的，到「圖層素材」設定。目前為<strong>{{ motionLabel }}</strong>。
+                </p>
               </div>
             </div>
 
@@ -1157,7 +1173,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getElectronMotion, setElectronMotion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1271,13 +1287,20 @@ export default {
       PAGE_META_DEFS,
       CATEGORY_PRESETS,
       NAV_POSITIONS,
-      layerForm: { nucleus: '', name_img: '', electron_style: '', motion: 'orbit' },
+      layerForm: { nucleus: '', name_img: '', electron_style: '' },
       layerSaving: false,
       layerErrors: { nucleus: '', name_img: '' },
       brokenStyles: [],
       pendingDeleteStyle: '',
       electronStyles: [],
       defaultStyleId: '',
+      motion: 'orbit',
+      motionSaving: false,
+      motionOptions: [
+        { value: 'orbit', label: '繞著原子核', desc: '分層繞行，會轉到原子核前後，有遠近景深' },
+        { value: 'free', label: '自由飄動', desc: '電子脫離圖框，在整個網頁裡緩慢漫遊' },
+        { value: 'static', label: '靜止排開', desc: '等角度均分、彼此距離最遠，完全不動' }
+      ],
       newStyleName: '',
       newStyleImg: '',
       newStyleInfo: null,
@@ -1399,6 +1422,9 @@ export default {
     },
     outerElectrons() {
       return outerElectronCount(this.selectedConfig)
+    },
+    motionLabel() {
+      return (this.motionOptions.find(o => o.value === this.motion) || {}).label || this.motion
     },
     hasDraft() {
       return !!(this.draftDatas[this.selectedSymbol] || '').trim()
@@ -2360,8 +2386,7 @@ export default {
         this.layerForm = {
           nucleus: res.data.nucleus || '',
           name_img: res.data.name_img || '',
-          electron_style: res.data.electron_style || '',
-          motion: res.data.motion || 'orbit'
+          electron_style: res.data.electron_style || ''
         }
       } catch (e) {
         console.error('Failed to load layers:', e)
@@ -2416,6 +2441,33 @@ export default {
         this.defaultStyleId = res.data.default_id || ''
       } catch (e) {
         console.error('Failed to load electron styles:', e)
+      }
+
+      try {
+        const res = await getElectronMotion()
+        this.motion = res.data.motion || 'orbit'
+      } catch (e) {
+        console.error('Failed to load electron motion:', e)
+      }
+    },
+    async handleSaveMotion(value) {
+      if (value === this.motion || this.motionSaving) return
+      const previous = this.motion
+      this.motion = value
+      this.motionSaving = true
+      try {
+        const res = await setElectronMotion(value)
+        if (res.data.result === 'success') {
+          showToast(res.data.message, 'success')
+        } else {
+          this.motion = previous
+          showToast(res.data.message || '儲存失敗', 'error')
+        }
+      } catch (e) {
+        this.motion = previous
+        showToast(e.response?.data?.message || '儲存失敗', 'error')
+      } finally {
+        this.motionSaving = false
       }
     },
     async onStyleFile(e) {
@@ -3193,6 +3245,38 @@ export default {
   border-radius: 0;
   display: block;
 }
+
+/* ── 全站電子運動方式 ── */
+.motion-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 10px 0 22px;
+}
+
+.motion-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  text-align: left;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(228, 251, 255, 0.03);
+  color: inherit;
+  cursor: pointer;
+}
+
+.motion-option:hover:not(:disabled) { border-color: rgba(228, 251, 255, 0.3); }
+.motion-option:disabled { cursor: default; opacity: 0.6; }
+
+.motion-option.active {
+  border-color: #6ee76e;
+  background: rgba(110, 231, 110, 0.08);
+}
+
+.motion-name { font-size: 14px; font-weight: bold; }
+.motion-desc { font-size: 12px; opacity: 0.7; line-height: 1.5; }
 
 /* ── 電子樣式庫 ── */
 .style-grid {

@@ -19,7 +19,7 @@ from app.page_meta import PAGE_META_NODE, META_KEYS, normalize_meta
 from app.particles import normalize_particles, serialize_particle, normalize_slug as particle_slug, PARTICLES_NODE
 from app import pubchem
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, serialize_group, group_key_for, has_content as group_has_content
-from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE
+from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, normalize_motion, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE, MOTIONS
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app import ai
 
@@ -284,6 +284,27 @@ def delete_electron_style(style_id):
         if (show_fdb(ELECTRON_DEFAULT_NODE) or "") == style_id:
             fdb.child(ELECTRON_DEFAULT_NODE).set("")
         return jsonify({"result": "success", "message": "電子樣式已刪除"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/electron-motion", methods=["GET", "POST"])
+@login_required
+def electron_motion():
+    """全站電子運動方式。三種模式是整體視覺風格，統一設定不逐個元素指定。"""
+    if request.method == "GET":
+        try:
+            return jsonify({
+                "motion": normalize_motion(show_fdb(MOTION_NODE)),
+                "options": list(MOTIONS),
+            })
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    try:
+        motion = normalize_motion((request.get_json() or {}).get("motion"))
+        fdb.child(MOTION_NODE).set(motion)
+        return jsonify({"result": "success", "message": "電子運動方式已儲存", "motion": motion})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 

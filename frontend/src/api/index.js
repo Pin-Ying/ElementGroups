@@ -220,6 +220,14 @@ export function deleteElectronStyle(id) {
   return api.delete(`/admin/electron-styles/${id}`)
 }
 
+export function getElectronMotion() {
+  return api.get('/admin/electron-motion')
+}
+
+export function setElectronMotion(motion) {
+  return api.post('/admin/electron-motion', { motion })
+}
+
 export function getElementGallery(symbol) {
   return api.get(`/elements/${symbol}/gallery`)
 }
