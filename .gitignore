@@ -9,6 +9,12 @@ __pycache__
 .env
 backend/.env
 
+# 憑證：檔名寫寬一點，避免換個名字就漏掉
+*token*.txt
+*.pem
+*-credentials.json
+service-account*.json
+
 # Frontend
 frontend/node_modules/
 frontend/dist/
