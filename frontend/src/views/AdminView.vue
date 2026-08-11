@@ -970,7 +970,7 @@
             <label class="label">圖片（{{ libraryForm.images.length }} / {{ libraryMax }}）</label>
             <p class="field-hint">請使用<strong>去背的 PNG</strong>，正方形構圖。上傳後會縮至 240px 並保留透明背景。</p>
 
-            <div v-if="libraryForm.images.length" class="style-grid">
+            <div v-if="libraryForm.images.length" class="style-grid library-grid">
               <div
                 v-for="(img, i) in libraryForm.images"
                 :key="img.id"
@@ -4732,6 +4732,18 @@ button.button:disabled {
 /* 圖庫清單比頁面清單少兩欄，沿用同一套列樣式但改欄寬 */
 .library-row {
   grid-template-columns: minmax(140px, 1.6fr) minmax(120px, 1.2fr) 80px auto;
+}
+
+/* 圖庫的每張圖多了一個可編輯的名稱欄位，格子要比純展示的電子樣式寬，
+   否則名稱稍長就被裁掉（120px 的格子只剩 75px 給輸入框） */
+.library-grid {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+
+.library-grid .style-item .input {
+  width: 100%;
+  /* grid 子項預設 min-width:auto，不設 0 仍會被內容撐開 */
+  min-width: 0;
 }
 
 /* 窄螢幕排不下六欄，改成兩欄的卡片，欄位前面補上名稱 */

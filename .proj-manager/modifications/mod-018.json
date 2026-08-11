@@ -1,0 +1,33 @@
+{
+ "modification_id": "mod-018",
+ "feature_id": "feature-014",
+ "type": "bugfix",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "圖庫管理的圖片名稱輸入框太窄，名稱稍長就被裁掉（站長回報）",
+ "created_at": "2026-08-11T05:20:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "圖庫編輯的圖片格線改用 .library-grid（210px 起跳），輸入框補 width:100% 與 min-width:0"
+   }
+  ]
+ },
+ "root_cause": "圖庫編輯沿用了電子樣式庫的 .style-grid（minmax(120px, 1fr)）。那個格線原本只放一張小圖加一行短標籤，但圖庫的每張圖多了可編輯的名稱欄位——120px 的格子扣掉內距後只剩 75px 給輸入框，11 個中文字需要 176px，被裁掉 101px。",
+ "notes": [
+  "修正後格子 121→252px、輸入框可用寬 75→206px，實測 11 字完整顯示",
+  "另補 min-width: 0：grid 子項預設 min-width:auto，不設 0 的話仍會被內容撐開",
+  "教訓：沿用既有樣式時要看該樣式原本承載什麼。.style-grid 是為「圖＋短標籤」設計的，塞進輸入框就不合身",
+  "這類問題靠肉眼掃不到（文字只是被裁，不是消失）。用 scrollWidth/clientWidth 掃描也抓不到——input 的溢出不反映在那裡，得另外用離屏 span 量文字實際需要的寬度再和可用寬比較"
+ ]
+}
