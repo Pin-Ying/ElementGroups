@@ -44,8 +44,8 @@
   },
   {
    "method": "POST",
-   "path": "/api/admin/particles/migrate",
-   "description": "登入；把粒子形象圖搬進圖庫，已有圖庫的粒子改為併入"
+   "path": "/api/admin/libraries/migrate/<bind_type>",
+   "description": "登入；通用搬遷，把該類型對象的單張 img_data 搬進圖庫"
   }
  ],
  "data_model": [
@@ -75,6 +75,8 @@
   "舊節點不刪除，留著當退路；後台在搬遷後改為顯示導向「圖庫管理」的入口，避免兩邊各改各的",
   "第二個搬進來的是 _gallery（元素其他樣貌），成為 bind_type=element 的圖庫，一個元素一個庫。前後端 API 回傳形狀維持不變，前台元件與後台編輯介面都沒有改動（見 mod-014）",
   "第三個搬進來的是 _particles 的單張 img_data，成為圖庫的預設圖。每顆粒子從此可以有多個樣貌，接上站長最早的需求（見 mod-015）",
-  "尚未搬遷：_element_groups / _molecules 的單張 img_data，以及網站設定的背景圖與圖鑑外框"
+  "第四步把搬遷泛型化：一支 /admin/libraries/migrate/<bind_type> 涵蓋所有類型，主族形象與分子圖片一併搬入。要讓新類型能搬只需在 BINDABLE_TYPES 補 image_field（見 mod-016）",
+  "已全部搬入：電子樣式、元素其他樣貌、粒子形象、主族形象、分子圖片",
+  "尚未搬遷：網站設定的背景圖與圖鑑外框（屬 bind_type=site）、元素自己的代表圖"
  ]
 }

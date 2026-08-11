@@ -23,6 +23,7 @@ from app.layers import normalize_layers, serialize_layers, normalize_electron_st
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app.libraries import (normalize_libraries, serialize_library, bindable_definitions,
                            libraries_for, find_library, library_id_for, primary_image_data,
+                           targets_from_node,
                            BINDABLE_TYPES, LIBRARIES_NODE, MAX_IMAGES)
 from app import ai
 
@@ -334,60 +335,63 @@ def migrate_electron_styles():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
-@admin_bp.route("/admin/particles/migrate", methods=["POST"])
+@admin_bp.route("/admin/libraries/migrate/<bind_type>", methods=["POST"])
 @login_required
-def migrate_particles():
-    """把每顆粒子的 `img_data` 搬進通用圖庫，一顆粒子一個庫。
+def migrate_into_libraries(bind_type):
+    """把某一類對象身上的單張 img_data 搬進通用圖庫，一個對象一個庫。
 
-    電子通常已經有圖庫（先前搬電子樣式時建立的），這種情況是把形象圖
-    「加進去」而不是新建——同一顆粒子的各種樣貌本來就該在同一個庫裡。
-    圖片內容已存在時略過，不會重複。
+    是泛型的：接點註冊表已經知道節點在哪、識別碼與名稱怎麼取、圖存在哪個
+    欄位，所以不必為每一類各寫一支。要讓新的類型也能搬，在 BINDABLE_TYPES
+    補上 image_field 就好。
+
+    對象已經有圖庫時是「併入」而不是新建——同一個對象的各種樣貌本來就該在
+    同一個庫裡。圖片內容已存在時略過，重複執行安全。
     """
+    cfg = BINDABLE_TYPES.get(bind_type)
+    if not cfg:
+        return jsonify({"result": "failure", "message": "不認得的綁定類型"}), 400
+    if not cfg.get("image_field"):
+        return jsonify({"result": "failure", "message": f"{cfg['label']}沒有可搬移的單張圖欄位"}), 400
+
     try:
-        particles = normalize_particles(show_fdb(PARTICLES_NODE), include_drafts=True)
+        targets = targets_from_node(bind_type, show_fdb(cfg["node"]))
         libraries = normalize_libraries(show_fdb(LIBRARIES_NODE))
 
         created, merged, skipped = 0, 0, 0
-        for particle in particles:
-            img = (particle.get("img_data") or "").strip()
-            if not img:
+        for target in targets:
+            if not target["image"]:
                 continue
 
-            slug = particle["slug"]
-            library = find_library(libraries, "particle", slug)
+            library = find_library(libraries, bind_type, target["id"])
             now = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
             if not library:
-                fdb.child(LIBRARIES_NODE).child(library_id_for("particle", slug)).set({
-                    "name": particle.get("name") or slug,
-                    "bind_type": "particle",
-                    "bind_id": slug,
+                fdb.child(LIBRARIES_NODE).child(library_id_for(bind_type, target["id"])).set({
+                    "name": target["name"],
+                    "bind_type": bind_type,
+                    "bind_id": target["id"],
                     "default_image": "img-0",
-                    "images": {"img-0": {"name": particle.get("name") or slug,
-                                         "img_data": img, "order": 0}},
+                    "images": {"img-0": {"name": target["name"], "img_data": target["image"], "order": 0}},
                     "updated_at": now,
                 })
                 created += 1
                 continue
 
-            # 同一張圖已經在庫裡就不重複加
-            if any(i["img_data"] == img for i in library["images"]):
+            if any(i["img_data"] == target["image"] for i in library["images"]):
                 skipped += 1
                 continue
 
             order = len(library["images"])
             fdb.child(LIBRARIES_NODE).child(library["id"]).child("images").update({
-                f"img-particle-{order}": {
-                    "name": particle.get("name") or slug,
-                    "img_data": img,
-                    "order": order,
+                f"img-{bind_type}-{order}": {
+                    "name": target["name"], "img_data": target["image"], "order": order,
                 }
             })
             fdb.child(LIBRARIES_NODE).child(library["id"]).update({"updated_at": now})
             merged += 1
 
         if not (created or merged or skipped):
-            return jsonify({"result": "failure", "message": "沒有可搬移的粒子形象圖"}), 400
+            return jsonify({"result": "failure", "message": f"沒有可搬移的{cfg['label']}圖片"}), 400
 
         parts = []
         if created:
@@ -499,7 +503,14 @@ def manage_layers(symbol):
 @login_required
 def list_element_groups():
     try:
-        return jsonify({"groups": normalize_groups(show_fdb(GROUPS_NODE))})
+        groups = normalize_groups(show_fdb(GROUPS_NODE))
+        libraries = normalize_libraries(show_fdb(LIBRARIES_NODE))
+        for group in groups:
+            from_library = primary_image_data(libraries, "group", group["key"])
+            if from_library:
+                group["img_data"] = from_library
+            group["has_library"] = bool(from_library)
+        return jsonify({"groups": groups})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 
@@ -584,24 +595,8 @@ def bindable_targets(bind_type):
         return jsonify({"targets": []})
 
     try:
-        data = show_fdb(cfg["node"])
-        targets = []
-
-        # periodic_table 是陣列，其餘是以 key 當識別碼的 map
-        rows = data.items() if isinstance(data, dict) else enumerate(data or [])
-        for key, raw in rows:
-            if not isinstance(raw, dict):
-                continue
-            target_id = str(raw.get(cfg["id_field"]) if cfg["id_field"] else key)
-            if not target_id or target_id.startswith("_"):
-                continue
-            targets.append({
-                "id": target_id,
-                "name": (raw.get(cfg["name_field"]) or "").strip() or target_id,
-            })
-
-        targets.sort(key=lambda t: t["name"])
-        return jsonify({"targets": targets})
+        targets = targets_from_node(bind_type, show_fdb(cfg["node"]))
+        return jsonify({"targets": [{"id": t["id"], "name": t["name"]} for t in targets]})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 

@@ -224,8 +224,9 @@ export function migrateElectronStyles() {
   return api.post('/admin/electron-styles/migrate')
 }
 
-export function migrateParticles() {
-  return api.post('/admin/particles/migrate')
+// 通用搬遷：接點註冊表已知道節點與欄位，所以一支端點吃所有類型
+export function migrateIntoLibraries(bindType) {
+  return api.post(`/admin/libraries/migrate/${bindType}`)
 }
 
 export function migrateGalleries() {

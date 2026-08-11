@@ -302,7 +302,13 @@ def get_element_layers(symbol):
 def get_element_groups():
     """所有已設定形象的族。"""
     try:
-        groups = [g for g in normalize_groups(show_fdb(GROUPS_NODE)) if has_content(g)]
+        libraries = normalize_libraries(show_fdb(LIBRARIES_NODE))
+        groups = normalize_groups(show_fdb(GROUPS_NODE))
+        for group in groups:
+            from_library = primary_image_data(libraries, "group", group["key"])
+            if from_library:
+                group["img_data"] = from_library
+        groups = [g for g in groups if has_content(g)]
         return jsonify({"groups": groups})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
@@ -314,7 +320,12 @@ def get_element_group(key):
     if key not in GROUP_KEYS:
         return jsonify({"result": "failure", "message": "not found"}), 404
     try:
-        return jsonify(normalize_group(key, show_fdb(f"{GROUPS_NODE}/{key}")))
+        group = normalize_group(key, show_fdb(f"{GROUPS_NODE}/{key}"))
+        from_library = primary_image_data(
+            normalize_libraries(show_fdb(LIBRARIES_NODE)), "group", key)
+        if from_library:
+            group["img_data"] = from_library
+        return jsonify(group)
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 
@@ -370,6 +381,11 @@ def get_molecules():
 def get_molecule(slug):
     try:
         molecule = normalize_molecule(slug, show_fdb(f"{MOLECULES_NODE}/{slug}"))
+        if molecule:
+            from_library = primary_image_data(
+                normalize_libraries(show_fdb(LIBRARIES_NODE)), "molecule", slug)
+            if from_library:
+                molecule["img_data"] = from_library
         if not molecule:
             return jsonify({"result": "failure", "exception": "Molecule not found"}), 404
         if not molecule["published"] and not current_user.is_authenticated:

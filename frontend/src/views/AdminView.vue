@@ -334,6 +334,16 @@
             網址代稱取自 IUPAC 名稱；查不到的分子也可以手動填寫後儲存。
           </p>
 
+          <div v-if="moleculesMigratable" class="migrate-hint">
+            <span>分子圖片可以搬進通用圖庫，之後每個分子都能有多張圖。</span>
+            <button
+              class="button secondary small"
+              type="button"
+              :disabled="migratingInto === 'molecule'"
+              @click="handleMigrateInto('molecule', loadMolecules)"
+            >{{ migratingInto === 'molecule' ? '搬移中…' : '全部搬進圖庫' }}</button>
+          </div>
+
           <!-- 清單工具列：仿化學資料庫的「搜尋＋分類＋組成元素」三種切入點 -->
           <div class="mol-toolbar">
             <input
@@ -496,6 +506,16 @@
             設定後會顯示在該族每個元素的介紹頁。
           </p>
 
+          <div v-if="groupsMigratable" class="migrate-hint">
+            <span>主族形象圖可以搬進通用圖庫，之後每一族都能有多個形象。</span>
+            <button
+              class="button secondary small"
+              type="button"
+              :disabled="migratingInto === 'group'"
+              @click="handleMigrateInto('group', loadGroups)"
+            >{{ migratingInto === 'group' ? '搬移中…' : '全部搬進圖庫' }}</button>
+          </div>
+
           <div v-for="sec in GROUP_SECTIONS" :key="sec.title" class="group-section">
             <p class="group-section-title">{{ sec.title }}</p>
             <div class="group-key-list">
@@ -606,8 +626,8 @@
 
             <div v-if="particlesMigratable" class="migrate-hint">
               <span>粒子形象圖可以搬進通用圖庫，之後每顆粒子都能有多個樣貌。</span>
-              <button class="button secondary small" type="button" :disabled="migratingParticles" @click="handleMigrateParticles">
-                {{ migratingParticles ? '搬移中…' : '全部搬進圖庫' }}
+              <button class="button secondary small" type="button" :disabled="migratingInto === 'particle'" @click="handleMigrateInto('particle', loadParticles)">
+                {{ migratingInto === 'particle' ? '搬移中…' : '全部搬進圖庫' }}
               </button>
               <p class="field-hint">已經有圖庫的粒子（例如電子）會把形象圖併進去，不會另外開一個庫。</p>
             </div>
@@ -1376,7 +1396,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, migrateGalleries, migrateParticles, getElectronMotion, setElectronMotion, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, migrateGalleries, migrateIntoLibraries, getElectronMotion, setElectronMotion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1507,7 +1527,7 @@ export default {
       libraryList: [],
       migrating: false,
       migratingGallery: false,
-      migratingParticles: false,
+      migratingInto: '',
       bindable: [],
       bindTargets: [],
       libraryMax: 12,
@@ -1740,6 +1760,14 @@ export default {
     // 還有粒子的形象圖沒進圖庫時才顯示搬遷入口
     particlesMigratable() {
       return this.particleList.some(p => p.img_data && !p.has_library)
+    },
+    groupsMigratable() {
+      return this.groupList.some(g => g.img_data && !g.has_library)
+    },
+    moleculesMigratable() {
+      // 分子清單沒有 has_library 欄位，改用圖庫清單反查
+      const bound = new Set(this.libraryList.filter(l => l.bind_type === 'molecule').map(l => l.bind_id))
+      return this.moleculeList.some(m => m.img_data && !bound.has(m.slug))
     },
     galleryLibrary() {
       if (!this.selectedSymbol) return null
@@ -2931,17 +2959,18 @@ export default {
         showToast(e.response?.data?.message || '刪除失敗', 'error')
       }
     },
-    async handleMigrateParticles() {
-      this.migratingParticles = true
+    // bindType 決定搬哪一類；reload 是搬完要重抓的清單
+    async handleMigrateInto(bindType, reload) {
+      this.migratingInto = bindType
       try {
-        const res = await migrateParticles()
+        const res = await migrateIntoLibraries(bindType)
         showToast(res.data.message || '已搬移', 'success')
         await this.loadLibraries()
-        await this.loadParticles()
+        await reload()
       } catch (e) {
         showToast(e.response?.data?.message || '搬移失敗', 'error')
       } finally {
-        this.migratingParticles = false
+        this.migratingInto = ''
       }
     },
     async handleMigrateGalleries() {

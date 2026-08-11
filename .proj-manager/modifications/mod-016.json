@@ -1,0 +1,56 @@
+{
+ "modification_id": "mod-016",
+ "feature_id": "feature-014",
+ "type": "refactor",
+ "scope": "fullstack",
+ "status": "applied",
+ "description": "搬遷改成泛型的一支端點，並把主族形象與分子圖片也搬進圖庫",
+ "created_at": "2026-08-11T04:40:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": true,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/libraries.py",
+    "change_type": "modified",
+    "diff_summary": "BINDABLE_TYPES 加 image_field；新增 targets_from_node 統一攤平 map 與陣列兩種節點形狀"
+   },
+   {
+    "path": "backend/app/routes/admin.py",
+    "change_type": "modified",
+    "diff_summary": "以 /admin/libraries/migrate/<bind_type> 取代粒子專用端點；bindable_targets 改用共用攤平；主族清單接上圖庫並回傳 has_library"
+   },
+   {
+    "path": "backend/app/routes/public.py",
+    "change_type": "modified",
+    "diff_summary": "主族清單、單一主族、單一分子的圖片改由圖庫預設圖覆蓋"
+   },
+   {
+    "path": "frontend/src/api/index.js",
+    "change_type": "modified",
+    "diff_summary": "migrateParticles 換成通用的 migrateIntoLibraries(bindType)"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "主族與分子加搬遷入口；handleMigrateInto 泛型化；新增 groupsMigratable / moleculesMigratable"
+   }
+  ]
+ },
+ "root_cause": "主族與分子的搬遷模式與粒子完全相同。與其再寫兩支幾乎一樣的端點（本次已經重複踩過『同一件事寫兩份』的坑），不如把搬遷做成泛型——接點註冊表本來就知道節點在哪、識別碼與名稱怎麼取，只要再補一個 image_field 就夠了。",
+ "notes": [
+  "現在要讓新的對象類型也能搬圖進圖庫，只需在 BINDABLE_TYPES 補 image_field，不必寫任何端點或後台介面",
+  "targets_from_node 同時服務後台下拉與通用搬遷，避免 map/陣列的攤平邏輯又寫兩份",
+  "已移除粒子專用的 /admin/particles/migrate，改由通用端點涵蓋，並重新驗證粒子搬遷",
+  "驗證：通用端點對 particle/group/molecule 各跑一次都成功；element（無 image_field）與不存在的類型都被擋下；重複執行三種類型全部回「已存在，略過」",
+  "前台驗證：主族清單與單一主族、單一分子的圖片都改由圖庫預設圖提供；給 7A 加第二個形象並切換預設後，兩個端點都跟著變，切回也正確",
+  "後台驗證：三個區塊的搬遷入口在搬完後自動消失；圖庫管理列出 6 個庫（3 粒子、2 主族、1 分子）",
+  "測試過程發現 mock 原本回傳圖庫的第一張而非預設張，等於沒真的驗到 default_image。修正 mock 讓它與後端 resolve_image 同語意後才重測——測試替身的簡化會讓真 bug 溜過去"
+ ]
+}

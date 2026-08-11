@@ -33,42 +33,48 @@ ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 # ── 接點：哪些東西可以有圖庫 ────────────────────────────────────────
 #
-# node       對象清單所在的 Realtime DB 節點；None 表示不綁特定對象（全站）
-# id_field   從節點資料取出識別碼的欄位；None 表示用 key 當識別碼
-# name_field 後台下拉顯示的名稱欄位
+# node        對象清單所在的 Realtime DB 節點；None 表示不綁特定對象（全站）
+# id_field    從節點資料取出識別碼的欄位；None 表示用 key 當識別碼
+# name_field  後台下拉顯示的名稱欄位
+# image_field 對象身上原本存單張圖的欄位；有值才能用通用搬遷把它搬進圖庫
 #
-# 新增一種可綁對象時只改這裡。前端的下拉選單、後端的驗證都是讀這份定義，
-# 不會有第二個地方要同步。
+# 新增一種可綁對象時只改這裡。前端的下拉選單、後端的驗證、通用搬遷都是讀
+# 這份定義，不會有第二個地方要同步。
 BINDABLE_TYPES = {
     "particle": {
         "label": "基本粒子",
         "node": "_particles",
         "id_field": None,
         "name_field": "name",
+        "image_field": "img_data",
     },
     "element": {
         "label": "元素",
         "node": "periodic_table",
         "id_field": "Symbol",
         "name_field": "Name",
+        "image_field": None,
     },
     "group": {
         "label": "主族",
         "node": "_element_groups",
         "id_field": None,
         "name_field": "name",
+        "image_field": "img_data",
     },
     "molecule": {
         "label": "分子",
         "node": "_molecules",
         "id_field": None,
         "name_field": "name",
+        "image_field": "img_data",
     },
     "site": {
         "label": "網站整體",
         "node": None,
         "id_field": None,
         "name_field": None,
+        "image_field": None,
     },
 }
 
@@ -237,6 +243,34 @@ def libraries_for(libraries, bind_type, bind_id=""):
         l for l in libraries
         if l["bind_type"] == bind_type and (not bind_id or l["bind_id"] == bind_id)
     ]
+
+
+def targets_from_node(bind_type, node_data):
+    """把節點資料攤平成 [{id, name, image}]，吸收 map 與陣列兩種形狀。
+
+    periodic_table 是陣列、其餘是以 key 當識別碼的 map；後台下拉與通用搬遷
+    都需要同一份攤平結果，集中在這裡才不會兩邊各寫一次。
+    """
+    cfg = BINDABLE_TYPES.get(bind_type)
+    if not cfg or cfg["node"] is None:
+        return []
+
+    rows = node_data.items() if isinstance(node_data, dict) else enumerate(node_data or [])
+    targets = []
+    for key, raw in rows:
+        if not isinstance(raw, dict):
+            continue
+        target_id = str(raw.get(cfg["id_field"]) if cfg["id_field"] else key)
+        if not target_id or target_id.startswith("_"):
+            continue
+        targets.append({
+            "id": target_id,
+            "name": (raw.get(cfg["name_field"]) or "").strip() or target_id,
+            "image": (raw.get(cfg["image_field"]) or "").strip() if cfg["image_field"] else "",
+        })
+
+    targets.sort(key=lambda t: t["name"])
+    return targets
 
 
 def primary_image_data(libraries, bind_type, bind_id):
