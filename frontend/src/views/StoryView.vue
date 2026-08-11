@@ -208,6 +208,7 @@ import StoryEditor from '../components/StoryEditor.vue'
 import RelatedMolecules from '../components/RelatedMolecules.vue'
 import GroupArchetype from '../components/GroupArchetype.vue'
 import { outerElectronCount, outerElectronOrbitals } from '../utils/valence'
+import { setPageSeo, elementJsonLd, absoluteUrl, truncate } from '../utils/seo'
 
 // 圖層與圖庫資料在同一次瀏覽中不會變，快取起來：切換動態／靜態只是換
 // 顯示方式，來回看元素也不必重打 API。
@@ -341,6 +342,7 @@ export default {
         this.imgData = detail.img_data
         this.draft = detail.draft || ''
         this.abilityData = abilityRes.data
+        this.applySeo()
         // 首頁「熱門元素」用的點閱計數；失敗不影響頁面
         recordElementView(this.symbol).catch(() => {})
         // 其他樣貌是附加內容，獨立載入，沒有或失敗都不影響主要畫面
@@ -362,6 +364,37 @@ export default {
       const chipCenter = active.offsetLeft + active.offsetWidth / 2
       wrap.scrollLeft = chipCenter - wrapCenter
       this.updateWheelDepth()
+    },
+    // 元素頁是全站最主要的收錄對象，描述要含元素名、符號與關鍵數據；
+    // 有原創故事時優先用故事開頭，比制式的資料欄位更能吸引點擊
+    applySeo() {
+      const el = this.elInfo
+      if (!el) return
+
+      const name = el.Name || el.Symbol
+      const path = `/stroy/${el.Symbol}`
+      const url = absoluteUrl(path)
+      const image = absoluteUrl(`${apiBase}/elements/${el.Symbol}/img`)
+
+      const facts = [
+        el.AtomicNumber ? `原子序 ${el.AtomicNumber}` : '',
+        el.AtomicMass ? `原子量 ${el.AtomicMass}` : '',
+        el.GroupBlock,
+        el.StandardState ? `常溫下為${el.StandardState}` : ''
+      ].filter(Boolean).join('、')
+
+      const story = this.storyText.trim()
+      const description = story
+        ? `${name}（${el.Symbol}）：${story}`
+        : `${name}（${el.Symbol}）：${facts}。`
+
+      setPageSeo({
+        title: `${name} ${el.Symbol}｜${siteSettingsState.title}`,
+        description,
+        path,
+        image,
+        jsonLd: elementJsonLd(el, { url, image, description: truncate(description) })
+      })
     },
     // 其他樣貌與圖層都是附加內容，載入失敗不影響主要畫面
     loadGallery(symbol) {

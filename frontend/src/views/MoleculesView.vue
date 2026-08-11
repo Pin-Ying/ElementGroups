@@ -43,6 +43,8 @@
 <script>
 import { getMolecules } from '../api'
 import { ensurePageMeta, metaText } from '../store/pageMeta'
+import { siteSettingsState } from '../store/siteSettings'
+import { setPageSeo } from '../utils/seo'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 const SUBSCRIPTS = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉']
@@ -73,8 +75,16 @@ export default {
   watch: {
     element: { immediate: true, handler: 'load' }
   },
-  created() {
-    ensurePageMeta()
+  async created() {
+    await ensurePageMeta()
+    const title = metaText('molecules', 'title')
+    setPageSeo({
+      title: `${title}｜${siteSettingsState.title}`,
+      description: metaText('molecules', 'subtitle') || title,
+      // 帶 ?element= 只是同一份清單的篩選，canonical 一律指回沒有參數的網址，
+      // 免得 118 個篩選結果被當成 118 個重複頁面
+      path: '/molecules'
+    })
   },
   methods: {
     metaText,

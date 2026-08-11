@@ -1177,7 +1177,8 @@ import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGr
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
-import { setSiteSettings, SITE_DEFAULTS } from '../store/siteSettings'
+import { setSiteSettings, SITE_DEFAULTS, siteSettingsState } from '../store/siteSettings'
+import { setPageSeo } from '../utils/seo'
 import { refreshPages } from '../store/pages'
 import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
 import { compressImage, normalizeSprite, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
@@ -1444,6 +1445,9 @@ export default {
     }
   },
   async mounted() {
+    // 後台不該被收錄。robots.txt 已經擋掉，這裡再補一層：已經被收錄的
+    // 網址只有 noindex 能讓它從索引移除
+    setPageSeo({ title: `管理後台｜${siteSettingsState.title}`, noindex: true })
     if (this.authState.loggedIn) {
       await this.bootstrap()
     }

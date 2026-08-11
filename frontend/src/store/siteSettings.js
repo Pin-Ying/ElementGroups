@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { getSiteSettings } from '../api'
+import { hasPageSeo } from '../utils/seo'
 
 // index.html 是 build 時的靜態檔案，改不到；這裡的預設值要和它一致，
 // 當作 API 還沒回來或沒設定時的 fallback。
@@ -21,6 +22,10 @@ const state = reactive({
 })
 
 function applyToDocument() {
+  // 這裡是全站的預設值。頁面已經設過自己的標題與描述時不要蓋掉——
+  // 網站設定通常比頁面資料晚回來，蓋下去會讓元素頁變成首頁的文案
+  if (hasPageSeo()) return
+
   document.title = state.title
   let meta = document.querySelector('meta[name="description"]')
   if (!meta) {

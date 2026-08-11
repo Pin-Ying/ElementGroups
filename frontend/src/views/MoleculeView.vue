@@ -66,6 +66,8 @@
 import { getMolecule } from '../api'
 import { elementsState, ensureElements } from '../store/elements'
 import { ensurePageMeta, metaText } from '../store/pageMeta'
+import { siteSettingsState } from '../store/siteSettings'
+import { setPageSeo, moleculeJsonLd, absoluteUrl, truncate } from '../utils/seo'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
@@ -110,11 +112,37 @@ export default {
       try {
         const res = await getMolecule(this.slug)
         this.molecule = res.data
+        this.applySeo()
       } catch {
         this.molecule = null
       } finally {
         this.loading = false
       }
+    },
+    applySeo() {
+      const m = this.molecule
+      if (!m) return
+
+      const path = `/molecule/${this.slug}`
+      const description = (m.description || '').trim()
+        || `${m.name}${m.formula ? `（${m.formula}）` : ''}的組成元素與基本資料。`
+      // 自訂圖存的是 base64，分享與結構化資料都需要真正的網址，只有
+      // PubChem 那種 http 圖能用
+      const image = /^https?:\/\//.test(this.imageSrc) ? this.imageSrc : ''
+
+      setPageSeo({
+        title: `${m.name}｜${siteSettingsState.title}`,
+        description,
+        path,
+        image,
+        // 草稿還沒公開，不要讓搜尋引擎收錄
+        noindex: !m.published,
+        jsonLd: moleculeJsonLd(m, {
+          url: absoluteUrl(path),
+          image,
+          description: truncate(description)
+        })
+      })
     },
     element(symbol) {
       return this.elementsState.elements.find(e => e.Symbol === symbol)

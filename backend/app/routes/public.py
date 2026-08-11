@@ -125,6 +125,48 @@ def get_element_detail(symbol):
         return jsonify({"result": "failure", "exception": str(e)}), 500
 
 
+@public_bp.route("/elements/seo", methods=["GET"])
+def get_elements_seo():
+    """預渲染用：118 個元素的基本資料與故事開頭，一次拿完。
+
+    前端 build 時要為每個元素產生一份含自己 title/description 的靜態 HTML
+    （見 vite-plugin-prerender.js）。走 `/elements/<symbol>` 得打 118 次，
+    而且每次都會把 base64 的圖片一起帶回來，對 build 來說太重；這裡只回
+    真正會寫進 meta 的欄位，故事也只取開頭。
+    """
+    EXCERPT_LEN = 200
+
+    try:
+        items = []
+        for el in get_periodic_table():
+            symbol = el.get("Symbol")
+            if not symbol:
+                continue
+
+            story = ""
+            data = show_fdb(symbol)
+            if isinstance(data, dict):
+                story = (data.get("description") or "").strip()
+                # 存的可能是字面的反斜線 n，換回真正的換行再壓成單行
+                story = " ".join(story.replace("\\n", "\n").split())
+                if len(story) > EXCERPT_LEN:
+                    story = story[:EXCERPT_LEN] + "…"
+
+            items.append({
+                "Symbol": symbol,
+                "Name": el.get("Name", ""),
+                "AtomicNumber": el.get("AtomicNumber"),
+                "AtomicMass": el.get("AtomicMass", ""),
+                "GroupBlock": el.get("GroupBlock", ""),
+                "StandardState": el.get("StandardState", ""),
+                "excerpt": story,
+            })
+
+        return jsonify({"elements": items})
+    except Exception as e:
+        return jsonify({"result": "failure", "exception": str(e)}), 500
+
+
 def _element_cards(symbols):
     """把 symbol 清單轉成首頁卡片需要的最小欄位。"""
     cards = []

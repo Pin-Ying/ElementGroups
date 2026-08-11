@@ -95,6 +95,8 @@
 <script>
 import { getElements, getGroups, getElementsCompletion } from '../api'
 import { elementsState } from '../store/elements'
+import { siteSettingsState } from '../store/siteSettings'
+import { setPageSeo } from '../utils/seo'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import PeriodicTableGrid from '../components/PeriodicTableGrid.vue'
 import GroupBox from '../components/GroupBox.vue'
@@ -132,7 +134,14 @@ export default {
       query: '',
       isMobile: window.innerWidth < 600,
       completion: {},
-      showCompletion: localStorage.getItem('showCompletion') !== 'false'
+      showCompletion: localStorage.getItem('showCompletion') !== 'false',
+      siteSettingsState
+    }
+  },
+  watch: {
+    // 網站設定多半比這頁晚回來，回來後把首頁的標題與描述換成後台設定的版本
+    'siteSettingsState.loaded'() {
+      this.applySeo()
     }
   },
   mounted() {
@@ -171,6 +180,7 @@ export default {
     }
   },
   async created() {
+    this.applySeo()
     this.loading = true
     try {
       const res = await getElements()
@@ -186,6 +196,13 @@ export default {
     this.loadCompletion()
   },
   methods: {
+    applySeo() {
+      setPageSeo({
+        title: siteSettingsState.title,
+        description: siteSettingsState.description,
+        path: '/'
+      })
+    },
     // 完成度是次要資訊，獨立載入，失敗也不影響週期表顯示
     async loadCompletion() {
       try {

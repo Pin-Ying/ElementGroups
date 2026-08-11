@@ -29,6 +29,8 @@
 <script>
 import { getParticles } from '../api'
 import { ensurePageMeta, metaText } from '../store/pageMeta'
+import { siteSettingsState } from '../store/siteSettings'
+import { setPageSeo } from '../utils/seo'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
@@ -38,7 +40,14 @@ export default {
   },
   methods: { metaText },
   async created() {
-    ensurePageMeta()
+    ensurePageMeta().then(() => {
+      const title = metaText('particles', 'title')
+      setPageSeo({
+        title: `${title}｜${siteSettingsState.title}`,
+        description: metaText('particles', 'subtitle') || title,
+        path: '/particles'
+      })
+    })
     this.loading = true
     try {
       const res = await getParticles()

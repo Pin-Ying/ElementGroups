@@ -20,6 +20,7 @@ import { getPage } from '../api'
 import MarkdownContent from '../components/MarkdownContent.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { siteSettingsState } from '../store/siteSettings'
+import { setPageSeo, markdownExcerpt } from '../utils/seo'
 
 export default {
   components: { MarkdownContent, LoadingSpinner },
@@ -38,7 +39,12 @@ export default {
         const res = await getPage(this.slug)
         this.page = res.data
         // 分頁標題帶上頁面名稱，回首頁時 App 會再改回來
-        document.title = `${this.page.title}｜${siteSettingsState.title}`
+        setPageSeo({
+          title: `${this.page.title}｜${siteSettingsState.title}`,
+          description: markdownExcerpt(this.page.content),
+          path: `/p/${this.slug}`,
+          noindex: !this.page.published
+        })
       } catch {
         this.page = null
       } finally {

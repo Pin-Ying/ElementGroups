@@ -11,6 +11,8 @@
 // 這樣既有的 /guide 網址不會壞，後台也還沒編輯過時畫面維持原樣。
 import { getPage } from '../api'
 import { builtinPage } from '../utils/builtinPages'
+import { siteSettingsState } from '../store/siteSettings'
+import { setPageSeo, markdownExcerpt } from '../utils/seo'
 import MarkdownContent from '../components/MarkdownContent.vue'
 
 export default {
@@ -33,6 +35,13 @@ export default {
     } catch {
       // 沒有自訂版本就沿用內建內容
     }
+    setPageSeo({
+      title: `${this.page.title}｜${siteSettingsState.title}`,
+      // Markdown 的前幾行就是這頁在講什麼，拿來當描述比另外寫一句準
+      description: markdownExcerpt(this.page.content),
+      path: '/guide',
+      noindex: this.fromDatabase && !this.published
+    })
   }
 }
 </script>

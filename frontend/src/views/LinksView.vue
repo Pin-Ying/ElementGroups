@@ -13,6 +13,8 @@
 import { getPage } from '../api'
 import { builtinPage } from '../utils/builtinPages'
 import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
+import { siteSettingsState } from '../store/siteSettings'
+import { setPageSeo, markdownExcerpt } from '../utils/seo'
 import MarkdownContent from '../components/MarkdownContent.vue'
 
 export default {
@@ -35,6 +37,11 @@ export default {
     } catch {
       // 沒有自訂版本就沿用內建內容
     }
+    setPageSeo({
+      title: `${this.page.title}｜${siteSettingsState.title}`,
+      description: markdownExcerpt(this.page.content) || creatorLinksState.description,
+      path: '/links'
+    })
   }
 }
 </script>
