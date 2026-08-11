@@ -10,15 +10,15 @@
       </h3>
 
       <!-- 圖片 -->
-      <figure v-else-if="block.type === 'image' && block.data.image" class="pb-figure">
-        <img :src="block.data.image" :alt="block.data.caption || ''" />
+      <figure v-else-if="block.type === 'image' && srcOf(block.data)" class="pb-figure">
+        <img :src="srcOf(block.data)" :alt="block.data.caption || ''" />
         <figcaption v-if="block.data.caption">{{ block.data.caption }}</figcaption>
       </figure>
 
       <!-- 圖片集 -->
       <div v-else-if="block.type === 'gallery'" class="pb-gallery">
         <figure v-for="(img, j) in block.data.images || []" :key="j" class="pb-gallery-item">
-          <img v-if="img.image" :src="img.image" :alt="img.caption || ''" />
+          <img v-if="srcOf(img)" :src="srcOf(img)" :alt="img.caption || ''" />
           <figcaption v-if="img.caption">{{ img.caption }}</figcaption>
         </figure>
       </div>
@@ -42,9 +42,21 @@ import MarkdownContent from './MarkdownContent.vue'
 export default {
   components: { MarkdownContent },
   props: {
-    blocks: { type: Array, default: () => [] }
+    blocks: { type: Array, default: () => [] },
+    // 後台預覽用：前台拿到的 blocks 已由後端把參照解析成圖片，不需要這個
+    libraries: { type: Array, default: () => [] }
   },
   methods: {
+    // 圖庫參照優先；沒有參照就是自己上傳的圖
+    srcOf(data) {
+      const ref = data?.image_ref
+      if (ref?.library && ref.image) {
+        const lib = this.libraries.find(l => l.id === ref.library)
+        const img = lib?.images.find(i => i.id === ref.image)
+        if (img) return img.img_data
+      }
+      return data?.image || ''
+    },
     toMarkdown(block) {
       const d = block.data || {}
 

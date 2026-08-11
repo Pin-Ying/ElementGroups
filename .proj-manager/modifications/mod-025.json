@@ -1,0 +1,55 @@
+{
+ "modification_id": "mod-025",
+ "feature_id": "feature-015",
+ "type": "enhancement",
+ "scope": "fullstack",
+ "status": "applied",
+ "description": "區塊編輯器的圖片可以從通用圖庫挑，存的是參照而不是圖片本身",
+ "created_at": "2026-08-11T07:40:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": true,
+  "affects_schema": true,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/libraries.py",
+    "change_type": "modified",
+    "diff_summary": "新增 image_by_ref，依 (圖庫 id, 圖片 id) 取圖"
+   },
+   {
+    "path": "backend/app/pages.py",
+    "change_type": "modified",
+    "diff_summary": "新增 resolve_block_images，把區塊裡的參照換成實際圖片"
+   },
+   {
+    "path": "backend/app/routes/public.py",
+    "change_type": "modified",
+    "diff_summary": "/pages/<slug> 回傳前先解析區塊的圖庫參照"
+   },
+   {
+    "path": "frontend/src/components/PageBlocks.vue",
+    "change_type": "modified",
+    "diff_summary": "新增 srcOf 與 libraries prop，後台預覽時自行解析參照"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "圖片欄位加「從圖庫挑」與挑選器；上傳時清掉參照"
+   }
+  ]
+ },
+ "root_cause": "feature-015 的圖片區塊只能上傳，沒有接上 feature-014 的通用圖庫，等於同一張圖要在兩個地方各存一份。",
+ "notes": [
+  "關鍵設計：存 image_ref = {library, image} 而不是複製 base64。之後在圖庫換掉那張圖，所有用到它的頁面會跟著更新——這才是圖庫的意義",
+  "解析分工：前台由後端在 /pages/<slug> 解析好再回傳，渲染端不必認識圖庫也不必為了畫一張圖再打一次 API；後台編輯要保留原始參照才顯示得出「目前選的是哪一張」，預覽則由前端用已載入的圖庫清單自行解析",
+  "這造成解析邏輯前後端各一份（Python 的 resolve_block_images 與 JS 的 srcOf）。兩者用途不同（交付 vs 預覽），不是單純重複，已在註解說明",
+  "自己上傳時會 delete image_ref，否則參照優先會蓋掉剛上傳的圖",
+  "圖片集的子項目也支援參照，解析時一併處理",
+  "實測：挑圖後存進去的是參照、前台拿到的是解析後的圖；接著只在圖庫換掉那張圖的內容、頁面完全不動，前台就拿到新的圖；按移除後參照與圖片都清掉"
+ ]
+}

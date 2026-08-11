@@ -12,7 +12,7 @@ from app.elements import get_atomicOrbital, get_characteristic, get_abMax
 from app.links import normalize_creator_links
 from app.completion import get_completion
 from app.gallery import normalize_gallery
-from app.pages import normalize_page, normalize_pages, PAGES_NODE
+from app.pages import normalize_page, normalize_pages, resolve_block_images, PAGES_NODE
 from app.molecules import normalize_molecule, normalize_molecules, MOLECULES_NODE
 from app.particles import normalize_particles, PARTICLES_NODE
 from app.page_meta import PAGE_META_NODE, normalize_all
@@ -431,6 +431,9 @@ def get_page(slug):
         # 草稿只有登入後看得到
         if not page["published"] and not current_user.is_authenticated:
             return jsonify({"result": "failure", "exception": "Page not found"}), 404
+        # 區塊裡的圖庫參照在這裡解析成實際圖片，渲染端就不必認識圖庫
+        page["blocks"] = resolve_block_images(
+            page["blocks"], normalize_libraries(show_fdb(LIBRARIES_NODE)))
         return jsonify(page)
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500

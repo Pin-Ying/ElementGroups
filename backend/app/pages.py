@@ -60,6 +60,40 @@ def normalize_blocks(raw):
     return blocks
 
 
+def resolve_block_images(blocks, libraries):
+    """把區塊裡的圖庫參照換成實際的圖片 base64。
+
+    區塊存的是 image_ref = {library, image}，前台拿到的則是已經解析好的
+    image 字串——這樣渲染端不必知道圖庫的存在，也不必為了畫一張圖再打一次
+    API。自己上傳的圖沒有 ref，維持原本的 image 欄位。
+
+    後台不走這裡：編輯時要保留原始的 ref 才能顯示「目前選的是哪一張」，
+    預覽則由前端用已經載入的圖庫清單自行解析。
+    """
+    from app.libraries import image_by_ref
+
+    def resolved(value):
+        if not isinstance(value, dict):
+            return value
+        ref = value.get("image_ref")
+        if isinstance(ref, dict) and ref.get("library") and ref.get("image"):
+            found = image_by_ref(libraries, ref["library"], ref["image"])
+            if found:
+                return {**value, "image": found}
+        return value
+
+    out = []
+    for block in blocks:
+        data = dict(block.get("data") or {})
+        data = resolved(data)
+        # 圖片集的每個子項目也可能是參照
+        if isinstance(data.get("images"), list):
+            data["images"] = [resolved(item) if isinstance(item, dict) else item
+                              for item in data["images"]]
+        out.append({**block, "data": data})
+    return out
+
+
 def normalize_page(slug, data):
     """把單一頁面的原始資料整理成固定結構。"""
     if not isinstance(data, dict):

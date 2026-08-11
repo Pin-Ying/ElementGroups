@@ -273,6 +273,21 @@ def targets_from_node(bind_type, node_data):
     return targets
 
 
+def image_by_ref(libraries, library_id, image_id):
+    """依 (圖庫 id, 圖片 id) 取出圖片的 base64。找不到回空字串。
+
+    頁面區塊存的是這組參照而不是圖片本身，所以之後在圖庫換掉那張圖，
+    用到它的頁面會跟著更新——這才是圖庫的意義。
+    """
+    for library in libraries:
+        if library["id"] != library_id:
+            continue
+        for image in library["images"]:
+            if image["id"] == image_id:
+                return image["img_data"]
+    return ""
+
+
 def primary_image_data(libraries, bind_type, bind_id):
     """某個對象的代表圖：圖庫的預設圖，沒設定就第一張。沒有圖庫時回空字串。
 

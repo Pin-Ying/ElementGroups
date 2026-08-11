@@ -366,10 +366,12 @@
                 ></textarea>
 
                 <div v-else-if="f.type === 'image'" class="block-image">
-                  <img v-if="block.data[f.name]" :src="block.data[f.name]" alt="" />
+                  <img v-if="blockImgSrc(block.data)" :src="blockImgSrc(block.data)" alt="" />
                   <span v-else class="layer-empty">未設定</span>
                   <input class="input" type="file" accept="image/*" :aria-label="f.label" @change="onBlockImage($event, block.data, f.name)" />
-                  <button v-if="block.data[f.name]" class="draft-link" type="button" @click="block.data[f.name] = ''">移除</button>
+                  <button class="button secondary small" type="button" @click="openImagePicker(block.data)">從圖庫挑</button>
+                  <button v-if="blockImgSrc(block.data)" class="draft-link" type="button" @click="clearBlockImage(block.data)">移除</button>
+                  <span v-if="block.data.image_ref" class="ai-quota">來自圖庫，之後在圖庫換圖這裡會跟著變</span>
                 </div>
 
                 <!-- list：重複的子項目，欄位一樣由定義長出來 -->
@@ -387,9 +389,11 @@
                       <label class="label">{{ sub.label }}</label>
                       <textarea v-if="sub.type === 'textarea'" class="textarea" rows="3" v-model="item[sub.name]" :aria-label="sub.label"></textarea>
                       <div v-else-if="sub.type === 'image'" class="block-image">
-                        <img v-if="item[sub.name]" :src="item[sub.name]" alt="" />
+                        <img v-if="blockImgSrc(item)" :src="blockImgSrc(item)" alt="" />
                         <span v-else class="layer-empty">未設定</span>
                         <input class="input" type="file" accept="image/*" :aria-label="sub.label" @change="onBlockImage($event, item, sub.name)" />
+                        <button class="button secondary small" type="button" @click="openImagePicker(item)">從圖庫挑</button>
+                        <button v-if="blockImgSrc(item)" class="draft-link" type="button" @click="clearBlockImage(item)">移除</button>
                       </div>
                       <input v-else class="input" type="text" v-model="item[sub.name]" :aria-label="sub.label" />
                     </div>
@@ -405,9 +409,31 @@
               </p>
             </div>
 
+            <!-- 從圖庫挑圖：列出所有圖庫的圖，選了存的是參照而不是圖片本身 -->
+            <div v-if="imagePickerTarget" class="block-picker">
+              <p class="label">從圖庫挑一張圖</p>
+              <p v-if="!libraryList.length" class="field-hint">還沒有任何圖庫，請先到「圖庫管理」建立。</p>
+              <div v-for="lib in libraryList" :key="lib.id" class="picker-group">
+                <p class="field-hint">{{ lib.name }}（{{ bindLabel(lib) }}）</p>
+                <div class="style-grid library-grid">
+                  <button
+                    v-for="img in lib.images"
+                    :key="img.id"
+                    class="block-type picker-image"
+                    type="button"
+                    @click="pickImage(lib, img)"
+                  >
+                    <img :src="img.img_data" alt="" />
+                    <span class="block-type-name">{{ img.name }}</span>
+                  </button>
+                </div>
+              </div>
+              <button class="button secondary small" type="button" @click="imagePickerTarget = null">取消</button>
+            </div>
+
             <div class="page-preview">
               <p class="preview-label">即時預覽</p>
-              <PageBlocks :blocks="pageForm.blocks" />
+              <PageBlocks :blocks="pageForm.blocks" :libraries="libraryList" />
             </div>
 
           </form>
@@ -1610,6 +1636,7 @@ export default {
       CATEGORY_PRESETS,
       PAGE_BLOCKS,
       blockPickerOpen: false,
+      imagePickerTarget: null,
       NAV_POSITIONS,
       layerForm: { nucleus: '', name_img: '', electron_style: '' },
       layerSaving: false,
@@ -2518,6 +2545,29 @@ export default {
       this.editKind = 'page'
       this.pageMode = 'edit'
     },
+    // 圖庫參照優先；沒有就是自己上傳的圖
+    blockImgSrc(data) {
+      const ref = data?.image_ref
+      if (ref?.library && ref.image) {
+        const lib = this.libraryList.find(l => l.id === ref.library)
+        const img = lib?.images.find(i => i.id === ref.image)
+        if (img) return img.img_data
+      }
+      return data?.image || ''
+    },
+    openImagePicker(target) {
+      this.imagePickerTarget = target
+    },
+    pickImage(library, image) {
+      // 存參照而不是圖片：圖庫換圖時用到的頁面會跟著更新
+      this.imagePickerTarget.image_ref = { library: library.id, image: image.id }
+      this.imagePickerTarget.image = ''
+      this.imagePickerTarget = null
+    },
+    clearBlockImage(target) {
+      target.image = ''
+      delete target.image_ref
+    },
     blockLabel(type) {
       return blockType(type)?.label || type
     },
@@ -2552,6 +2602,8 @@ export default {
         // 頁面裡的圖不像圖層要去背置中，沿用一般的壓縮就好
         const result = await compressImage(file)
         target[key] = await this.blobToDataUrl(result.blob)
+        // 自己上傳就不再跟著圖庫走，否則參照會蓋掉剛上傳的圖
+        delete target.image_ref
       } catch (err) {
         showToast(err.message || '圖片處理失敗', 'error')
       }
@@ -4219,6 +4271,21 @@ export default {
   border: 1px solid rgba(228, 251, 255, 0.1);
   border-radius: 6px;
   background: rgba(228, 251, 255, 0.03);
+}
+
+.picker-group { margin-bottom: 12px; }
+
+.picker-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.picker-image img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
 }
 
 /* ── 元素故事草稿 ── */
