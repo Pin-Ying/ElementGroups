@@ -14,9 +14,13 @@ from app.firebase import fdb
 from app.gemini import call_gemini
 from app.prompts import (
     build_group_prompt,
+    build_molecule_prompt,
     build_page_prompt,
+    build_particle_intro_prompt,
+    build_particle_title_prompt,
     build_prompt,
     build_seo_prompt,
+    build_site_description_prompt,
 )
 
 USAGE_NODE = "_ai_usage"
@@ -129,11 +133,74 @@ def _page_seo_prompt(context, draft, direction):
     return build_seo_prompt(title, content, draft=draft, direction=direction)
 
 
+def _particle_title_prompt(context, draft, direction):
+    name = (context.get("name") or "").strip()
+    if not name:
+        raise ValueError("請先填粒子名稱")
+    return build_particle_title_prompt(
+        name,
+        description=(context.get("description") or "").strip(),
+        draft=draft,
+        direction=direction,
+    )
+
+
+def _particle_intro_prompt(context, draft, direction):
+    name = (context.get("name") or "").strip()
+    if not name:
+        raise ValueError("請先填粒子名稱")
+    return build_particle_intro_prompt(
+        name,
+        title=(context.get("title") or "").strip(),
+        draft=draft,
+        direction=direction,
+    )
+
+
+# 分子表單上有一堆欄位，但站長不見得每個都填。只把有值的帶進提示，
+# 空欄位列成「- 分子量：」只會讓模型以為那是個未知數而去猜
+_MOLECULE_FACTS = (
+    ("顯示名稱", "name"),
+    ("IUPAC 名稱", "iupac_name"),
+    ("分子式", "formula"),
+    ("分子量", "weight"),
+    ("分類", "category"),
+    ("SMILES", "smiles"),
+)
+
+
+def _molecule_prompt(context, draft, direction):
+    facts = [
+        (label, str(context.get(key)).strip())
+        for label, key in _MOLECULE_FACTS
+        if str(context.get(key) or "").strip()
+    ]
+    if not facts:
+        raise ValueError("請先填分子名稱或分子式")
+    return build_molecule_prompt(facts, draft=draft, direction=direction)
+
+
+def _site_description_prompt(context, draft, direction):
+    title = (context.get("title") or "").strip()
+    if not title:
+        raise ValueError("請先填網站標題")
+    return build_site_description_prompt(
+        title,
+        subtitle=(context.get("subtitle") or "").strip(),
+        draft=draft,
+        direction=direction,
+    )
+
+
 SUGGEST_KINDS = {
     "element-story": _element_story_prompt,
     "page-content": _page_content_prompt,
     "group-archetype": _group_archetype_prompt,
     "page-seo": _page_seo_prompt,
+    "particle-title": _particle_title_prompt,
+    "particle-intro": _particle_intro_prompt,
+    "molecule": _molecule_prompt,
+    "site-description": _site_description_prompt,
 }
 
 

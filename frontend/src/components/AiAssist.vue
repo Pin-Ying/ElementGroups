@@ -47,10 +47,13 @@
       <input class="input" type="text" v-model="direction" aria-label="風格方向" />
 
       <div class="ai-actions">
-        <button class="button" type="button" :disabled="loading" @click="run">
+        <button class="button" type="button" :disabled="loading || exhausted" @click="run">
           {{ loading ? '產生中…' : (suggestion ? '重新產生' : '產生建議') }}
         </button>
-        <span v-if="ai.limit > 0" class="ai-quota">今日已用 {{ ai.used }} / {{ ai.limit }}</span>
+        <span v-if="ai.limit > 0" class="ai-quota" :class="{ low: remaining <= 5, out: exhausted }">
+          <template v-if="exhausted">今日額度已用完（{{ ai.limit }} 次），明天會重置</template>
+          <template v-else>今日還可用 {{ remaining }} 次（共 {{ ai.limit }}）</template>
+        </span>
       </div>
 
       <div v-if="suggestion" class="ai-result">
@@ -111,6 +114,14 @@ export default {
     },
     fields() {
       return this.def?.fields || []
+    },
+    // 額度是全站每天共用的，而現在有八個欄位掛著 AI，用完的機會比只有兩處時
+    // 高得多。與其按下去才收到錯誤訊息，不如先把按鈕停掉並說明何時恢復
+    remaining() {
+      return Math.max(0, this.ai.limit - this.ai.used)
+    },
+    exhausted() {
+      return this.ai.limit > 0 && this.remaining === 0
     },
     // 比對內容而不是物件本身：呼叫端多半是行內字面值或 computed，每次重繪
     // 都是新物件，deep watch 看的是來源引用，會在內容根本沒變時也重設
@@ -250,6 +261,9 @@ export default {
   font-size: 12px;
   color: rgba(228, 251, 255, 0.5);
 }
+
+.ai-panel--float .ai-quota.low { color: #ffc46b; }
+.ai-panel--float .ai-quota.out { color: #ff8f8f; }
 
 .ai-panel--float .ai-result {
   margin-top: 14px;
