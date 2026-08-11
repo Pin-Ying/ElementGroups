@@ -7,7 +7,7 @@
       <div class="modal-box" :style="{ borderColor: '#' + elInfo.CPKHexColor }">
         <div class="modal-header">
           <span>Edit {{ elInfo.Symbol }}</span>
-          <button class="modal-close" @click="editing = false">✕</button>
+          <button class="modal-dismiss" @click="editing = false">✕</button>
         </div>
         <StoryEditor
           :symbol="elInfo.Symbol"
@@ -883,7 +883,9 @@ export default {
   }
 }
 
-.modal-close {
+/* 不叫 .modal-close：那是 Bulma 的元件名，它會套上 position: fixed，
+   讓關閉鈕脫離標題列跑去疊在標題文字上 */
+.modal-dismiss {
   background: none;
   border: none;
   color: #aaa;
@@ -892,7 +894,7 @@ export default {
   line-height: 1;
 }
 
-.modal-close:hover { color: #fff; }
+.modal-dismiss:hover { color: #fff; }
 
 .edit-label {
   display: block;
