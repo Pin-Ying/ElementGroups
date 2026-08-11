@@ -1,0 +1,64 @@
+{
+ "modification_id": "mod-012",
+ "feature_id": "feature-012",
+ "type": "revert",
+ "scope": "fullstack",
+ "status": "applied",
+ "description": "還原被誤刪的電子樣式庫。先前把 _electron_styles 整個換成從 _particles 挑一種粒子，超出站長的要求範圍",
+ "created_at": "2026-08-11T02:00:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": true,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/layers.py",
+    "change_type": "modified",
+    "diff_summary": "還原 ELECTRON_STYLES_NODE、ELECTRON_DEFAULT_NODE、normalize_electron_styles、resolve_electron_style 與 normalize/serialize_layers 的 electron_style；移除 ORBIT_PARTICLE_NODE 與 resolve_orbit_particle"
+   },
+   {
+    "path": "backend/app/routes/admin.py",
+    "change_type": "modified",
+    "diff_summary": "還原 electron-styles 的 GET/POST、default、DELETE 三個端點；移除 orbit-particle"
+   },
+   {
+    "path": "backend/app/routes/public.py",
+    "change_type": "modified",
+    "diff_summary": "layers 端點改回回傳 electron_style 與 electron_img"
+   },
+   {
+    "path": "frontend/src/api/index.js",
+    "change_type": "modified",
+    "diff_summary": "還原 getElectronStyles / saveElectronStyle / setDefaultElectronStyle / deleteElectronStyle"
+   },
+   {
+    "path": "frontend/src/components/ElementLayers.vue",
+    "change_type": "modified",
+    "diff_summary": "particleImg 等命名改回 electronImg"
+   },
+   {
+    "path": "frontend/src/views/StoryView.vue",
+    "change_type": "modified",
+    "diff_summary": "prop 改回 electron-img"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "圖層素材改回電子樣式庫（清單、設為預設、刪除、上傳）；元素圖層還原每元素的樣式選擇器；基本粒子還原「帶入預設電子圖」"
+   }
+  ]
+ },
+ "root_cause": "站長說「預設圖片目前只有電子，加入其他粒子或讓使用者可以自己新增」，我提出的選項把「改用 _particles」寫成移除 _electron_styles，站長選了該選項但沒有意識到會連同整個樣式庫與每元素的個別指定一起消失。實際上原本的樣式庫就能滿足「加入其他粒子」——上傳一張質子圖進去即可，它只是名字叫「電子樣式」。等於把改名就能解決的問題做成了砍掉重練。",
+ "notes": [
+  "Firebase 的 _electron_styles、_electron_default 與每元素的 electron_style 從未被刪除，只是程式停止讀取，所以還原程式後資料完整回來",
+  "保留的部分：運動方式全站統一（站長明確要求）、預設圖片併入圖層素材（站長明確要求）",
+  "還原過程中一度把區塊的結尾 </div> 一併貼回，導致運動方式與預設圖片被擠出 box 之外、模板標籤不平衡；已修正",
+  "教訓：提供選項時要把「會失去什麼」寫得和「會得到什麼」一樣清楚；使用者選了選項不等於理解了所有後果",
+  "尚未實作站長進一步的需求：每個基本粒子都能有自己的多個樣式、圖庫組成由站長決定"
+ ]
+}

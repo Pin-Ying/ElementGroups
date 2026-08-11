@@ -613,6 +613,12 @@
               <div class="mol-image-actions">
                 <input type="file" accept="image/*" @change="onParticleImgChange" />
                 <button
+                  v-if="electronStyles.length"
+                  class="button secondary"
+                  type="button"
+                  @click="useDefaultElectronImg"
+                >帶入預設電子圖</button>
+                <button
                   v-if="particleForm.img_data"
                   class="button secondary"
                   type="button"
@@ -750,30 +756,61 @@
         <div v-if="section === 'electrons'" class="box">
           <p class="title is-4">LAYER ASSETS</p>
           <p class="desc">
-            全站共用的素材與設定。每個元素自己的原子核與手寫名，在「元素故事」的圖層區設定。<br>
-            繞行粒子每個元素放幾顆，由電子組態自動推算。
+            全站共用的素材與設定。電子的畫法可以套用到任何元素，所以集中管理在這裡；<br>
+            設一個<strong>預設</strong>之後，沒有另外指定的元素都會自動使用它。<br>
+            每個元素放幾顆由電子組態自動決定。原子核與手寫名是每個元素各自的，在「元素故事」的圖層區設定。
           </p>
 
-          <label class="label">繞行粒子（全站）</label>
-          <p class="field-hint">
-            繞著原子核轉的是哪一種粒子。候選來自<strong>「基本粒子」</strong>，
-            要新增電子以外的粒子請到那裡加一筆並上傳形象圖，這裡就會出現。
-          </p>
-          <div v-if="!orbitParticles.length" class="placeholder-text">
-            「基本粒子」還沒有任何帶形象圖的粒子，請先去新增。
-          </div>
-          <div v-else class="particle-picker">
-            <button
-              v-for="p in orbitParticles"
-              :key="p.slug"
-              class="particle-option"
-              type="button"
-              :class="{ active: orbitParticle === p.slug }"
-              :disabled="orbitSaving"
-              @click="handleSaveOrbitParticle(p.slug)"
+          <div v-if="!electronStyles.length" class="placeholder-text">尚未新增任何電子樣式。</div>
+
+          <div v-else class="style-grid">
+            <div
+              v-for="st in electronStyles"
+              :key="st.id"
+              class="style-item"
+              :class="{ broken: brokenStyles.includes(st.id), 'is-default': st.id === defaultStyleId }"
             >
-              <img :src="p.img_data" alt="" />
-              <span class="particle-option-name">{{ p.name }}</span>
+              <img :src="st.img_data" alt="" @error="markBrokenStyle(st.id)" />
+              <span class="style-name">
+                {{ st.name }}
+                <span v-if="brokenStyles.includes(st.id)" class="broken-tag">圖片損毀</span>
+              </span>
+              <div class="style-actions">
+                <button
+                  class="style-default-btn"
+                  type="button"
+                  :class="{ active: st.id === defaultStyleId }"
+                  @click="toggleDefaultStyle(st)"
+                >{{ st.id === defaultStyleId ? '★ 預設' : '設為預設' }}</button>
+                <button
+                  class="icon-button danger"
+                  type="button"
+                  :title="pendingDeleteStyle === st.id ? '再按一次確認刪除' : '刪除'"
+                  :class="{ confirming: pendingDeleteStyle === st.id }"
+                  @click="handleDeleteStyle(st)"
+                >{{ pendingDeleteStyle === st.id ? '確認' : '✕' }}</button>
+              </div>
+            </div>
+          </div>
+
+          <label class="label">新增樣式</label>
+          <p class="field-hint">請使用<strong>去背的 PNG</strong>，正方形構圖。上傳後會縮至 240px 並保留透明背景。</p>
+          <div class="style-upload">
+            <input class="input" type="text" v-model="newStyleName" aria-label="樣式名稱" />
+            <input class="input" type="file" accept="image/*" ref="styleInput" aria-label="樣式圖片" @change="onStyleFile" />
+          </div>
+          <div v-if="newStyleImg" class="preview-new">
+            <p class="preview-label">預覽（尚未儲存）</p>
+            <img :src="newStyleImg" class="img-preview sprite-preview" alt="" />
+            <p v-if="newStyleInfo" class="compress-info">
+              {{ newStyleInfo.sourceSize }}
+              <template v-if="newStyleInfo.trimmed"> → 裁掉透明邊距後 {{ newStyleInfo.contentSize }}</template>
+              → 置中輸出 240×240
+            </p>
+          </div>
+          <div class="link-actions">
+            <button class="button" type="button" :disabled="styleSaving || !newStyleImg" @click="handleSaveStyle">
+              {{ styleSaving ? 'Saving…' : '新增樣式' }}
             </button>
           </div>
 
@@ -1061,16 +1098,29 @@
                 <button v-if="layerForm.name_img" class="draft-link" type="button" @click="layerForm.name_img = ''">移除</button>
               </div>
 
-              <!-- 繞行粒子與運動方式都是全站設定，這裡只顯示目前是什麼 -->
               <div class="layer-slot">
-                <p class="preview-label">繞行粒子（{{ outerElectrons }} 顆）</p>
-                <div v-if="orbitParticleImg" class="layer-preview">
-                  <img :src="orbitParticleImg" alt="" />
+                <p class="preview-label">電子（{{ outerElectrons }} 顆）</p>
+                <div v-if="electronStyles.length" class="electron-picker">
+                  <button
+                    v-for="st in electronStyles"
+                    :key="st.id"
+                    class="electron-option"
+                    type="button"
+                    :class="{ active: layerForm.electron_style === st.id }"
+                    :title="st.name + (st.id === defaultStyleId ? '（預設）' : '')"
+                    @click="layerForm.electron_style = layerForm.electron_style === st.id ? '' : st.id"
+                  >
+                    <img :src="st.img_data" alt="" />
+                    <span v-if="st.id === defaultStyleId" class="electron-default-mark">★</span>
+                  </button>
                 </div>
+                <p v-else class="layer-empty">尚無樣式，請先到「圖層素材」新增</p>
+                <p v-if="electronStyles.length && !layerForm.electron_style" class="layer-empty">
+                  {{ defaultStyleId ? '未指定，將使用預設電子' : '未指定，且尚未設定預設電子' }}
+                </p>
+
                 <p class="layer-empty">
-                  全站使用<strong>{{ orbitParticleName || '（尚未設定）' }}</strong>，
-                  運動方式為<strong>{{ motionLabel }}</strong>。<br>
-                  兩者都在「圖層素材」設定。
+                  運動方式是全站統一的，到「圖層素材」設定。目前為<strong>{{ motionLabel }}</strong>。
                 </p>
               </div>
             </div>
@@ -1178,7 +1228,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getOrbitParticle, setOrbitParticle, getElectronMotion, setElectronMotion, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getElectronMotion, setElectronMotion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1186,7 +1236,7 @@ import { setSiteSettings, SITE_DEFAULTS, siteSettingsState } from '../store/site
 import { setPageSeo } from '../utils/seo'
 import { refreshPages } from '../store/pages'
 import { PLATFORMS, platformInfo } from '../utils/socialPlatforms'
-import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
+import { compressImage, normalizeSprite, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
 import PokedexFrame, { FRAME_STYLES } from '../components/PokedexFrame.vue'
 import ImageCropper from '../components/ImageCropper.vue'
 import MarkdownContent from '../components/MarkdownContent.vue'
@@ -1302,12 +1352,17 @@ export default {
       GROUP_SECTIONS,
       CATEGORY_PRESETS,
       NAV_POSITIONS,
-      layerForm: { nucleus: '', name_img: '' },
+      layerForm: { nucleus: '', name_img: '', electron_style: '' },
       layerSaving: false,
       layerErrors: { nucleus: '', name_img: '' },
-      orbitParticles: [],
-      orbitParticle: '',
-      orbitSaving: false,
+      brokenStyles: [],
+      pendingDeleteStyle: '',
+      electronStyles: [],
+      defaultStyleId: '',
+      newStyleName: '',
+      newStyleImg: '',
+      newStyleInfo: null,
+      styleSaving: false,
       motion: 'orbit',
       motionSaving: false,
       motionOptions: [
@@ -1512,16 +1567,6 @@ export default {
     motionLabel() {
       return (this.motionOptions.find(o => o.value === this.motion) || {}).label || this.motion
     },
-    // 目前的繞行粒子。沒設定過時後端會退回清單第一個，這裡照同一套規則
-    currentOrbitParticle() {
-      return this.orbitParticles.find(p => p.slug === this.orbitParticle) || this.orbitParticles[0] || null
-    },
-    orbitParticleName() {
-      return this.currentOrbitParticle?.name || ''
-    },
-    orbitParticleImg() {
-      return this.currentOrbitParticle?.img_data || ''
-    },
     hasDraft() {
       return !!(this.draftDatas[this.selectedSymbol] || '').trim()
     },
@@ -1566,7 +1611,7 @@ export default {
       return Promise.all([
         this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(),
         this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(),
-        this.loadLayerAssets(), this.loadMolecules(), this.loadGroups(), this.loadParticles(), this.loadPageMeta()
+        this.loadElectronStyles(), this.loadMolecules(), this.loadGroups(), this.loadParticles(), this.loadPageMeta()
       ])
     },
     // ── 圖片裁切流程 ──
@@ -1778,6 +1823,11 @@ export default {
     },
     newParticle() {
       this.particleForm = EMPTY_PARTICLE()
+    },
+    useDefaultElectronImg() {
+      // 電子的形象圖直接沿用圖層素材的預設電子，不必重新上傳
+      const style = this.electronStyles.find(st => st.id === this.defaultStyleId) || this.electronStyles[0]
+      if (style?.img_data) this.particleForm.img_data = style.img_data
     },
     async onParticleImgChange(e) {
       const file = e.target.files[0]
@@ -2544,7 +2594,8 @@ export default {
         const res = await getAdminLayers(this.selectedSymbol)
         this.layerForm = {
           nucleus: res.data.nucleus || '',
-          name_img: res.data.name_img || ''
+          name_img: res.data.name_img || '',
+          electron_style: res.data.electron_style || ''
         }
       } catch (e) {
         console.error('Failed to load layers:', e)
@@ -2588,14 +2639,14 @@ export default {
         this.layerSaving = false
       }
     },
-    // ── 全站圖層設定：繞行粒子與運動方式 ──
-    async loadLayerAssets() {
+    // ── 電子樣式庫 ──
+    async loadElectronStyles() {
       try {
-        const res = await getOrbitParticle()
-        this.orbitParticles = res.data.particles || []
-        this.orbitParticle = res.data.current || ''
+        const res = await getElectronStyles()
+        this.electronStyles = res.data.styles || []
+        this.defaultStyleId = res.data.default_id || ''
       } catch (e) {
-        console.error('Failed to load orbit particle:', e)
+        console.error('Failed to load electron styles:', e)
       }
 
       try {
@@ -2605,19 +2656,65 @@ export default {
         console.error('Failed to load electron motion:', e)
       }
     },
-    async handleSaveOrbitParticle(slug) {
-      if (slug === this.orbitParticle || this.orbitSaving) return
-      const previous = this.orbitParticle
-      this.orbitParticle = slug
-      this.orbitSaving = true
+    async onStyleFile(e) {
+      const file = e.target.files[0]
+      if (!file) return
       try {
-        const res = await setOrbitParticle(slug)
-        showToast(res.data.message || '已儲存', 'success')
+        // 自動裁掉透明邊距並置中到正方形，否則不同來源的 PNG 疊上去
+        // 大小會差很多
+        const result = await normalizeSprite(file, { size: 240 })
+        this.newStyleImg = await this.blobToDataUrl(result.blob)
+        this.newStyleInfo = result
+        if (!this.newStyleName) this.newStyleName = file.name.replace(/\.[^.]+$/, '')
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+      }
+    },
+    async handleSaveStyle() {
+      this.styleSaving = true
+      try {
+        const res = await saveElectronStyle({ name: this.newStyleName, img_data: this.newStyleImg })
+        showToast(res.data.message || '已新增', 'success')
+        this.newStyleName = ''
+        this.newStyleImg = ''
+        this.newStyleInfo = null
+        if (this.$refs.styleInput) this.$refs.styleInput.value = ''
+        await this.loadElectronStyles()
       } catch (e) {
-        this.orbitParticle = previous
-        showToast(e.response?.data?.message || '儲存失敗', 'error')
+        showToast(e.response?.data?.message || '新增失敗', 'error')
       } finally {
-        this.orbitSaving = false
+        this.styleSaving = false
+      }
+    },
+    async toggleDefaultStyle(style) {
+      const next = this.defaultStyleId === style.id ? '' : style.id
+      try {
+        const res = await setDefaultElectronStyle(next)
+        showToast(res.data.message || '已更新', 'success')
+        this.defaultStyleId = next
+      } catch (e) {
+        showToast(e.response?.data?.message || '設定失敗', 'error')
+      }
+    },
+    async handleDeleteStyle(style) {
+      // 第一次點只是進入確認狀態，避免手滑刪掉畫好的素材
+      if (this.pendingDeleteStyle !== style.id) {
+        this.pendingDeleteStyle = style.id
+        setTimeout(() => {
+          if (this.pendingDeleteStyle === style.id) this.pendingDeleteStyle = ''
+        }, 4000)
+        return
+      }
+      this.pendingDeleteStyle = ''
+      try {
+        const res = await deleteElectronStyle(style.id)
+        showToast(res.data.message || '已刪除', 'success')
+        // 有元素正在用這個樣式的話，選取狀態一併清掉
+        if (this.layerForm.electron_style === style.id) this.layerForm.electron_style = ''
+        if (this.defaultStyleId === style.id) this.defaultStyleId = ''
+        await this.loadElectronStyles()
+      } catch (e) {
+        showToast(e.response?.data?.message || '刪除失敗', 'error')
       }
     },
     async handleSaveMotion(value) {
@@ -3331,20 +3428,54 @@ export default {
 }
 .layer-slot .select { margin: 0; }
 
-/* ── 繞行粒子挑選器（全站） ── */
-.particle-picker {
+.electron-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+
+.electron-option {
+  width: 42px;
+  height: 42px;
+  padding: 4px;
+  border: 1px solid rgba(228, 251, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(60, 40, 75, 0.35);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.electron-option:hover { border-color: rgba(228, 251, 255, 0.5); }
+
+.electron-option.active {
+  border-color: #6ee76e;
+  background: rgba(110, 231, 110, 0.15);
+}
+
+.electron-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: none;
+  border-radius: 0;
+  display: block;
+}
+
+/* ── 全站電子運動方式 ── */
+.motion-picker {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
   margin: 10px 0 22px;
 }
 
-.particle-option {
+.motion-option {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 10px;
+  gap: 4px;
+  padding: 12px 14px;
+  text-align: left;
   border: 1px solid rgba(228, 251, 255, 0.12);
   border-radius: 8px;
   background: rgba(228, 251, 255, 0.03);
@@ -3352,15 +3483,37 @@ export default {
   cursor: pointer;
 }
 
-.particle-option:hover:not(:disabled) { border-color: rgba(228, 251, 255, 0.3); }
-.particle-option:disabled { cursor: default; opacity: 0.6; }
+.motion-option:hover:not(:disabled) { border-color: rgba(228, 251, 255, 0.3); }
+.motion-option:disabled { cursor: default; opacity: 0.6; }
 
-.particle-option.active {
+.motion-option.active {
   border-color: #6ee76e;
   background: rgba(110, 231, 110, 0.08);
 }
 
-.particle-option img {
+.motion-name { font-size: 14px; font-weight: bold; }
+.motion-desc { font-size: 12px; opacity: 0.7; line-height: 1.5; }
+
+/* ── 電子樣式庫 ── */
+.style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 10px 0 18px;
+}
+
+.style-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(3, 1, 12, 0.4);
+}
+
+.style-item img {
   width: 56px;
   height: 56px;
   object-fit: contain;
@@ -3368,7 +3521,70 @@ export default {
   border-radius: 0;
 }
 
-.particle-option-name { font-size: 12px; }
+.style-item.broken { border-color: rgba(255, 107, 107, 0.5); }
+.style-item.is-default { border-color: #6ee76e; background: rgba(110, 231, 110, 0.08); }
+
+.style-actions { display: flex; align-items: center; gap: 5px; }
+
+.style-default-btn {
+  padding: 2px 9px;
+  font-size: 11px;
+  font-family: inherit;
+  border: 1px solid rgba(228, 251, 255, 0.2);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(228, 251, 255, 0.5);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.style-default-btn:hover { color: #e4fbff; border-color: rgba(228, 251, 255, 0.5); }
+.style-default-btn.active { color: #6ee76e; border-color: rgba(110, 231, 110, 0.6); }
+
+.electron-option { position: relative; }
+
+/* 電子是去背 PNG，配個底色才看得清楚 */
+.sprite-preview {
+  max-width: 90px;
+  background:
+    linear-gradient(45deg, rgba(228,251,255,0.06) 25%, transparent 25%, transparent 75%, rgba(228,251,255,0.06) 75%),
+    linear-gradient(45deg, rgba(228,251,255,0.06) 25%, transparent 25%, transparent 75%, rgba(228,251,255,0.06) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 6px 6px;
+}
+
+.electron-default-mark {
+  position: absolute;
+  top: -5px;
+  right: -3px;
+  font-size: 10px;
+  color: #6ee76e;
+}
+
+.broken-tag {
+  display: block;
+  font-size: 10px;
+  color: #ff6b6b;
+  margin-top: 2px;
+}
+
+.style-name {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.7);
+  text-align: center;
+  word-break: break-word;
+}
+
+.style-upload {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+@media (max-width: 700px) {
+  .style-upload { grid-template-columns: 1fr; }
+}
 
 /* ── 全站電子運動方式 ── */
 .motion-picker {

@@ -128,7 +128,7 @@
                     v-if="useLayers"
                     :nucleus="layers.nucleus"
                     :name-img="layers.name_img"
-                    :particle-img="layers.particle_img"
+                    :electron-img="layers.electron_img"
                     :count="outerElectrons"
                     :motion="layers.motion"
                     :bg-color="site.layer_bg"

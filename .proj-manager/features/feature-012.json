@@ -1,7 +1,7 @@
 {
  "feature_id": "feature-012",
- "name": "元素分層動畫與繞行粒子",
- "description": "元素代表圖拆成原子核、手寫元素名兩層靜態疊圖，加上繞著原子核運動的粒子。繞行粒子與運動方式都是全站統一設定；粒子形象直接引用「基本粒子」（_particles），不另外維護圖庫。三種運動模式：分層繞行（含前後景深）、全頁自由飄動、靜止排開。",
+ "name": "元素分層動畫與電子樣式庫",
+ "description": "元素代表圖拆成原子核、手寫元素名兩層靜態疊圖，加上繞著原子核運動的電子。電子樣式集中成共用圖庫（可上傳多個畫法、設一個全站預設），每個元素可個別指定要用哪一個。運動方式是全站統一設定，三種模式：分層繞行（含前後景深）、全頁自由飄動、靜止排開。",
  "status": "completed",
  "created_at": "2026-08-11T00:00:00Z",
  "files": [
@@ -14,24 +14,32 @@
   "frontend/src/api/index.js",
   "frontend/src/utils/valence.js"
  ],
- "dependencies": [
-  "feature-010"
- ],
+ "dependencies": [],
  "api_endpoints": [
   {
    "method": "GET",
    "path": "/api/elements/<symbol>/layers",
-   "description": "公開；原子核、手寫名、全站運動方式與繞行粒子的形象圖"
+   "description": "公開；原子核、手寫名、電子樣式圖與全站運動方式"
   },
   {
    "method": "GET/POST",
    "path": "/api/admin/elements/<symbol>/layers",
-   "description": "登入；每個元素的原子核與手寫名（POST 只更新有帶到的欄位）"
+   "description": "登入；每個元素的原子核、手寫名與電子樣式指定（POST 只更新有帶到的欄位）"
   },
   {
    "method": "GET/POST",
-   "path": "/api/admin/orbit-particle",
-   "description": "登入；全站繞行粒子。候選來自 _particles 中有形象圖的粒子"
+   "path": "/api/admin/electron-styles",
+   "description": "登入；共用電子樣式庫的清單與新增"
+  },
+  {
+   "method": "POST",
+   "path": "/api/admin/electron-styles/default",
+   "description": "登入；設定全站預設電子樣式"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/admin/electron-styles/<style_id>",
+   "description": "登入；刪除樣式，若刪到預設會一併清除指向"
   },
   {
    "method": "GET/POST",
@@ -44,13 +52,21 @@
    "name": "_layers/{Symbol}",
    "fields": [
     "nucleus（base64）",
-    "name_img（base64）"
+    "name_img（base64）",
+    "electron_style（樣式 id，空＝用全站預設）"
    ]
   },
   {
-   "name": "_orbit_particle",
+   "name": "_electron_styles/{id}",
    "fields": [
-    "字串；指向 _particles/{slug}"
+    "name",
+    "img_data（base64，上傳時裁掉透明邊距並置中為 240×240）"
+   ]
+  },
+  {
+   "name": "_electron_default",
+   "fields": [
+    "字串；預設樣式的 id"
    ]
   },
   {
@@ -62,12 +78,12 @@
  ],
  "notes": [
   "這個功能早於本次才被記錄，先前版本已存在但沒有建立 feature 檔",
-  "繞行粒子數量由電子組態推算最外層電子數（utils/valence.js），上限 8 顆",
+  "電子顆數由電子組態推算最外層電子數（utils/valence.js），上限 8 顆",
   "軌域形狀（s 球對稱、p 啞鈴、d 四葉、f）決定扁率與傾角，不是精確的量子力學模型，只取最容易辨認的幾何特徵",
-  "繞行模式的前後景深：粒子分三個軌道層，繞行時同步變化 scale 與 z-index，會轉到原子核後方。.particles 容器刻意不設 z-index，留成 auto 才不會自成堆疊環境",
+  "繞行模式的前後景深：電子分三個軌道層，繞行時同步變化 scale 與 z-index，會轉到原子核後方。.electrons 容器刻意不設 z-index，留成 auto 才不會自成堆疊環境",
   "自由飄動用 Teleport 掛到 body，脫離圖框的 overflow；路徑由元素符號當種子產生，重整不會跳動",
-  "已移除的舊設計：_electron_styles（只認電子的獨立圖庫）與 _electron_default，改引用 _particles；每元素的 motion 與 electron_style 欄位也不再讀取，舊資料留著但忽略",
+  "運動方式原本逐個元素指定，改為全站統一（issue #23）。舊資料殘留在 _layers/{symbol}/motion 的值一律忽略",
   "支援 prefers-reduced-motion",
-  "對應 issue #23"
+  "待辦：站長希望圖庫不只限於電子——每個基本粒子都能有自己的多個樣式，圖庫如何組成由站長決定。尚未實作，見 mod-012"
  ]
 }

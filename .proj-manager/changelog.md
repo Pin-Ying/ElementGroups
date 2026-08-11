@@ -22,9 +22,9 @@
 - SEO 基礎建設（feature-013，issue #21）：build 時產生 sitemap.xml 與 robots.txt、
   每頁獨立的 title/description/canonical/og、元素頁 ChemicalSubstance 與分子頁
   MolecularEntity 的 JSON-LD、118 個元素頁的靜態預渲染；新增 /api/elements/seo
-- 元素分層動畫與繞行粒子（feature-012，issue #23）：三種運動模式真正區分——
+- 元素分層動畫與電子樣式庫（feature-012，issue #23）：三種運動模式真正區分——
   分層繞行含前後景深、Teleport 到 body 的全頁飄動、等角度靜止排開；
-  繞行粒子與運動方式改為全站統一設定，粒子形象直接引用「基本粒子」
+  運動方式改為全站統一設定
 
 **功能修改**
 - 後台頁面管理統整（mod-006，issue #20）：系統頁與自訂頁併成同一張表格，
@@ -45,9 +45,14 @@
 - docs/verification/ 新增 5 張驗收截圖
 
 **移除**
-- `_electron_styles` 與 `_electron_default`：只認電子的獨立圖庫，改引用 `_particles`
 - 後台「預設圖片」獨立區塊：併入「圖層素材」
-- 每元素的電子樣式選擇器與 motion 欄位：改為全站設定
+- 每元素的 motion 欄位：改為全站設定
+
+**過程中的錯誤與還原（mod-012）**
+- 一度把 `_electron_styles` 整個換成從 `_particles` 挑一種粒子，超出站長要求的範圍。
+  站長要的是「圖庫可以上傳多個樣貌」，原本的樣式庫就能滿足，只是名字叫「電子樣式」。
+- 已完整還原：樣式庫、每元素的個別指定、「帶入預設電子圖」全部回來。
+  Firebase 資料從未被刪除，還原程式後即恢復。
 
 ### 影響評估
 
@@ -63,6 +68,8 @@
 - Google Search Console 註冊需站長操作
 - 本次驗證改用 docker compose；真後端需要 Firebase 私鑰，驗證時以 mock 後端替代
 - 站長回饋後台可調整的項目仍偏少（相較 issue #20 附的參考專案），尚未收斂範圍
+- **待辦**：站長希望圖庫不只限於電子——每個基本粒子都能有自己的多個樣式，
+  圖庫如何組成由站長決定。尚未實作
 
 ---
 

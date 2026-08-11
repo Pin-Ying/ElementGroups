@@ -3,31 +3,31 @@
   <div class="layers" :class="'layers--' + motion" :style="{ background: bgColor, ...layerVars }">
     <img class="layer layer--nucleus" :src="nucleus" alt="" />
 
-    <div v-if="particleImg && count && motion !== 'free'" class="particles">
+    <div v-if="electronImg && count && motion !== 'free'" class="electrons">
       <span
         v-for="(e, i) in orbits"
         :key="i"
-        class="particle"
-        :class="'particle--' + e.orbitalType"
+        class="electron"
+        :class="'electron--' + e.orbitalType"
         :style="e.style"
       >
-        <img :src="particleImg" alt="" />
+        <img :src="electronImg" alt="" />
       </span>
     </div>
 
     <img v-if="nameImg" class="layer layer--name" :src="nameImg" alt="" />
   </div>
 
-  <!-- 自由飄動不受圖框限制，整頁都是粒子的活動範圍，所以掛到 body 上 -->
-  <Teleport v-if="motion === 'free' && particleImg && count" to="body">
+  <!-- 自由飄動不受圖框限制，整頁都是電子的活動範圍，所以掛到 body 上 -->
+  <Teleport v-if="motion === 'free' && electronImg && count" to="body">
     <div class="free-field" aria-hidden="true">
       <span
         v-for="(e, i) in wanderers"
         :key="i"
-        class="free-particle"
+        class="free-electron"
         :style="e.style"
       >
-        <img :src="particleImg" alt="" />
+        <img :src="electronImg" alt="" />
       </span>
     </div>
   </Teleport>
@@ -35,9 +35,9 @@
 
 <script>
 // translateX 的百分比是相對元素「自身」寬度，所以要把「距離容器中心多少
-// 百分比」換算成粒子自身的倍數，否則粒子會全部擠在中心。
-function orbitRadius(containerPct, particlePct) {
-  return `${(containerPct / particlePct) * 100}%`
+// 百分比」換算成電子自身的倍數，否則電子會全部擠在中心。
+function orbitRadius(containerPct, electronPct) {
+  return `${(containerPct / electronPct) * 100}%`
 }
 
 // 各軌域的運動形態。
@@ -54,7 +54,7 @@ const ORBITAL_SHAPES = {
   f: { flatten: [0.3, 0.6, 0.24, 0.5], tilts: [15, 65, 100, 145], radius: 12, speed: 0.62 }
 }
 
-// 繞行模式的軌道層。粒子分配到不同層，半徑、傾角與遠近對比都不同，
+// 繞行模式的軌道層。電子分配到不同層，半徑、傾角與遠近對比都不同，
 // 看起來才像在各自的圖層上繞，而不是擠在同一個圈上。
 const ORBIT_LAYERS = [
   { radius: 26, depth: 0.34, tilt: -18, speed: 1.18 },
@@ -84,14 +84,14 @@ export default {
   props: {
     nucleus: { type: String, required: true },
     nameImg: { type: String, default: '' },
-    particleImg: { type: String, default: '' },
-    // 最外層電子數，決定要放幾顆粒子
+    electronImg: { type: String, default: '' },
+    // 最外層電子數，決定要放幾顆
     count: { type: Number, default: 0 },
     // orbit：分層繞著原子核／free：在整個網頁飄／static：均勻排開不動
     motion: { type: String, default: 'orbit' },
-    // 粒子寬度佔容器的百分比，可在後台調整
+    // 電子寬度佔容器的百分比，可在後台調整
     size: { type: Number, default: 24 },
-    // 每顆粒子所屬的軌域，例如 [{type:'s'},{type:'s'},{type:'p'}...]
+    // 每顆電子所屬的軌域，例如 [{type:'s'},{type:'s'},{type:'p'}...]
     orbitals: { type: Array, default: () => [] },
     // 用來產生穩定的軌道偏移，讓不同元素看起來不一樣
     seed: { type: String, default: '' },
@@ -99,23 +99,23 @@ export default {
     bgColor: { type: String, default: '#ffffff' }
   },
   computed: {
-    // 粒子多的時候略為縮小，避免彼此重疊
-    particleSize() {
+    // 電子多的時候略為縮小，避免彼此重疊
+    electronSize() {
       const base = Math.min(Math.max(this.size || 24, 6), 45)
       return this.count >= 7 ? base * 0.78 : this.count >= 5 ? base * 0.88 : base
     },
     layerVars() {
-      return { '--particle-size': this.particleSize + '%' }
+      return { '--electron-size': this.electronSize + '%' }
     },
-    particleCount() {
+    electronCount() {
       return Math.max(0, Math.min(this.count, 8))
     },
     orbits() {
-      const n = this.particleCount
+      const n = this.electronCount
       const offset = symbolSeed(this.seed)
 
       return Array.from({ length: n }, (_, i) => {
-        // 該顆粒子所屬的軌域；沒有資料時退回 s（球對稱）
+        // 該顆電子所屬的軌域；沒有資料時退回 s（球對稱）
         const type = this.orbitals[i]?.type || 's'
         const shape = ORBITAL_SHAPES[type] || ORBITAL_SHAPES.s
         // 同一軌域內第幾顆，用來挑選該軌域的不同方向
@@ -127,12 +127,12 @@ export default {
             orbitalType: type,
             style: {
               '--angle': `${(360 / n) * i + (offset % 37)}deg`,
-              '--radius': orbitRadius(38 + (offset % 4), this.particleSize)
+              '--radius': orbitRadius(38 + (offset % 4), this.electronSize)
             }
           }
         }
 
-        // 繞行：把粒子分配到不同軌道層，層與層之間半徑與遠近對比都拉開
+        // 繞行：把電子分配到不同軌道層，層與層之間半徑與遠近對比都拉開
         const layer = ORBIT_LAYERS[i % ORBIT_LAYERS.length]
 
         // 起始角度平均分散，再加上依元素而異的偏移
@@ -152,7 +152,7 @@ export default {
           style: {
             '--angle': `${angle}deg`,
             '--delay': `${-(i * duration) / n}s`,
-            '--radius': orbitRadius(radiusPct, this.particleSize),
+            '--radius': orbitRadius(radiusPct, this.electronSize),
             '--flatten': flatten,
             '--tilt': `${tilt}deg`,
             '--duration': `${duration}s`,
@@ -162,13 +162,13 @@ export default {
         }
       })
     },
-    // 自由飄動：每顆粒子在整個視窗裡沿自己的路徑漫遊
+    // 自由飄動：每顆電子在整個視窗裡沿自己的路徑漫遊
     wanderers() {
       if (this.motion !== 'free') return []
 
       const rand = seededRandom(symbolSeed(this.seed) + 13)
 
-      return Array.from({ length: this.particleCount }, (_, i) => {
+      return Array.from({ length: this.electronCount }, (_, i) => {
         // 四個停留點連成一圈，繞完回到起點，路徑就不會有跳接
         const waypoints = {}
         for (let w = 0; w < 4; w++) {
@@ -214,29 +214,29 @@ export default {
 }
 
 .layer--nucleus { z-index: 1; }
-/* 手寫元素名壓在最上層，不會被粒子蓋住 */
+/* 手寫元素名壓在最上層，不會被電子蓋住 */
 .layer--name { z-index: 3; pointer-events: none; }
 
 /* 這一層刻意不設 z-index：留成 auto 才不會自成堆疊環境，
-   底下每顆粒子的 z-index 才能各自跟原子核比前後 */
-.particles {
+   底下每顆電子的 z-index 才能各自跟原子核比前後 */
+.electrons {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
 
-.particle {
+.electron {
   position: absolute;
   top: 50%;
   left: 50%;
-  /* 尺寸由 script 的 particleSize 換算後透過 CSS 變數帶入 */
-  width: var(--particle-size, 24%);
-  height: var(--particle-size, 24%);
-  margin: calc(var(--particle-size, 24%) / -2) 0 0 calc(var(--particle-size, 24%) / -2);
+  /* 尺寸由 script 的 electronSize 換算後透過 CSS 變數帶入 */
+  width: var(--electron-size, 24%);
+  height: var(--electron-size, 24%);
+  margin: calc(var(--electron-size, 24%) / -2) 0 0 calc(var(--electron-size, 24%) / -2);
   transform-origin: center;
 }
 
-.particle img {
+.electron img {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -246,7 +246,7 @@ export default {
 }
 
 /* ── 繞行：分層繞著原子核，且有前後景深 ── */
-.layers--orbit .particle {
+.layers--orbit .electron {
   animation:
     orbit var(--duration, 8s) linear infinite,
     orbit-depth var(--duration, 8s) linear infinite;
@@ -254,13 +254,13 @@ export default {
 }
 
 /* 內層負責遠近縮放，跟外層的位移分開，兩個 transform 才不會互相蓋掉 */
-.layers--orbit .particle img {
+.layers--orbit .electron img {
   animation: orbit-scale var(--duration, 8s) ease-in-out infinite;
   animation-delay: var(--delay, 0s);
 }
 
 /* 先把整個軌道面傾斜，再壓扁成橢圓，最後才旋轉；
-   每顆粒子的傾角與扁率不同，看起來就不會像同心圓的齒輪 */
+   每顆電子的傾角與扁率不同，看起來就不會像同心圓的齒輪 */
 @keyframes orbit {
   from {
     transform:
@@ -288,15 +288,15 @@ export default {
 }
 
 /* ── 靜止排開：等角度均分，彼此距離最遠，完全不動 ── */
-.layers--static .particle {
+.layers--static .electron {
   z-index: 2;
   transform: rotate(var(--angle)) translateX(var(--radius, 225%)) rotate(calc(-1 * var(--angle)));
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .particle,
-  .particle img { animation: none !important; }
-  .layers--orbit .particle {
+  .electron,
+  .electron img { animation: none !important; }
+  .layers--orbit .electron {
     z-index: 2;
     transform:
       rotate(var(--tilt, 0deg)) scaleY(var(--flatten, 1))
@@ -318,7 +318,7 @@ export default {
 
 /* 用 absolute 而不是 fixed：fixed 不會被 .free-field 的 overflow 裁切，
    萬一路徑算到邊界外就會撐出捲軸 */
-.free-particle {
+.free-electron {
   position: absolute;
   top: 0;
   left: 0;
@@ -331,7 +331,7 @@ export default {
   will-change: transform;
 }
 
-.free-particle img {
+.free-electron img {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -356,8 +356,8 @@ export default {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .free-particle,
-  .free-particle img { animation: none !important; }
-  .free-particle { transform: translate(var(--x0), var(--y0)); }
+  .free-electron,
+  .free-electron img { animation: none !important; }
+  .free-electron { transform: translate(var(--x0), var(--y0)); }
 }
 </style>
