@@ -1,14 +1,16 @@
+# 對外的 port 可以用專案根目錄的 .env 覆寫（BACKEND_PORT / FRONTEND_PORT），
+# 本機已經有東西佔用 8080 或 8000 時不必改這個檔。留空就是原本的預設值。
 services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     env_file:
       - ./backend/.env
 
   frontend:
     build: ./frontend
     ports:
-      - "8080:80"
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
       - backend
