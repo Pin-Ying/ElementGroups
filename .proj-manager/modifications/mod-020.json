@@ -1,0 +1,33 @@
+{
+ "modification_id": "mod-020",
+ "feature_id": "feature-015",
+ "type": "bugfix",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "頁面編輯畫面出現兩顆「發布」按鈕（站長回報）",
+ "created_at": "2026-08-11T06:20:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "頂端 section-head 補上「存成草稿」，移除表單底部那組動作按鈕"
+   }
+  ]
+ },
+ "root_cause": "mod-006 重構成清單／編輯兩段式時，在頂端 section-head 加了「發布」，但表單底部原本那組（發布＋存成草稿）沒有一併移除，所以兩顆並存。加上區塊編輯器之後頁面變長，這個重複才明顯。",
+ "notes": [
+  "動作統一放頂端：頁面加了區塊編輯器後很長，放底部要一路捲下去才按得到",
+  "頂端按鈕在 <form> 之外，都是 type=button 搭配 @click，不依賴表單送出",
+  "實測兩顆都正常：存成草稿 → published false、發布 → published true，兩次的區塊都完整保留",
+  "教訓：重構把動作搬到新位置時，要順手確認舊位置那組有沒有留下"
+ ]
+}

@@ -182,6 +182,11 @@
             <div class="section-head">
               <button class="button secondary" type="button" @click="backToList">← 返回列表</button>
               <p class="title is-4">{{ pageForm.original_slug || pageForm.slug ? `編輯頁面：${pageForm.title || pageForm.slug}` : '建立新頁面' }}</p>
+              <!-- 動作只放這一組。加了區塊編輯器之後頁面很長，放在底部要一路
+                   捲下去才按得到，而且會和上面這顆重複 -->
+              <button class="button secondary" type="button" :disabled="pageSaving" @click="saveAsDraft">
+                存成草稿
+              </button>
               <button class="button" type="button" :disabled="pageSaving" @click="publishPage">
                 {{ pageSaving ? 'Saving…' : '發布' }}
               </button>
@@ -408,14 +413,6 @@
               <PageBlocks :blocks="pageForm.blocks" />
             </div>
 
-            <div class="link-actions">
-              <button class="button" type="submit" :disabled="pageSaving">
-                {{ pageSaving ? 'Saving…' : '發布' }}
-              </button>
-              <button class="button secondary" type="button" :disabled="pageSaving" @click="saveAsDraft">
-                存成草稿
-              </button>
-            </div>
           </form>
           </template>
         </div>
