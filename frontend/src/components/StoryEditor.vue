@@ -14,22 +14,14 @@
       <button class="draft-link" type="button" @click="loadPublished">改看已發布內容</button>
     </div>
 
-    <div class="label-row">
-      <label class="label">Story</label>
-      <AiAssist
-        ref="aiAssist"
-        kind="element-story"
-        :ai="ai"
-        :draft="storyText"
-        :extra="{ symbol }"
-        @apply="applySuggestion"
-        @used="onAiUsed"
-      />
-    </div>
-
-    <div class="editor-main">
-      <textarea class="textarea" v-model="storyText" :rows="rows" aria-label="故事內容"></textarea>
-    </div>
+    <AiField
+      label="Story"
+      kind="element-story"
+      v-model="storyText"
+      :extra="{ symbol }"
+      :rows="rows"
+      multiline
+    />
 
     <label class="label">Image</label>
     <p class="field-hint">{{ uploadHint }}</p>
@@ -60,14 +52,14 @@
 <script>
 // 元素故事的編輯器。後台與元素頁的 inline 編輯共用同一份，
 // 避免兩邊各寫一套而功能長歪（例如一邊有壓縮與草稿、另一邊沒有）。
-import { updateStory, getAiStatus, apiBase } from '../api'
-import AiAssist from './AiAssist.vue'
+import { updateStory, apiBase } from '../api'
+import AiField from './AiField.vue'
 import { compressImage, formatBytes, MAX_UPLOAD_BYTES, MAX_EDGE } from '../utils/imageCompress'
 import { showToast } from '../store/toast'
 import ImageCropper from './ImageCropper.vue'
 
 export default {
-  components: { AiAssist, ImageCropper },
+  components: { AiField, ImageCropper },
   props: {
     symbol: { type: String, required: true },
     story: { type: String, default: '' },
@@ -85,10 +77,7 @@ export default {
       cropFile: null,
       newImageBlob: null,
       newImageInfo: null,
-      newImagePreviewUrl: '',
-      ai: { enabled: false, used: 0, limit: 0 },
-      aiPanelOpen: false,
-      aiPlaceholder: null
+      newImagePreviewUrl: ''
     }
   },
   computed: {
@@ -116,18 +105,6 @@ export default {
     story() { this.reset() },
     draft(v) { this.draftText = v || '' }
   },
-  async created() {
-    try {
-      const res = await getAiStatus()
-      this.ai = {
-        enabled: !!res.data.enabled,
-        used: res.data.used || 0,
-        limit: res.data.limit || 0
-      }
-    } catch {
-      this.ai = { enabled: false, used: 0, limit: 0 }
-    }
-  },
   beforeUnmount() {
     this.revokePreview()
   },
@@ -136,9 +113,6 @@ export default {
       this.storyText = this.draft || this.story || ''
       this.draftText = this.draft || ''
       this.revokePreview()
-      this.aiDirection = ''
-      this.aiReference = ''
-      text = ''
       if (this.$refs.imageInput) this.$refs.imageInput.value = ''
     },
     revokePreview() {
@@ -185,21 +159,6 @@ export default {
         this.cropFile = null
       }
     },
-    onAiUsed({ used, limit }) {
-      this.ai.used = used
-      this.ai.limit = limit
-    },
-    applySuggestion({ text, mode }) {
-      if (!text) return
-      if (mode === 'replace') {
-        this.storyText = text
-      } else {
-        const current = this.storyText.trim()
-        this.storyText = current ? current + '\n\n' + text : text
-      }
-      text = ''
-      showToast('已套用到編輯框，記得儲存', 'success')
-    },
     async submit(asDraft) {
       const formData = new FormData()
       formData.append('symbol', this.symbol)
@@ -240,13 +199,6 @@ export default {
 <style scoped>
 .story-editor { text-align: left; }
 
-.label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
 .editor-actions {
   display: flex;
   gap: 8px;
@@ -263,13 +215,6 @@ export default {
 }
 
 .img-slot--new .img-preview { border-color: rgba(110, 231, 110, 0.55); }
-
-.field-hint {
-  font-size: 12px;
-  opacity: 0.45;
-  margin: 0 0 6px;
-  line-height: 1.5;
-}
 
 .compress-info {
   font-size: 12px;
@@ -291,22 +236,6 @@ export default {
   border: 1px solid rgba(228, 251, 255, 0.15);
   display: block;
   margin: 10px 0;
-}
-
-.textarea {
-  width: 100%;
-  min-height: 120px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(228, 251, 255, 0.15);
-  border-radius: 6px;
-  color: rgba(228, 251, 255, 0.9);
-  padding: 8px 10px;
-  font-size: 14px;
-  font-family: inherit;
-  resize: vertical;
-  box-sizing: border-box;
-  display: block;
-  margin: 4px 0 10px;
 }
 
 .input {
@@ -344,98 +273,6 @@ export default {
 
 .draft-link:hover { color: #fff; }
 
-/* ── AI 協助 ── */
-.ai-toggle {
-  padding: 3px 12px;
-  font-size: 12px;
-  border: 1px solid rgba(157, 140, 255, 0.45);
-  border-radius: 999px;
-  background: rgba(157, 140, 255, 0.1);
-  color: rgba(210, 200, 255, 0.9);
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.ai-toggle:hover,
-.ai-toggle.active {
-  background: rgba(157, 140, 255, 0.25);
-  border-color: rgba(157, 140, 255, 0.8);
-  color: #fff;
-}
-
-/* 寬螢幕時編輯框與 AI 建議並排，兩邊等高才好對照 */
-.editor-main--split {
-  display: grid;
-  gap: 14px;
-  align-items: start;
-}
-
-@media (min-width: 1000px) {
-  .editor-main--split {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .editor-main--split .textarea {
-    height: 100%;
-    min-height: 320px;
-    margin-bottom: 0;
-  }
-
-  .editor-main--split .ai-panel {
-    margin: 0;
-    max-height: 520px;
-    overflow-y: auto;
-  }
-}
-
-.ai-panel {
-  margin: 4px 0 14px;
-  padding: 14px 16px;
-  border: 1px solid rgba(157, 140, 255, 0.28);
-  border-radius: 8px;
-  background: rgba(90, 70, 160, 0.12);
-}
-
-.ai-hint {
-  font-size: 12px;
-  opacity: 0.6;
-  margin: 0 0 10px;
-  line-height: 1.6;
-}
-
-.ai-label { font-size: 12px; opacity: 0.75; }
-.ai-reference { min-height: 60px; }
-
-.ai-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-}
-
-.ai-quota { font-size: 12px; opacity: 0.5; }
-
-.ai-result {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(228, 251, 255, 0.1);
-}
-
-.ai-suggestion {
-  white-space: pre-wrap;
-  font-size: 14px;
-  line-height: 1.75;
-  padding: 12px 14px;
-  border-radius: 6px;
-  background: rgba(3, 1, 12, 0.5);
-  border: 1px solid rgba(228, 251, 255, 0.12);
-  max-height: 320px;
-  overflow-y: auto;
-}
-
 .label {
   display: block;
   font-size: 13px;
@@ -443,26 +280,4 @@ export default {
   opacity: 0.75;
 }
 
-@media (max-width: 760px) {
-  /* 與後台一致：16px 以下的表單元件在 iOS 聚焦會放大整頁 */
-  .textarea,
-  .input {
-    font-size: 16px;
-  }
-}
-
-.ai-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: rgba(228, 251, 255, 0.7);
-  margin: 6px 0 10px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.ai-check input {
-  accent-color: #9d8cff;
-}
 </style>

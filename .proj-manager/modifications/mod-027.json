@@ -1,0 +1,71 @@
+{
+ "id": "mod-027",
+ "date": "2026-08-11",
+ "issue": 26,
+ "branch": "feature/ai-assist",
+ "title": "AiField：把「帶 AI 的文字欄位」收成一個元件",
+ "type": "refactor",
+ "summary": "AiAssist 只提供面板，標籤、輸入框與寫回欄位的處理仍由各呼叫端自己寫，三處各有一份幾乎一樣的 applyXxxSuggestion。新增 AiField 把整個欄位收成一個元件，呼叫端一行就能加一個含 AI 的欄位。過程中發現並修掉頁面內容 AI 與內建模板按鈕都寫進了區塊編輯器看不到的舊欄位。",
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/components/AiField.vue",
+    "change_type": "added",
+    "diff_summary": "標籤列＋輸入框＋AI 協助的組合元件，v-model 寫回，附加／覆蓋的合併邏輯收在這裡"
+   },
+   {
+    "path": "frontend/src/store/ai.js",
+    "change_type": "added",
+    "diff_summary": "AI 啟用狀態與每日額度的單一來源，ensureAiStatus 去重請求"
+   },
+   {
+    "path": "frontend/src/assets/forms.css",
+    "change_type": "added",
+    "diff_summary": "後台與編輯介面共用的表單樣式，取代散在三個元件的重複定義"
+   },
+   {
+    "path": "frontend/src/main.js",
+    "change_type": "modified",
+    "diff_summary": "載入 forms.css"
+   },
+   {
+    "path": "frontend/src/components/AiAssist.vue",
+    "change_type": "modified",
+    "diff_summary": "改讀 store 的額度狀態，移除 ai prop 與 used 事件"
+   },
+   {
+    "path": "frontend/src/components/StoryEditor.vue",
+    "change_type": "modified",
+    "diff_summary": "故事欄位改用 AiField；移除自己的 AI 狀態、套用處理與重複樣式；修掉 reset() 裡的未宣告變數"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "故事欄位與區塊的 Markdown 欄位改用 AiField；修好內建模板按鈕；移除 AI 狀態與四個重複方法；清掉重複與死樣式"
+   },
+   {
+    "path": "docs/verification/issue26-aifield-block.jpg",
+    "change_type": "added",
+    "diff_summary": "區塊編輯器的 Markdown 欄位帶 AI 的驗收截圖"
+   },
+   {
+    "path": "docs/verification/issue26-aifield-story.jpg",
+    "change_type": "added",
+    "diff_summary": "前台故事編輯視窗開 AI 面板的驗收截圖"
+   }
+  ]
+ },
+ "notes": [
+  "站長問「未來的相關文本輸入都直接有一個包含 AI 的輸入模板可以套」——原本只做到「掛一個面板」，標籤、輸入框、寫回 handler 仍要各自寫，這一層把它補成真的一行就能用",
+  "AiField 也吃 kind 留空的情況，那就是一個普通欄位、不長 AI 按鈕，讓還沒接 AI 的欄位也能用同一個版面",
+  "額度是每天整站共用的，原本 AdminView 與 StoryEditor 各存一份 {enabled,used,limit} 也各打一次 /ai/status，在後台用掉額度前台顯示不會動——收進 store/ai.js",
+  "發現並修好：頁面內容的 AI 寫進 pageForm.content，但區塊編輯器上線後那個欄位已經沒有畫在任何地方，等於產生的建議去了看不到的地方。改成掛在區塊的 Markdown 欄位上，即時預覽會跟著更新",
+  "同一個原因，「載入最新內建模板」也只換 content，按下去畫面完全沒反應卻跳出成功訊息。補上 blocks",
+  "區塊編輯器上線後 pageForm.content 只剩相容用途（舊頁面沒有 blocks 時由 blocksFrom 轉成單一 Markdown 區塊），保留不動",
+  "StoryEditor 的 reset() 裡有一行 text = ''，text 在該範圍未宣告；ES module 是嚴格模式，這會丟 ReferenceError，等於切換元素時 reset 後半段（清空檔案輸入）從來沒執行過。順手修掉",
+  "樣式：.textarea/.label-row/.field-hint/.ai-toggle 原本在 AdminView 與 StoryEditor 各一份、值還不一致，AiAssist 又加了第三份。收進 assets/forms.css，否則 AiField 就是第四份",
+  "後台把 AI 面板的 .ai-quota 借去當通用小字用了四處，面板收成元件後就沒樣式了，正名為 .hint-inline",
+  "版面標題「內容（Markdown）」是區塊編輯器上線前留下的，底下已經沒有 Markdown 欄位，改成「頁面內容」",
+  "驗證：後台故事欄位與區塊 Markdown 欄位都跑完整流程（開面板→產生→附加），文字確實寫回欄位、即時預覽同步、額度 3→4；前台故事視窗面板 z-index 1100 蓋過 1000 的視窗；十個後台分頁逐一確認 textarea 樣式沒有跑掉"
+ ]
+}

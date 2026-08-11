@@ -722,3 +722,24 @@ StoryView Stats tab 整合
 - `_page_meta/{key}` 覆寫層：只存改過欄位、退回內建預設、部署不影響已編輯內容
 - 涵蓋 molecules／molecule／particles／story 區塊標題／footer
 - 後台「頁面管理 → 內建頁面文案」編輯器，placeholder 即預設值，清空＝還原
+
+---
+
+## [重構] - 2026-08-11 | feature/ai-assist
+
+### 變更類型
+AiField：把「帶 AI 的文字欄位」收成一個元件（issue #26，mod-027）
+
+### 重點
+- 新增 `components/AiField.vue`：標籤列＋輸入框＋AI 協助是一組，`v-model` 寫回，附加／覆蓋的合併邏輯收在元件裡（原本三處各一份）
+- 新增 `store/ai.js`：啟用狀態與每日額度的單一來源。原本 AdminView 與 StoryEditor 各存一份、各打一次 `/ai/status`，在一邊用掉額度另一邊的數字不會動
+- 新增 `assets/forms.css`：`.textarea` / `.label-row` / `.field-hint` / `.ai-toggle` 原本散在兩個元件、值還不一致，AiAssist 再加第三份
+
+### 修正的 bug
+1. **頁面內容的 AI 產生了但看不到**：建議寫進 `pageForm.content`，而區塊編輯器上線後那個欄位已經沒有畫在任何地方。改掛在區塊的 Markdown 欄位上
+2. **「載入最新內建模板」按了沒反應卻顯示成功**：同一個原因，只換 `content` 沒換 `blocks`
+3. **StoryEditor 的 `reset()` 後半段從未執行**：`text = ''` 的 `text` 在該範圍未宣告，ES module 嚴格模式下丟 ReferenceError，切換元素時檔案輸入沒被清空
+4. 後台把 AI 面板的 `.ai-quota` 借去當通用小字用了四處，面板收成元件後失去樣式，正名為 `.hint-inline`
+
+### 備註
+- 新增一種 AI 用途仍要兩筆註冊（`utils/aiKinds.js` 定義輸入、後端 `SUGGEST_KINDS` 定義提示）。那是前後端本質的分工，不是可以消掉的重複

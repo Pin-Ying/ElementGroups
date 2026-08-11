@@ -1,0 +1,83 @@
+/* 後台與編輯介面共用的表單樣式。
+ *
+ * Bulma（CDN）已經提供 .input、.select、.button 的底，但它是淺色主題，
+ * 深色介面要覆寫的部分原本 AdminView、StoryEditor、AiAssist 各抄一份，
+ * 值還略有出入——.field-hint 的透明度一個 0.58 一個 0.45，.textarea 一個
+ * 有 font-family: inherit 一個沒有。AiField 需要同一組樣式，再抄一次就
+ * 是第四份，所以收成這裡。
+ *
+ * 這裡只放「跨元件共用的表單原語」。某個畫面自己的排版（.layer-slot
+ * .input 之類）仍留在該元件的 scoped 區塊。
+ */
+
+/* 標籤與右側動作（AI 協助、語法說明…）排成一列 */
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.label-row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.field-hint {
+  font-size: 12px;
+  opacity: 0.58;
+  margin: 0 0 6px;
+  line-height: 1.5;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 120px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(228, 251, 255, 0.15);
+  border-radius: 6px;
+  color: rgba(228, 251, 255, 0.9);
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+  display: block;
+  margin: 4px 0 10px;
+}
+
+/* 行內的小字說明：數量、圖片來源之類，接在其他內容後面。
+   後台原本借用 AI 面板的 .ai-quota，名字不對，面板收成元件後也就沒樣式了 */
+.hint-inline {
+  font-size: 12px;
+  color: rgba(228, 251, 255, 0.5);
+}
+
+/* 標籤列裡的小膠囊按鈕。AI 協助用它，語法說明、載入模板也用同一個外觀 */
+.ai-toggle {
+  padding: 3px 12px;
+  font-size: 12px;
+  border: 1px solid rgba(157, 140, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(157, 140, 255, 0.1);
+  color: rgba(210, 200, 255, 0.9);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.ai-toggle:hover,
+.ai-toggle.active {
+  background: rgba(157, 140, 255, 0.25);
+  border-color: rgba(157, 140, 255, 0.8);
+  color: #fff;
+}
+
+@media (max-width: 760px) {
+  /* 16px 以下的表單元件在 iOS 聚焦時會把整頁放大 */
+  .textarea,
+  .input {
+    font-size: 16px;
+  }
+}

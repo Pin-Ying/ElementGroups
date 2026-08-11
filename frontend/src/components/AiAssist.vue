@@ -75,6 +75,7 @@
 // utils/aiKinds.js 裡的欄位定義。
 import { aiSuggest } from '../api'
 import { aiKind, emptyAiContext } from '../utils/aiKinds'
+import { aiState, ensureAiStatus, setAiUsage } from '../store/ai'
 import { showToast } from '../store/toast'
 
 export default {
@@ -84,19 +85,22 @@ export default {
     // 目前編輯框的內容，會帶給 AI 當延伸的基礎
     draft: { type: String, default: '' },
     // 呼叫端補充的 context（例如元素故事要帶 symbol），與面板欄位合併
-    extra: { type: Object, default: () => ({}) },
-    // AI 狀態（是否啟用、今日用量），由呼叫端傳入避免每個面板各抓一次
-    ai: { type: Object, required: true }
+    extra: { type: Object, default: () => ({}) }
   },
-  emits: ['apply', 'used'],
+  emits: ['apply'],
   data() {
     return {
       open: false,
       loading: false,
       suggestion: '',
       direction: '',
-      context: emptyAiContext(this.kind)
+      context: emptyAiContext(this.kind),
+      // 額度是全站共用的，直接讀 store，不由呼叫端傳進來
+      ai: aiState
     }
+  },
+  created() {
+    ensureAiStatus()
   },
   computed: {
     def() {
@@ -134,7 +138,7 @@ export default {
           direction: this.direction
         })
         this.suggestion = res.data.suggestion || ''
-        this.$emit('used', { used: res.data.used, limit: res.data.limit })
+        setAiUsage(res.data.used, res.data.limit)
       } catch (e) {
         showToast(e.response?.data?.message || 'AI 產生失敗', 'error')
       } finally {
@@ -153,26 +157,6 @@ export default {
 /* 這一段刻意不加 scoped：面板 teleport 到 body 之後不在元件的 DOM 子樹裡，
    scoped 樣式吃不到。原本這些規則散在 AdminView 與 StoryEditor 的 scoped
    區塊，隨著面板收成元件也一起搬過來，成為 AI 面板唯一的樣式來源。 */
-
-.ai-toggle {
-  padding: 3px 12px;
-  font-size: 12px;
-  border: 1px solid rgba(157, 140, 255, 0.45);
-  border-radius: 999px;
-  background: rgba(157, 140, 255, 0.1);
-  color: rgba(210, 200, 255, 0.9);
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.ai-toggle:hover,
-.ai-toggle.active {
-  background: rgba(157, 140, 255, 0.25);
-  border-color: rgba(157, 140, 255, 0.8);
-  color: #fff;
-}
 
 /* 蓋住底下的內容，也提供點擊關閉的區域 */
 .ai-backdrop {

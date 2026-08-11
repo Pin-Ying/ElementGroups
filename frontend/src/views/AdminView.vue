@@ -236,7 +236,7 @@
             </div>
 
             <div class="label-row">
-              <label class="label">內容（Markdown）</label>
+              <label class="label">頁面內容</label>
               <span class="label-row-actions">
                 <button
                   v-if="hasBuiltinTemplate"
@@ -244,14 +244,6 @@
                   type="button"
                   @click="reloadBuiltinTemplate"
                 >載入最新內建模板</button>
-                <AiAssist
-                  kind="page-content"
-                  :ai="ai"
-                  :draft="pageForm.content"
-                  :extra="{}"
-                  @apply="applyPageSuggestion"
-                  @used="onAiUsed"
-                />
                 <button class="ai-toggle" type="button" @click="showMarkdownHelp = !showMarkdownHelp">
                   {{ showMarkdownHelp ? '收起語法說明' : '語法說明' }}
                 </button>
@@ -315,6 +307,17 @@
               </div>
 
               <div v-for="f in blockFields(block.type)" :key="f.name" class="block-field">
+                <!-- Markdown 欄位用 AiField：標籤、輸入框與 AI 協助是一組的 -->
+                <AiField
+                  v-if="f.type === 'markdown'"
+                  :label="f.label"
+                  kind="page-content"
+                  v-model="block.data[f.name]"
+                  :rows="8"
+                  multiline
+                />
+
+                <template v-else>
                 <label class="label">{{ f.label }}</label>
 
                 <select v-if="f.type === 'select'" class="select" v-model="block.data[f.name]" :aria-label="f.label">
@@ -322,9 +325,9 @@
                 </select>
 
                 <textarea
-                  v-else-if="f.type === 'markdown' || f.type === 'textarea'"
+                  v-else-if="f.type === 'textarea'"
                   class="textarea"
-                  :rows="f.type === 'markdown' ? 8 : 3"
+                  rows="3"
                   v-model="block.data[f.name]"
                   :aria-label="f.label"
                 ></textarea>
@@ -335,7 +338,7 @@
                   <input class="input" type="file" accept="image/*" :aria-label="f.label" @change="onBlockImage($event, block.data, f.name)" />
                   <button class="button secondary small" type="button" @click="openImagePicker(block.data)">從圖庫挑</button>
                   <button v-if="blockImgSrc(block.data)" class="draft-link" type="button" @click="clearBlockImage(block.data)">移除</button>
-                  <span v-if="block.data.image_ref" class="ai-quota">來自圖庫，之後在圖庫換圖這裡會跟著變</span>
+                  <span v-if="block.data.image_ref" class="hint-inline">來自圖庫，之後在圖庫換圖這裡會跟著變</span>
                 </div>
 
                 <!-- list：重複的子項目，欄位一樣由定義長出來 -->
@@ -366,6 +369,7 @@
                 </div>
 
                 <input v-else class="input" type="text" v-model="block.data[f.name]" :aria-label="f.label" />
+                </template>
               </div>
 
               <p v-if="!blockFields(block.type).length" class="field-hint">
@@ -641,7 +645,7 @@
             </div>
 
             <div class="link-actions">
-              <span class="ai-quota">{{ groupElements(groupForm.key) }}</span>
+              <span class="hint-inline">{{ groupElements(groupForm.key) }}</span>
             </div>
           </form>
         </div>
@@ -1210,22 +1214,14 @@
               <option v-for="opt in elementOptions" :key="opt.symbol" :value="opt.symbol">{{ opt.label }}</option>
             </select>
 
-            <div class="label-row">
-              <label class="label">Story</label>
-              <AiAssist
-                kind="element-story"
-                :ai="ai"
-                :draft="storyText"
-                :extra="{ symbol: selectedSymbol }"
-                @apply="applyStorySuggestion"
-                @used="onAiUsed"
-              />
-            </div>
-            <textarea
-              class="textarea"
+            <AiField
+              label="Story"
+              kind="element-story"
               v-model="storyText"
-              rows="6"
-              ></textarea>
+              :extra="{ symbol: selectedSymbol }"
+              :rows="6"
+              multiline
+            />
 
             <label class="label">Image</label>
             <p class="field-hint">{{ uploadHint }}</p>
@@ -1317,7 +1313,7 @@
               <button class="button" type="button" :disabled="layerSaving || elementLoading || !selectedSymbol" @click="handleSaveLayers">
                 {{ layerSaving ? 'Saving…' : '儲存圖層' }}
               </button>
-              <span class="ai-quota">
+              <span class="hint-inline">
                 最外層 {{ outerElectrons }} 個電子（由電子組態 {{ selectedConfig }} 推算）
               </span>
             </div>
@@ -1380,7 +1376,7 @@
               <button class="button" type="button" :disabled="gallerySaving || elementLoading || !selectedSymbol" @click="handleSaveGallery">
                 {{ gallerySaving ? 'Saving…' : '儲存其他樣貌' }}
               </button>
-              <span class="ai-quota">{{ galleryItems.length }} / {{ GALLERY_MAX }} 張</span>
+              <span class="hint-inline">{{ galleryItems.length }} / {{ GALLERY_MAX }} 張</span>
             </div>
           </div>
         </div>
@@ -1448,7 +1444,7 @@ import { metaDef as pageMetaDef, NAV_POSITIONS } from '../utils/pageMeta'
 import { PAGE_BLOCKS, blockType, emptyBlock, emptyItem, blocksFrom } from '../utils/blockTypes'
 import PageBlocks from '../components/PageBlocks.vue'
 import AdminBar from '../components/AdminBar.vue'
-import AiAssist from '../components/AiAssist.vue'
+import AiField from '../components/AiField.vue'
 import { refreshPageMeta } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
@@ -1514,7 +1510,7 @@ const SECTIONS = [
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
-  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, AiAssist, FormulaBuilder },
+  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, AiField, FormulaBuilder },
   data() {
     return {
       authState,
@@ -1631,7 +1627,6 @@ export default {
       siteBgBlob: null,
       siteBgInfo: null,
       siteSaving: false,
-      ai: { enabled: false, used: 0, limit: 0 },
       aiPlaceholder: null
     }
   },
@@ -1860,7 +1855,7 @@ export default {
     loadAll() {
       return Promise.all([
         this.loadStoryData(), this.loadDefaultImg(), this.loadCreatorLinks(),
-        this.loadAiStatus(), this.loadSiteSettings(), this.loadPages(),
+        this.loadSiteSettings(), this.loadPages(),
         this.loadElectronStyles(), this.loadLibraries(), this.loadMolecules(), this.loadGroups(), this.loadParticles(), this.loadPageMeta()
       ])
     },
@@ -2370,6 +2365,7 @@ export default {
       const b = BUILTIN_PAGES[this.pageForm.slug]
       if (!b) return
       this.pageForm.content = b.content
+      this.pageForm.blocks = blocksFrom(b)
       showToast('已載入最新內建模板到編輯框，按發布才會套用；不想要可以重新選取頁面還原', 'success')
     },
     importBuiltin(slug) {
@@ -2483,23 +2479,6 @@ export default {
       } catch (err) {
         showToast(err.message || '圖片處理失敗', 'error')
       }
-    },
-    // AiAssist 產生後把文字交回來，由呼叫端決定寫進哪個欄位
-    applyPageSuggestion({ text, mode }) {
-      if (!text) return
-      this.pageForm.content = mode === 'replace'
-        ? text
-        : (this.pageForm.content.trimEnd() + '\n\n' + text).trim()
-    },
-    applyStorySuggestion({ text, mode }) {
-      if (!text) return
-      const current = (this.storyText || '').trim()
-      this.storyText = mode === 'replace' || !current ? text : current + '\n\n' + text
-    },
-    // 額度是全站共用的，用完一次就更新顯示
-    onAiUsed({ used, limit }) {
-      this.ai.used = used
-      this.ai.limit = limit
     },
     backToList() {
       this.pageMode = 'list'
@@ -2674,19 +2653,6 @@ export default {
       const formData = this.buildSiteFormData()
       formData.append('clear_bg_image', '1')
       await this.saveSiteSettings(formData)
-    },
-    async loadAiStatus() {
-      try {
-        const res = await getAiStatus()
-        this.ai = {
-          enabled: !!res.data.enabled,
-          used: res.data.used || 0,
-          limit: res.data.limit || 0
-        }
-      } catch (e) {
-        // 沒設定或後端還沒支援，就當作停用，介面完全不顯示
-        this.ai = { enabled: false, used: 0, limit: 0 }
-      }
     },
     async handleRebuildCompletion() {
       this.loading = true
@@ -3698,101 +3664,6 @@ export default {
 }
 
 /* ── AI 故事協助 ── */
-.label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.ai-toggle {
-  padding: 3px 12px;
-  font-size: 12px;
-  border: 1px solid rgba(157, 140, 255, 0.45);
-  border-radius: 999px;
-  background: rgba(157, 140, 255, 0.1);
-  color: rgba(210, 200, 255, 0.9);
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.ai-toggle:hover,
-.ai-toggle.active {
-  background: rgba(157, 140, 255, 0.25);
-  border-color: rgba(157, 140, 255, 0.8);
-  color: #fff;
-}
-
-.ai-panel {
-  margin: 4px 0 14px;
-  padding: 14px 16px;
-  border: 1px solid rgba(157, 140, 255, 0.28);
-  border-radius: 8px;
-  background: rgba(90, 70, 160, 0.12);
-}
-
-.ai-hint {
-  font-size: 12px;
-  opacity: 0.6;
-  margin: 0 0 10px;
-  line-height: 1.6;
-}
-
-.ai-label {
-  font-size: 12px;
-  opacity: 0.75;
-}
-
-.ai-reference {
-  min-height: 60px;
-}
-
-.ai-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-}
-
-.ai-quota {
-  font-size: 12px;
-  opacity: 0.5;
-}
-
-.ai-result {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(228, 251, 255, 0.1);
-}
-
-.ai-suggestion {
-  white-space: pre-wrap;
-  font-size: 14px;
-  line-height: 1.75;
-  padding: 12px 14px;
-  border-radius: 6px;
-  background: rgba(3, 1, 12, 0.5);
-  border: 1px solid rgba(228, 251, 255, 0.12);
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.ai-note {
-  font-size: 12px;
-  opacity: 0.5;
-  margin: 8px 0 0;
-}
-
-.field-hint {
-  font-size: 12px;
-  opacity: 0.58;
-  margin: 0 0 6px;
-  line-height: 1.5;
-}
-
 .site-desc {
   min-height: 60px;
 }
@@ -4499,21 +4370,6 @@ export default {
   border-color: rgba(110, 231, 110, 0.5);
 }
 
-.textarea {
-  width: 100%;
-  min-height: 120px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(228,251,255,0.15);
-  border-radius: 6px;
-  color: rgba(228,251,255,0.9);
-  padding: 8px 10px;
-  font-size: 14px;
-  resize: vertical;
-  box-sizing: border-box;
-  display: block;
-  margin: 4px 0 10px;
-}
-
 .maintenance-box {
   display: flex;
   flex-direction: column;
@@ -4571,11 +4427,6 @@ button.secondary {
 button.button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.label-row-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .mol-toolbar {
@@ -4713,25 +4564,9 @@ button.button:disabled {
   .input,
   .select,
   select.select,
-  .textarea,
   .layer-slot .input {
     font-size: 16px;
   }
-}
-
-.ai-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: rgba(228, 251, 255, 0.7);
-  margin: 6px 0 10px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.ai-check input {
-  accent-color: #9d8cff;
 }
 
 /* ── 主族形象選擇器 ── */
