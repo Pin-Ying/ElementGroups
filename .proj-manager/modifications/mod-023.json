@@ -1,0 +1,39 @@
+{
+ "modification_id": "mod-023",
+ "feature_id": "feature-013",
+ "type": "bugfix",
+ "scope": "fullstack",
+ "status": "applied",
+ "description": "/api/elements/seo 在正式站回 500，導致 118 個元素頁的預渲染整批被跳過",
+ "created_at": "2026-08-11T06:30:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": true,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/routes/public.py",
+    "change_type": "modified",
+    "diff_summary": "get_elements_seo 改為只讀 {symbol}/description 子節點，並用 ThreadPoolExecutor 並行"
+   },
+   {
+    "path": "frontend/vite-plugin-prerender.js",
+    "change_type": "modified",
+    "diff_summary": "逾時 15s→45s；取不到資料時的警告訊息附上實際網址與後果"
+   }
+  ]
+ },
+ "root_cause": "端點對 118 個元素逐一呼叫 show_fdb(symbol)，每次都把整個元素節點抓回來——包含 base64 的 img_data。諷刺的是這支端點的 docstring 正是寫「走 /elements/<symbol> 會把圖片一起帶回來，對 build 來說太重」，結果實作卻做了 118 次同樣的事。循序 118 次 Firebase 往返正好卡在 gunicorn 預設的 30 秒 worker timeout，實測耗時 30.3 秒、回 500。",
+ "notes": [
+  "兩個修正缺一不可：只讀 {symbol}/description 子節點（避開 base64），以及 ThreadPoolExecutor(max_workers=10) 並行（沿用 admin.py backfill 既有的作法）",
+  "單一元素讀取失敗不再讓整支端點掛掉，該元素退回資料式描述",
+  "sitemap 之所以正常是因為它只打 /elements/completion、/molecules、/pages 這些輕量端點；預渲染需要故事內容才踩到這個雷",
+  "診斷過程的關鍵是 /stroy/H/index.html 回 404——那能區分「檔案沒產生」與「產生了但主機沒送出」。先前只看 /stroy/H 會被 SPA 的 fallback 誤導",
+  "教訓：功能上線後要打的是「真正的產出物」而不是首頁 200。這次 sitemap 有出來但預渲染沒有，只看首頁完全看不出來"
+ ]
+}

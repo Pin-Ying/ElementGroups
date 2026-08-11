@@ -18,7 +18,9 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-const FETCH_TIMEOUT = 15000
+// /elements/seo 要並行讀 118 筆，後端冷啟動時會慢；build 只跑一次，
+// 等久一點也比整批預渲染靜悄悄被跳過好
+const FETCH_TIMEOUT = 45000
 
 function escapeAttr(value) {
   return String(value)
@@ -105,7 +107,10 @@ export default function prerenderPlugin() {
       const siteTitle = (settings?.title || '').trim() || 'Element Groups'
       const elements = data?.elements || []
       if (!elements.length) {
-        console.warn('[prerender] 取不到元素資料，略過元素頁預渲染')
+        console.warn(
+          `[prerender] 取不到元素資料（${apiBase}/elements/seo 無回應或回傳空清單），` +
+          '略過元素頁預渲染。sitemap 仍會產生，但元素頁不會有各自的 meta'
+        )
         return
       }
 

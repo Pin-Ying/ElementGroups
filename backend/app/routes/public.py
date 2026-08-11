@@ -1,5 +1,6 @@
 import io
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, jsonify, make_response, request, send_file
 from flask_login import current_user
@@ -132,38 +133,49 @@ def get_elements_seo():
 
     前端 build 時要為每個元素產生一份含自己 title/description 的靜態 HTML
     （見 vite-plugin-prerender.js）。走 `/elements/<symbol>` 得打 118 次，
-    而且每次都會把 base64 的圖片一起帶回來，對 build 來說太重；這裡只回
-    真正會寫進 meta 的欄位，故事也只取開頭。
+    這裡改成一支端點回傳全部。
+
+    兩個效能上的要點，少一個都會讓這支端點超過 gunicorn 的 30 秒上限：
+
+    1. 只讀 `{symbol}/description` 而不是整個元素節點——整個節點含 base64
+       的 img_data，118 個加起來是好幾 MB
+    2. 並行讀取。Firebase 每次往返約 0.2~0.3 秒，118 次循序就是 30 秒起跳，
+       正好卡在 worker timeout。沿用 admin.py backfill 的 ThreadPoolExecutor
     """
     EXCERPT_LEN = 200
 
+    def excerpt_for(symbol):
+        # 只取 description 這個子節點，不要整包元素資料
+        raw = show_fdb(f"{symbol}/description")
+        if not isinstance(raw, str):
+            return ""
+        # 存的可能是字面的反斜線 n，換回真正的換行再壓成單行
+        story = " ".join(raw.replace("\\n", "\n").split())
+        return story[:EXCERPT_LEN] + "…" if len(story) > EXCERPT_LEN else story
+
     try:
-        items = []
-        for el in get_periodic_table():
-            symbol = el.get("Symbol")
-            if not symbol:
-                continue
+        elements = [el for el in get_periodic_table() if el.get("Symbol")]
 
-            story = ""
-            data = show_fdb(symbol)
-            if isinstance(data, dict):
-                story = (data.get("description") or "").strip()
-                # 存的可能是字面的反斜線 n，換回真正的換行再壓成單行
-                story = " ".join(story.replace("\\n", "\n").split())
-                if len(story) > EXCERPT_LEN:
-                    story = story[:EXCERPT_LEN] + "…"
+        excerpts = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(excerpt_for, el["Symbol"]): el["Symbol"] for el in elements}
+            for future in as_completed(futures):
+                symbol = futures[future]
+                try:
+                    excerpts[symbol] = future.result()
+                except Exception:
+                    # 單一元素讀不到不該讓整支端點失敗，沒有故事就用資料式描述
+                    excerpts[symbol] = ""
 
-            items.append({
-                "Symbol": symbol,
-                "Name": el.get("Name", ""),
-                "AtomicNumber": el.get("AtomicNumber"),
-                "AtomicMass": el.get("AtomicMass", ""),
-                "GroupBlock": el.get("GroupBlock", ""),
-                "StandardState": el.get("StandardState", ""),
-                "excerpt": story,
-            })
-
-        return jsonify({"elements": items})
+        return jsonify({"elements": [{
+            "Symbol": el["Symbol"],
+            "Name": el.get("Name", ""),
+            "AtomicNumber": el.get("AtomicNumber"),
+            "AtomicMass": el.get("AtomicMass", ""),
+            "GroupBlock": el.get("GroupBlock", ""),
+            "StandardState": el.get("StandardState", ""),
+            "excerpt": excerpts.get(el["Symbol"], ""),
+        } for el in elements]})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
 
