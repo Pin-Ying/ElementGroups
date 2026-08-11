@@ -1,0 +1,61 @@
+{
+ "modification_id": "mod-014",
+ "feature_id": "feature-014",
+ "type": "enhancement",
+ "scope": "fullstack",
+ "status": "applied",
+ "description": "把 _gallery（元素其他樣貌）搬進通用圖庫，成為 bind_type=element 的圖庫",
+ "created_at": "2026-08-11T03:40:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": true,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/libraries.py",
+    "change_type": "modified",
+    "diff_summary": "新增 library_id_for（綁定對關係固定對應一個 id）與 find_library"
+   },
+   {
+    "path": "backend/app/routes/public.py",
+    "change_type": "modified",
+    "diff_summary": "/elements/<symbol>/gallery 優先讀圖庫，回傳形狀不變"
+   },
+   {
+    "path": "backend/app/routes/admin.py",
+    "change_type": "modified",
+    "diff_summary": "/admin/elements/<symbol>/gallery 的 GET 與 POST 都接上圖庫；新增 /admin/gallery/migrate"
+   },
+   {
+    "path": "frontend/src/api/index.js",
+    "change_type": "modified",
+    "diff_summary": "新增 migrateGalleries"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "其他樣貌區加狀態提示與「全部搬進圖庫」；新增 galleryLibrary computed"
+   }
+  ]
+ },
+ "root_cause": "延續 feature-014 的搬遷計畫。_gallery 是專案裡第二個天生就是「多張」的資料，而且是每個元素一組，正好驗證 bind_type=element 這條路。",
+ "notes": [
+  "與電子那次不同：gallery 是每元素一組，所以一個元素一個庫（library_id 為 element-{symbol}）",
+  "結構對應：舊的 caption 對應圖庫的 name。前後端 API 的回傳形狀刻意維持不變，前台元件與後台編輯介面都不必改——這是這層抽象是否真的可替換的關鍵驗證",
+  "後台原本的編輯區在搬遷後仍可用，POST 會直接寫回圖庫。若只改讀不改寫，站長會遇到「存了卻不生效」",
+  "儲存時同一張圖沿用原本的 image id（用 img_data 比對），避免每次存檔都換 id",
+  "搬遷會略過已有圖庫的元素，不覆蓋在圖庫裡做過的編輯；重複執行安全",
+  "先盤點 5 個消費端再動手（上次的教訓），並逐一驗證：",
+  "  1) 前台 /elements/<symbol>/gallery — 搬遷前後回傳完全一致",
+  "  2) 後台 GET — 同上",
+  "  3) 後台 POST — 改 caption、加一張後，前台與圖庫管理都同步反映",
+  "  4) 後台介面 — 顯示已搬遷提示、搬遷按鈕消失、3 張圖與 caption 正確",
+  "  5) 前台元件 — 其他樣貌區塊 3 張圖與說明文字全部正確",
+  "  另測：重複搬遷被擋下且不覆蓋編輯內容"
+ ]
+}

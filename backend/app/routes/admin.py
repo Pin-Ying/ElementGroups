@@ -22,7 +22,8 @@ from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_group
 from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, normalize_motion, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE, MOTIONS
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app.libraries import (normalize_libraries, serialize_library, bindable_definitions,
-                           libraries_for, BINDABLE_TYPES, LIBRARIES_NODE, MAX_IMAGES)
+                           libraries_for, find_library, library_id_for,
+                           BINDABLE_TYPES, LIBRARIES_NODE, MAX_IMAGES)
 from app import ai
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api")
@@ -333,6 +334,59 @@ def migrate_electron_styles():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
+@admin_bp.route("/admin/gallery/migrate", methods=["POST"])
+@login_required
+def migrate_galleries():
+    """把 `_gallery/{Symbol}` 全部搬進通用圖庫，一個元素一個庫。
+
+    caption 對應圖庫的 name。舊節點不刪除，留著當退路；已經有圖庫的元素
+    會略過，不覆蓋你在圖庫裡的編輯。
+    """
+    try:
+        all_galleries = show_fdb("_gallery") or {}
+        if not isinstance(all_galleries, dict) or not all_galleries:
+            return jsonify({"result": "failure", "message": "沒有可搬移的其他樣貌"}), 400
+
+        existing = {l["bind_id"] for l in libraries_for(
+            normalize_libraries(show_fdb(LIBRARIES_NODE)), "element")}
+
+        migrated, skipped = 0, 0
+        for symbol, raw in all_galleries.items():
+            images = normalize_gallery(raw)
+            if not images:
+                continue
+            if symbol in existing:
+                skipped += 1
+                continue
+
+            fdb.child(LIBRARIES_NODE).child(library_id_for("element", symbol)).set({
+                "name": f"{symbol} 其他樣貌",
+                "bind_type": "element",
+                "bind_id": symbol,
+                "default_image": "",
+                "images": {
+                    f"img-{order}": {
+                        "name": item.get("caption") or f"樣貌 {order + 1}",
+                        "img_data": item["img_data"],
+                        "order": order,
+                    }
+                    for order, item in enumerate(images)
+                },
+                "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            })
+            migrated += 1
+
+        if not migrated and not skipped:
+            return jsonify({"result": "failure", "message": "沒有可搬移的其他樣貌"}), 400
+
+        msg = f"已搬移 {migrated} 個元素的其他樣貌"
+        if skipped:
+            msg += f"（{skipped} 個已有圖庫，略過）"
+        return jsonify({"result": "success", "message": msg, "migrated": migrated})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
 @admin_bp.route("/admin/electron-motion", methods=["GET", "POST"])
 @login_required
 def electron_motion():
@@ -632,8 +686,15 @@ GALLERY_MAX = 6
 @admin_bp.route("/admin/elements/<symbol>/gallery", methods=["GET", "POST"])
 @login_required
 def manage_gallery(symbol):
+    library = find_library(normalize_libraries(show_fdb(LIBRARIES_NODE)), "element", symbol)
+
     if request.method == "GET":
         try:
+            # 搬進圖庫的元素改讀圖庫，回傳形狀不變，後台介面不必知道換了地方
+            if library:
+                return jsonify({"images": [
+                    {"img_data": i["img_data"], "caption": i["name"]} for i in library["images"]
+                ]})
             return jsonify({"images": normalize_gallery(show_fdb(f"_gallery/{symbol}"))})
         except Exception as e:
             return jsonify({"result": "failure", "message": str(e)}), 500
@@ -662,7 +723,24 @@ def manage_gallery(symbol):
                 "caption": (item.get("caption") or "").strip(),
             })
 
-        fdb.child("_gallery").child(symbol).set(cleaned)
+        # 已經搬進圖庫的元素要寫回圖庫，否則存了卻不生效
+        if library:
+            # 同一張圖沿用原本的 id，避免每次儲存都換 id
+            by_img = {i["img_data"]: i["id"] for i in library["images"]}
+            images_map = {}
+            for order, item in enumerate(cleaned):
+                image_id = by_img.get(item["img_data"]) or f"img-{order}-{int(datetime.datetime.now().timestamp() * 1000)}"
+                images_map[image_id] = {
+                    "name": item["caption"],
+                    "img_data": item["img_data"],
+                    "order": order,
+                }
+            fdb.child(LIBRARIES_NODE).child(library["id"]).update({
+                "images": images_map,
+                "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            })
+        else:
+            fdb.child("_gallery").child(symbol).set(cleaned)
         return jsonify({"result": "success", "message": "Gallery updated!", "count": len(cleaned)})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500

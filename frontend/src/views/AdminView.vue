@@ -1269,6 +1269,17 @@
               比照昆蟲、鳥類圖鑑：同一個元素的不同型態或狀態（例如純金屬、氧化物、礦石）。
             </p>
 
+            <div v-if="galleryLibrary" class="migrated-notice">
+              這個元素的其他樣貌已存在通用圖庫「{{ galleryLibrary.name }}」，在這裡編輯會直接寫回圖庫。
+            </div>
+            <div v-else-if="galleryItems.length" class="migrate-hint">
+              <span>其他樣貌可以搬進通用圖庫，之後在「圖庫管理」也看得到、也能編輯。</span>
+              <button class="button secondary small" type="button" :disabled="migratingGallery" @click="handleMigrateGalleries">
+                {{ migratingGallery ? '搬移中…' : '全部搬進圖庫' }}
+              </button>
+              <p class="field-hint">會一次搬移所有元素的其他樣貌。舊資料保留當退路，這個編輯區照常可用。</p>
+            </div>
+
             <div v-if="!galleryItems.length" class="placeholder-text">
               尚未加入其他樣貌。
             </div>
@@ -1351,7 +1362,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, getElectronMotion, setElectronMotion, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, migrateGalleries, getElectronMotion, setElectronMotion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1481,6 +1492,7 @@ export default {
       layerErrors: { nucleus: '', name_img: '' },
       libraryList: [],
       migrating: false,
+      migratingGallery: false,
       bindable: [],
       bindTargets: [],
       libraryMax: 12,
@@ -1703,6 +1715,12 @@ export default {
     // 電子目前可選的樣式與預設。搬進圖庫後以圖庫為準，否則沿用舊節點。
     // 所有消費端只讀這兩個，不要各自判斷該讀哪一邊——搬遷時漏改一處就會
     // 出現「圖庫改了但別的地方沒跟著改」
+    // 目前選中的元素是否已經有「其他樣貌」圖庫
+    galleryLibrary() {
+      if (!this.selectedSymbol) return null
+      return this.libraryList.find(
+        l => l.bind_type === 'element' && l.bind_id === this.selectedSymbol) || null
+    },
     electronChoices() {
       const lib = this.electronLibrary
       if (lib) return lib.images.map(i => ({ id: i.id, name: i.name, img_data: i.img_data }))
@@ -2886,6 +2904,19 @@ export default {
         await this.loadLibraries()
       } catch (e) {
         showToast(e.response?.data?.message || '刪除失敗', 'error')
+      }
+    },
+    async handleMigrateGalleries() {
+      this.migratingGallery = true
+      try {
+        const res = await migrateGalleries()
+        showToast(res.data.message || '已搬移', 'success')
+        await this.loadLibraries()
+        await this.loadGallery()
+      } catch (e) {
+        showToast(e.response?.data?.message || '搬移失敗', 'error')
+      } finally {
+        this.migratingGallery = false
       }
     },
     async handleMigrateElectrons() {

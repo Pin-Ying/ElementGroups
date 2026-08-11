@@ -220,6 +220,17 @@ def _new_id(prefix="lib"):
     return f"{prefix}-{stamp}"
 
 
+def library_id_for(bind_type, bind_id):
+    """綁定對關係固定對應一個 library id，搬遷與查詢才不會各自生出不同的 id。"""
+    suffix = normalize_slug(bind_id) or "default"
+    return f"{bind_type}-{suffix}"
+
+
+def find_library(libraries, bind_type, bind_id=""):
+    """取綁在某個對象上的圖庫；沒有就回 None。"""
+    return next(iter(libraries_for(libraries, bind_type, bind_id)), None)
+
+
 def libraries_for(libraries, bind_type, bind_id=""):
     """查某個對象有哪些圖庫。"""
     return [

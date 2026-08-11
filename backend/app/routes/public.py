@@ -17,7 +17,7 @@ from app.particles import normalize_particles, PARTICLES_NODE
 from app.page_meta import PAGE_META_NODE, normalize_all
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, has_content
 from app.layers import normalize_layers, normalize_electron_styles, normalize_motion, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE
-from app.libraries import normalize_libraries, libraries_for, resolve_image, LIBRARIES_NODE
+from app.libraries import normalize_libraries, libraries_for, find_library, resolve_image, LIBRARIES_NODE
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
@@ -427,6 +427,14 @@ def get_site_settings():
 def get_element_gallery(symbol):
     """元素的「其他樣貌」圖庫，與代表圖分開存放。"""
     try:
+        # 搬進圖庫的元素改讀圖庫；沒搬的照舊。圖庫的 name 對應舊的 caption，
+        # 回傳形狀維持不變，前端不必知道資料換了地方
+        library = find_library(
+            normalize_libraries(show_fdb(LIBRARIES_NODE)), "element", symbol)
+        if library:
+            return jsonify({"images": [
+                {"img_data": i["img_data"], "caption": i["name"]} for i in library["images"]
+            ]})
         return jsonify({"images": normalize_gallery(show_fdb(f"_gallery/{symbol}"))})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
