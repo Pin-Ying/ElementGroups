@@ -807,6 +807,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
   z-index: 1000;
 }
 
@@ -814,19 +815,39 @@ export default {
   background: rgb(30, 25, 30);
   border: 2px solid;
   border-radius: 8px;
-  width: min(560px, 92vw);
+  width: min(560px, 100%);
+  /* 視窗放不下時讓內容自己捲，不要撐出畫面外 */
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 24px;
   text-align: left;
 }
 
 .modal-header {
+  position: sticky;
+  top: -24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 18px;
   font-weight: bold;
-  margin-bottom: 16px;
+  /* 蓋住捲動到底下的內容，並補回 padding 讓標題列貼齊上緣 */
+  margin: -24px -24px 16px;
+  padding: 24px 24px 12px;
+  background: rgb(30, 25, 30);
   color: #e4fbff;
+  z-index: 1;
+}
+
+@media (max-width: 480px) {
+  .modal-overlay { padding: 8px; }
+  .modal-box { padding: 16px; }
+  .modal-header {
+    top: -16px;
+    margin: -16px -16px 12px;
+    padding: 16px 16px 10px;
+  }
 }
 
 .modal-close {
