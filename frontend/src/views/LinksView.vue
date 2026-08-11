@@ -2,7 +2,7 @@
   <div class="links-box">
     <p class="title">{{ page.title }}</p>
     <div class="box">
-      <MarkdownContent :source="page.content" />
+      <PageBlocks :blocks="pageBlocks" />
     </div>
   </div>
 </template>
@@ -15,15 +15,22 @@ import { builtinPage } from '../utils/builtinPages'
 import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
 import { siteSettingsState } from '../store/siteSettings'
 import { setPageSeo, markdownExcerpt } from '../utils/seo'
-import MarkdownContent from '../components/MarkdownContent.vue'
+import PageBlocks from '../components/PageBlocks.vue'
+import { blocksFrom } from '../utils/blockTypes'
 
 export default {
-  components: { MarkdownContent },
+  components: { PageBlocks },
   data() {
     return {
       state: creatorLinksState,
       page: builtinPage('links'),
       fromDatabase: false
+    }
+  },
+  computed: {
+    // 舊頁面只有 Markdown 內容時即時轉成單一個「自訂 Markdown」區塊
+    pageBlocks() {
+      return blocksFrom(this.page)
     }
   },
   async created() {

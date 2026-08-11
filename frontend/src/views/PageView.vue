@@ -6,7 +6,7 @@
       <p class="title">{{ page.title }}</p>
       <p v-if="page.subtitle" class="page-subtitle">{{ page.subtitle }}</p>
       <p v-if="!page.published" class="draft-badge">草稿 — 只有登入後看得到</p>
-      <MarkdownContent :source="page.content" />
+      <PageBlocks :blocks="pageBlocks" />
     </template>
 
     <div v-else-if="!loading" class="not-found">
@@ -18,19 +18,26 @@
 
 <script>
 import { getPage } from '../api'
-import MarkdownContent from '../components/MarkdownContent.vue'
+import PageBlocks from '../components/PageBlocks.vue'
+import { blocksFrom } from '../utils/blockTypes'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { siteSettingsState } from '../store/siteSettings'
 import { setPageSeo, markdownExcerpt } from '../utils/seo'
 
 export default {
-  components: { MarkdownContent, LoadingSpinner },
+  components: { PageBlocks, LoadingSpinner },
   props: { slug: { type: String, required: true } },
   data() {
     return { page: null, loading: false }
   },
   watch: {
     slug: { immediate: true, handler: 'load' }
+  },
+  computed: {
+    // 舊頁面只有 Markdown 內容時即時轉成單一個「自訂 Markdown」區塊
+    pageBlocks() {
+      return blocksFrom(this.page)
+    }
   },
   methods: {
     async load() {

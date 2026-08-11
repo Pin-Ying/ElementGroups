@@ -29,6 +29,37 @@ def normalize_slug(raw):
     return slug
 
 
+# 一頁最多幾個區塊。純粹是防呆上限，避免單一頁面大到讀取變慢。
+MAX_BLOCKS = 60
+
+
+def normalize_blocks(raw):
+    """頁面區塊。
+
+    刻意只做通用驗證：每個區塊是 {type, data}，type 是非空字串、data 是物件。
+    後端不認得任何具體的區塊類型——類型定義住在前端 utils/blockTypes.js，
+    因為每一種區塊的「欄位長什麼樣」與「畫出來長什麼樣」本來就是同一份知識，
+    拆成前後端兩份只會變成又一個要同步的地方。
+
+    後端不懂類型的代價是：送進來的 data 不會被逐欄位驗證。可接受，因為這是
+    只有站長能寫入的後台資料，而讀取端對缺欄位都有預設值。
+    """
+    if not isinstance(raw, list):
+        return []
+
+    blocks = []
+    for item in raw[:MAX_BLOCKS]:
+        if not isinstance(item, dict):
+            continue
+        block_type = (item.get("type") or "").strip()
+        if not block_type:
+            continue
+        data = item.get("data")
+        blocks.append({"type": block_type, "data": data if isinstance(data, dict) else {}})
+
+    return blocks
+
+
 def normalize_page(slug, data):
     """把單一頁面的原始資料整理成固定結構。"""
     if not isinstance(data, dict):
@@ -45,6 +76,7 @@ def normalize_page(slug, data):
 
     return {
         "slug": slug,
+        "blocks": normalize_blocks(data.get("blocks")),
         "title": (data.get("title") or "").strip() or slug,
         "subtitle": (data.get("subtitle") or "").strip(),
         # 留空時前台會拿內文開頭當描述
@@ -96,6 +128,7 @@ def serialize_page(payload):
         return None, "請填寫頁面標題"
 
     return slug, {
+        "blocks": normalize_blocks(payload.get("blocks")),
         "title": title,
         "subtitle": (payload.get("subtitle") or "").strip(),
         "seo_description": (payload.get("seo_description") or "").strip(),

@@ -1,0 +1,38 @@
+{
+ "feature_id": "feature-015",
+ "name": "頁面區塊編輯器",
+ "description": "頁面內容從單一 Markdown 欄位改為可組合的區塊：標題、內文段落、圖片、圖片集、卡片格線、提示區塊、社群連結、分隔線、自訂 Markdown。後台可新增／排序／刪除區塊並即時預覽。",
+ "status": "in_progress",
+ "created_at": "2026-08-11T06:00:00Z",
+ "files": [
+  "backend/app/pages.py",
+  "frontend/src/utils/blockTypes.js",
+  "frontend/src/components/PageBlocks.vue",
+  "frontend/src/views/AdminView.vue",
+  "frontend/src/views/PageView.vue",
+  "frontend/src/views/GuideView.vue",
+  "frontend/src/views/LinksView.vue"
+ ],
+ "dependencies": [
+  "feature-011"
+ ],
+ "api_endpoints": [],
+ "data_model": [
+  {
+   "name": "_pages/{slug}.blocks",
+   "fields": [
+    "[{type, data}]，上限 60 個區塊"
+   ]
+  }
+ ],
+ "notes": [
+  "區塊類型的定義只有一份，放在前端 utils/blockTypes.js。後端 normalize_blocks 只做通用驗證（type 是非空字串、data 是物件），不認得任何具體類型——每種區塊的「欄位長什麼樣」與「畫出來長什麼樣」是同一份知識，拆到前後端兩邊只會變成又一個要同步的地方",
+  "向下相容不做資料搬遷：blocksFrom() 在讀取時把只有 content 的舊頁面即時轉成一個「自訂 Markdown」區塊。舊資料原封不動，站長真的編輯並存檔後才會寫成 blocks",
+  "只有標題、圖片、圖片集、分隔線需要真的 DOM；其餘轉成 Markdown 交給既有的 renderMarkdown。utils/markdown.js 本來就支援 :::cards / :::note / :::links，重寫一套只會多一份要維護的樣式",
+  "類型是照這個站實際需求挑的，不是照搬參考專案那 16 種——聯絡表單、地圖嵌入、收費表格是服務業網站的需求",
+  "「自訂 Markdown」是刻意保留的退路：其他區塊做不到的排版還是寫得出來",
+  "實測：舊 Markdown 頁面在前台照常顯示；後台打開時自動變成一個自訂 Markdown 區塊且內容完整；新增卡片格線、調整順序、儲存後前台渲染順序正確",
+  "尚未做：圖片區塊還不能從通用圖庫（feature-014）挑圖，目前只能上傳；內建頁面（/guide、/links）的區塊化尚未實測",
+  "在 feature/block-editor 分支開發，尚未合併"
+ ]
+}
