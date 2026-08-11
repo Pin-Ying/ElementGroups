@@ -19,7 +19,7 @@ from app.page_meta import PAGE_META_NODE, META_KEYS, normalize_meta
 from app.particles import normalize_particles, serialize_particle, normalize_slug as particle_slug, PARTICLES_NODE
 from app import pubchem
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, serialize_group, group_key_for, has_content as group_has_content
-from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, normalize_motion, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE, MOTIONS
+from app.layers import normalize_layers, serialize_layers, normalize_motion, resolve_orbit_particle, LAYERS_NODE, ORBIT_PARTICLE_NODE, MOTION_NODE, MOTIONS
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app import ai
 
@@ -229,61 +229,33 @@ def manage_default_image():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
-@admin_bp.route("/admin/electron-styles", methods=["GET", "POST"])
+@admin_bp.route("/admin/orbit-particle", methods=["GET", "POST"])
 @login_required
-def manage_electron_styles():
-    """共用的電子樣式庫。同一種畫法可以套用到任何元素。"""
+def orbit_particle():
+    """全站繞行粒子。
+
+    候選來自「基本粒子」（`_particles`），所以要新增電子以外的粒子是到
+    那邊加一筆，不需要在這裡再維護一套圖。
+    """
     if request.method == "GET":
         try:
+            particles = normalize_particles(show_fdb(PARTICLES_NODE), include_drafts=True)
+            current = resolve_orbit_particle(particles, show_fdb(ORBIT_PARTICLE_NODE))
             return jsonify({
-                "styles": normalize_electron_styles(show_fdb(ELECTRON_STYLES_NODE)),
-                "default_id": show_fdb(ELECTRON_DEFAULT_NODE) or ""
+                # 沒有形象圖的粒子當不了繞行粒子，先濾掉
+                "particles": [
+                    {"slug": p["slug"], "name": p["name"], "img_data": p["img_data"]}
+                    for p in particles if p["img_data"]
+                ],
+                "current": current["slug"] if current else "",
             })
         except Exception as e:
             return jsonify({"result": "failure", "message": str(e)}), 500
 
     try:
-        data = request.get_json() or {}
-        name = (data.get("name") or "").strip()
-        img_data = (data.get("img_data") or "").strip()
-        if not img_data:
-            return jsonify({"result": "failure", "message": "請選擇圖片"}), 400
-
-        style_id = (data.get("id") or "").strip()
-        if not style_id:
-            # 用時間戳當 id，避免與既有樣式衝突
-            style_id = datetime.datetime.now(datetime.timezone.utc).strftime("s%Y%m%d%H%M%S%f")
-
-        fdb.child(ELECTRON_STYLES_NODE).child(style_id).set({
-            "name": name or style_id,
-            "img_data": img_data,
-        })
-        return jsonify({"result": "success", "message": "電子樣式已儲存", "id": style_id})
-    except Exception as e:
-        return jsonify({"result": "failure", "message": str(e)}), 500
-
-
-@admin_bp.route("/admin/electron-styles/default", methods=["POST"])
-@login_required
-def set_default_electron_style():
-    """設定全站預設電子樣式；元素沒有各自指定時就用它。"""
-    try:
-        style_id = ((request.get_json() or {}).get("id") or "").strip()
-        fdb.child(ELECTRON_DEFAULT_NODE).set(style_id)
-        return jsonify({"result": "success", "message": "已設為預設電子" if style_id else "已取消預設"})
-    except Exception as e:
-        return jsonify({"result": "failure", "message": str(e)}), 500
-
-
-@admin_bp.route("/admin/electron-styles/<style_id>", methods=["DELETE"])
-@login_required
-def delete_electron_style(style_id):
-    try:
-        fdb.child(ELECTRON_STYLES_NODE).child(style_id).delete()
-        # 刪掉的正好是預設時要一併清除，否則會指向不存在的樣式
-        if (show_fdb(ELECTRON_DEFAULT_NODE) or "") == style_id:
-            fdb.child(ELECTRON_DEFAULT_NODE).set("")
-        return jsonify({"result": "success", "message": "電子樣式已刪除"})
+        slug = ((request.get_json() or {}).get("slug") or "").strip()
+        fdb.child(ORBIT_PARTICLE_NODE).set(slug)
+        return jsonify({"result": "success", "message": "繞行粒子已儲存", "slug": slug})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 

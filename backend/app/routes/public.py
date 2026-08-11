@@ -16,7 +16,7 @@ from app.molecules import normalize_molecule, normalize_molecules, MOLECULES_NOD
 from app.particles import normalize_particles, PARTICLES_NODE
 from app.page_meta import PAGE_META_NODE, normalize_all
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, has_content
-from app.layers import normalize_layers, normalize_electron_styles, normalize_motion, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE
+from app.layers import normalize_layers, normalize_motion, resolve_orbit_particle, LAYERS_NODE, ORBIT_PARTICLE_NODE, MOTION_NODE
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
@@ -259,22 +259,18 @@ def ai_status():
 
 @public_bp.route("/elements/<symbol>/layers", methods=["GET"])
 def get_element_layers(symbol):
-    """元素的圖層設定，連同選用的電子樣式圖一起回傳，前端才不用再打一次。"""
+    """元素的圖層設定，連同繞行粒子的形象圖一起回傳，前端才不用再打一次。"""
     try:
         layers = normalize_layers(show_fdb(f"{LAYERS_NODE}/{symbol}"))
-        # 元素沒有各自指定電子樣式時退回全站預設
-        style_id = resolve_electron_style(layers, show_fdb(ELECTRON_DEFAULT_NODE))
-        electron_img = ""
-        if style_id:
-            style = show_fdb(f"{ELECTRON_STYLES_NODE}/{style_id}")
-            if isinstance(style, dict):
-                electron_img = (style.get("img_data") or "").strip()
+        # 繞行粒子與運動方式都是全站統一的，不看元素自己的設定
+        particles = normalize_particles(show_fdb(PARTICLES_NODE))
+        particle = resolve_orbit_particle(particles, show_fdb(ORBIT_PARTICLE_NODE))
         return jsonify({
             **layers,
-            # 運動方式是全站統一的，不看元素自己的設定
             "motion": normalize_motion(show_fdb(MOTION_NODE)),
-            "electron_style": style_id,
-            "electron_img": electron_img,
+            "particle": particle["slug"] if particle else "",
+            "particle_name": particle["name"] if particle else "",
+            "particle_img": particle["img_data"] if particle else "",
         })
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500

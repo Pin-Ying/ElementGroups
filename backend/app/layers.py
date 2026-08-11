@@ -2,25 +2,28 @@
 
 原本每個元素只有一張靜態圖，現在拆成三層：
 
-- `nucleus`   原子核，靜態疊圖
-- `name_img`  手寫元素名，靜態疊圖
-- 電子        不存在元素本身，而是引用共用的「電子樣式」
+- `nucleus`   原子核，靜態疊圖，每個元素各自上傳
+- `name_img`  手寫元素名，靜態疊圖，每個元素各自上傳
+- 繞行粒子    不存在元素本身，而是引用「基本粒子」（`_particles`）的形象
 
-電子樣式獨立成 `_electron_styles` 節點，是因為同一顆電子的畫法可以套用到
-任何元素，沒有必要在每個元素底下各存一份 base64。元素只記錄選了哪一個
-樣式（`electron_style`）。
+繞行粒子早期是獨立的 `_electron_styles` 節點，只認電子。但 `_particles`
+本來就是可自由新增的粒子形象庫（電子、質子、中子，之後要加光子夸克也
+不用改後端），兩邊各養一套圖沒有意義，所以改成直接引用它，並且和運動
+方式一樣是全站統一設定。
 
-電子怎麼動（`motion`）是全站統一設定，存在 `_motion`。早期版本曾逐個元素
-指定，但三種模式是整體視覺風格而非單一元素的特性，逐個設定只是負擔；
-舊資料殘留在 `_layers/{symbol}/motion` 的值一律忽略。
+全站設定：
+
+- `_orbit_particle`  繞行粒子的 slug，指向 `_particles/{slug}`
+- `_motion`          怎麼動；三種模式是整體視覺風格而非單一元素的特性
+
+舊資料殘留在 `_layers/{symbol}` 的 `electron_style` 與 `motion` 一律忽略。
 
 三層沒有備齊時，前端會退回原本的靜態圖。
 """
 
 LAYERS_NODE = "_layers"
-ELECTRON_STYLES_NODE = "_electron_styles"
-# 預設電子樣式的 id 存在這裡；元素沒有各自指定時就用它
-ELECTRON_DEFAULT_NODE = "_electron_default"
+# 全站繞行粒子的 slug
+ORBIT_PARTICLE_NODE = "_orbit_particle"
 # 全站電子運動方式
 MOTION_NODE = "_motion"
 
@@ -29,7 +32,7 @@ DEFAULT_MOTION = "orbit"
 
 
 def normalize_motion(value):
-    """全站電子運動方式；不認得的值一律退回預設。"""
+    """全站運動方式；不認得的值一律退回預設。"""
     motion = value.strip() if isinstance(value, str) else ""
     return motion if motion in MOTIONS else DEFAULT_MOTION
 
@@ -42,7 +45,6 @@ def normalize_layers(data):
     return {
         "nucleus": (data.get("nucleus") or "").strip(),
         "name_img": (data.get("name_img") or "").strip(),
-        "electron_style": (data.get("electron_style") or "").strip(),
     }
 
 
@@ -50,35 +52,26 @@ def serialize_layers(payload):
     """整理要寫進 DB 的圖層設定。只帶到的欄位才會更新。"""
     record = {}
 
-    for field in ("nucleus", "name_img", "electron_style"):
+    for field in ("nucleus", "name_img"):
         if field in payload:
             record[field] = (payload.get(field) or "").strip()
 
     return record
 
 
-def resolve_electron_style(layers, default_id):
-    """元素沒有指定電子樣式時，退回全站預設。"""
-    return (layers.get("electron_style") or "").strip() or (default_id or "").strip()
+def resolve_orbit_particle(particles, slug):
+    """挑出要繞行的粒子。
 
+    沒設定、或設定的粒子已經被刪掉時，退回粒子清單的第一個（清單本身是
+    依 order 排序的，第一個通常就是電子），這樣後台還沒選過也有東西可看。
+    """
+    if not particles:
+        return None
 
-def normalize_electron_styles(data):
-    """共用的電子樣式庫，回傳 [{id, name, img_data}]。"""
-    if not isinstance(data, dict):
-        return []
+    slug = (slug or "").strip()
+    if slug:
+        for p in particles:
+            if p.get("slug") == slug:
+                return p
 
-    styles = []
-    for style_id, raw in data.items():
-        if not isinstance(raw, dict):
-            continue
-        img = (raw.get("img_data") or "").strip()
-        if not img:
-            continue
-        styles.append({
-            "id": style_id,
-            "name": (raw.get("name") or "").strip() or style_id,
-            "img_data": img,
-        })
-
-    styles.sort(key=lambda s: s["name"])
-    return styles
+    return particles[0]

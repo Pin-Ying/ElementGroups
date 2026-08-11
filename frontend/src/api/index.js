@@ -204,20 +204,12 @@ export function updateLayers(symbol, payload) {
   return api.post(`/admin/elements/${symbol}/layers`, payload)
 }
 
-export function getElectronStyles() {
-  return api.get('/admin/electron-styles')
+export function getOrbitParticle() {
+  return api.get('/admin/orbit-particle')
 }
 
-export function saveElectronStyle(payload) {
-  return api.post('/admin/electron-styles', payload)
-}
-
-export function setDefaultElectronStyle(id) {
-  return api.post('/admin/electron-styles/default', { id })
-}
-
-export function deleteElectronStyle(id) {
-  return api.delete(`/admin/electron-styles/${id}`)
+export function setOrbitParticle(slug) {
+  return api.post('/admin/orbit-particle', { slug })
 }
 
 export function getElectronMotion() {
