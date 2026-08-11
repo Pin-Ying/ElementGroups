@@ -2,7 +2,7 @@
   <div class="guide">
     <p class="title">{{ page.title }}</p>
     <p v-if="fromDatabase && !published" class="draft-badge">草稿 — 只有登入後看得到</p>
-    <MarkdownContent :source="page.content" />
+    <PageBlocks :blocks="pageBlocks" />
   </div>
 </template>
 
@@ -13,15 +13,22 @@ import { getPage } from '../api'
 import { builtinPage } from '../utils/builtinPages'
 import { siteSettingsState } from '../store/siteSettings'
 import { setPageSeo, markdownExcerpt } from '../utils/seo'
-import MarkdownContent from '../components/MarkdownContent.vue'
+import PageBlocks from '../components/PageBlocks.vue'
+import { blocksFrom } from '../utils/blockTypes'
 
 export default {
-  components: { MarkdownContent },
+  components: { PageBlocks },
   data() {
     return {
       page: builtinPage('guide'),
       fromDatabase: false,
       published: true
+    }
+  },
+  computed: {
+    // 舊頁面只有 Markdown 內容時即時轉成單一個「自訂 Markdown」區塊
+    pageBlocks() {
+      return blocksFrom(this.page)
     }
   },
   async created() {

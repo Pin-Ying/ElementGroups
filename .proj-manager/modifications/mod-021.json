@@ -1,0 +1,40 @@
+{
+ "modification_id": "mod-021",
+ "feature_id": null,
+ "type": "enhancement",
+ "scope": "frontend",
+ "status": "applied",
+ "description": "後台所有區塊統一使用固定在頂端的標題＋動作列（站長要求）",
+ "created_at": "2026-08-11T06:50:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/components/AdminBar.vue",
+    "change_type": "added",
+    "diff_summary": "共用的 sticky 標題＋動作列，title prop、預設插槽放動作、lead 插槽放返回鈕"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "九個區塊改用 AdminBar；主要儲存動作從表單底部搬到列上；新增 publishMolecule / publishParticle"
+   }
+  ]
+ },
+ "root_cause": "站長試用頁面編輯的固定動作列後，希望整個後台一致。原本各區塊的儲存鈕散在表單底部，內容長的區塊（元素故事、分子、圖庫）要一路捲到底才按得到。",
+ "notes": [
+  "抽成元件而不是每個區塊各貼一份樣式：sticky 的 top 必須和頁首底緣（63px）完全吻合，差一兩像素就會看到背後的內容從縫裡滑過去。集中一處才不會有的對、有的留縫",
+  "搬出表單的按鈕原本是 type=submit，移到 <form> 外就不會觸發送出，全部改成 type=button 並直接呼叫對應的 handler",
+  "分子與粒子原本靠 @click 設 published 再由 submit 送出，拆開後補了 publishMolecule / publishParticle 兩個方法，語意也比較清楚",
+  "圖層素材沒有單一的主要儲存（新增樣式、上傳預設圖是各自獨立的動作），只統一標題列不放動作",
+  "圖庫管理的動作列會依狀態切換：編輯中顯示儲存／取消，否則顯示建立圖庫",
+  "破壞性風險在於把按鈕搬離表單，所以逐一實測：社群連結儲存回 Saved、質子按發布後 published 變 true、網站設定有回應；捲動時九個區塊的動作列都停在 63px、縫隙 0"
+ ]
+}

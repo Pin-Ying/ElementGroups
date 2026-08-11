@@ -179,13 +179,15 @@
 
           <!-- ── 編輯：Markdown 頁面（自訂頁與內建頁共用） ── -->
           <template v-else>
-            <div class="section-head">
-              <button class="button secondary" type="button" @click="backToList">← 返回列表</button>
-              <p class="title is-4">{{ pageForm.original_slug || pageForm.slug ? `編輯頁面：${pageForm.title || pageForm.slug}` : '建立新頁面' }}</p>
+            <AdminBar :title="pageForm.original_slug || pageForm.slug ? `編輯頁面：${pageForm.title || pageForm.slug}` : '建立新頁面'">
+              <template #lead>
+                <button class="button secondary" type="button" @click="backToList">← 返回列表</button>
+              </template>
+              <button class="button secondary" type="button" :disabled="pageSaving" @click="saveAsDraft">存成草稿</button>
               <button class="button" type="button" :disabled="pageSaving" @click="publishPage">
                 {{ pageSaving ? 'Saving…' : '發布' }}
               </button>
-            </div>
+            </AdminBar>
 
             <p v-if="editingBuiltinPage" class="desc">
               這是內建頁面，網址固定為 {{ '/' + pageForm.slug }}，也不會出現在導覽列。<br>
@@ -306,29 +308,120 @@
               <p><code>:::cards</code> 卡片格線（每個 <code>###</code> 一張，標題可用 <code>|</code> 分隔附註）、<code>:::note</code> 提示區塊、<code>:::links</code> 自動插入目前設定的社群連結。</p>
             </div>
 
-            <div class="page-editor">
-              <textarea class="textarea page-content" v-model="pageForm.content" rows="16" aria-label="頁面內容"></textarea>
-              <div class="page-preview">
-                <p class="preview-label">即時預覽</p>
-                <MarkdownContent :source="pageForm.content" />
-              </div>
+            <!-- 區塊編輯器（issue #20）。舊頁面第一次打開時，原本的 Markdown
+                 會自動變成一個「自訂 Markdown」區塊，內容不會消失 -->
+            <div class="blocks-head">
+              <p class="label">頁面區塊（{{ pageForm.blocks.length }}）</p>
+              <button class="button secondary small" type="button" @click="blockPickerOpen = !blockPickerOpen">
+                {{ blockPickerOpen ? '取消' : '＋ 新增區塊' }}
+              </button>
             </div>
 
-            <div class="link-actions">
-              <button class="button" type="submit" :disabled="pageSaving">
-                {{ pageSaving ? 'Saving…' : '發布' }}
-              </button>
-              <button class="button secondary" type="button" :disabled="pageSaving" @click="saveAsDraft">
-                存成草稿
+            <div v-if="blockPickerOpen" class="block-picker">
+              <button
+                v-for="def in PAGE_BLOCKS"
+                :key="def.key"
+                class="block-type"
+                type="button"
+                @click="addBlock(def.key)"
+              >
+                <span class="block-type-icon">{{ def.icon }}</span>
+                <span class="block-type-name">{{ def.label }}</span>
+                <span class="block-type-desc">{{ def.desc }}</span>
               </button>
             </div>
+
+            <div v-if="!pageForm.blocks.length" class="placeholder-text">
+              還沒有任何區塊，按「新增區塊」開始。
+            </div>
+
+            <div
+              v-for="(block, bi) in pageForm.blocks"
+              :key="bi"
+              class="block-card"
+            >
+              <div class="block-card-head">
+                <span class="block-index">{{ bi + 1 }}</span>
+                <span class="block-name">{{ blockLabel(block.type) }}</span>
+                <span class="block-actions">
+                  <button class="icon-button" type="button" title="上移" :disabled="bi === 0" @click="moveBlock(bi, -1)">▲</button>
+                  <button class="icon-button" type="button" title="下移" :disabled="bi === pageForm.blocks.length - 1" @click="moveBlock(bi, 1)">▼</button>
+                  <button class="icon-button danger" type="button" title="刪除" @click="pageForm.blocks.splice(bi, 1)">✕</button>
+                </span>
+              </div>
+
+              <div v-for="f in blockFields(block.type)" :key="f.name" class="block-field">
+                <label class="label">{{ f.label }}</label>
+
+                <select v-if="f.type === 'select'" class="select" v-model="block.data[f.name]" :aria-label="f.label">
+                  <option v-for="o in f.options" :key="o.value" :value="o.value">{{ o.label }}</option>
+                </select>
+
+                <textarea
+                  v-else-if="f.type === 'markdown' || f.type === 'textarea'"
+                  class="textarea"
+                  :rows="f.type === 'markdown' ? 8 : 3"
+                  v-model="block.data[f.name]"
+                  :aria-label="f.label"
+                ></textarea>
+
+                <div v-else-if="f.type === 'image'" class="block-image">
+                  <img v-if="block.data[f.name]" :src="block.data[f.name]" alt="" />
+                  <span v-else class="layer-empty">未設定</span>
+                  <input class="input" type="file" accept="image/*" :aria-label="f.label" @change="onBlockImage($event, block.data, f.name)" />
+                  <button v-if="block.data[f.name]" class="draft-link" type="button" @click="block.data[f.name] = ''">移除</button>
+                </div>
+
+                <!-- list：重複的子項目，欄位一樣由定義長出來 -->
+                <div v-else-if="f.type === 'list'" class="block-list">
+                  <div v-for="(item, ii) in block.data[f.name]" :key="ii" class="block-list-item">
+                    <div class="block-list-head">
+                      <span class="block-index">{{ ii + 1 }}</span>
+                      <span class="block-actions">
+                        <button class="icon-button" type="button" title="上移" :disabled="ii === 0" @click="moveItem(block.data[f.name], ii, -1)">▲</button>
+                        <button class="icon-button" type="button" title="下移" :disabled="ii === block.data[f.name].length - 1" @click="moveItem(block.data[f.name], ii, 1)">▼</button>
+                        <button class="icon-button danger" type="button" title="刪除" @click="block.data[f.name].splice(ii, 1)">✕</button>
+                      </span>
+                    </div>
+                    <div v-for="sub in f.itemFields" :key="sub.name" class="block-field">
+                      <label class="label">{{ sub.label }}</label>
+                      <textarea v-if="sub.type === 'textarea'" class="textarea" rows="3" v-model="item[sub.name]" :aria-label="sub.label"></textarea>
+                      <div v-else-if="sub.type === 'image'" class="block-image">
+                        <img v-if="item[sub.name]" :src="item[sub.name]" alt="" />
+                        <span v-else class="layer-empty">未設定</span>
+                        <input class="input" type="file" accept="image/*" :aria-label="sub.label" @change="onBlockImage($event, item, sub.name)" />
+                      </div>
+                      <input v-else class="input" type="text" v-model="item[sub.name]" :aria-label="sub.label" />
+                    </div>
+                  </div>
+                  <button class="button secondary small" type="button" @click="addItem(block.data[f.name], f)">＋ 新增一項</button>
+                </div>
+
+                <input v-else class="input" type="text" v-model="block.data[f.name]" :aria-label="f.label" />
+              </div>
+
+              <p v-if="!blockFields(block.type).length" class="field-hint">
+                這個區塊沒有可設定的欄位，直接放進頁面即可。
+              </p>
+            </div>
+
+            <div class="page-preview">
+              <p class="preview-label">即時預覽</p>
+              <PageBlocks :blocks="pageForm.blocks" />
+            </div>
+
           </form>
           </template>
         </div>
 
         <!-- Molecules -->
         <div v-if="section === 'molecules'" class="box">
-          <p class="title is-4">MOLECULES</p>
+          <AdminBar title="MOLECULES">
+            <button class="button secondary" type="button" :disabled="moleculeSaving" @click="saveMoleculeDraft">存成草稿</button>
+            <button class="button" type="button" :disabled="moleculeSaving" @click="publishMolecule">
+              {{ moleculeSaving ? 'Saving…' : '發布' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             用下面的建構器點選元素拼出分子式，再向 PubChem 查詢自動帶入分子量與 IUPAC 名稱。<br>
             網址代稱取自 IUPAC 名稱；查不到的分子也可以手動填寫後儲存。
@@ -480,12 +573,6 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="submit" :disabled="moleculeSaving" @click="moleculeForm.published = true">
-                {{ moleculeSaving ? 'Saving…' : '發布' }}
-              </button>
-              <button class="button secondary" type="button" :disabled="moleculeSaving" @click="saveMoleculeDraft">
-                存成草稿
-              </button>
               <button
                 v-if="moleculeForm.original_slug"
                 class="button secondary"
@@ -499,7 +586,11 @@
 
         <!-- Element Groups（主族形象） -->
         <div v-if="section === 'groups'" class="box">
-          <p class="title is-4">ELEMENT GROUPS</p>
+          <AdminBar title="ELEMENT GROUPS">
+            <button v-if="groupForm.key" class="button" type="button" :disabled="groupSaving" @click="handleSaveGroup">
+              {{ groupSaving ? 'Saving…' : '儲存形象' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             同族元素性質相近，可以共用一套設計形象（例如 7A 鹵素是型態不穩定的獵食鳥類、
             8A 惰性氣體是圓胖胖的穩定物種）。<br>
@@ -560,9 +651,6 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="submit" :disabled="groupSaving">
-                {{ groupSaving ? 'Saving…' : '儲存形象' }}
-              </button>
               <span class="ai-quota">{{ groupElements(groupForm.key) }}</span>
             </div>
           </form>
@@ -570,7 +658,12 @@
 
         <!-- Particles（基本粒子形象） -->
         <div v-if="section === 'particles'" class="box">
-          <p class="title is-4">PARTICLES</p>
+          <AdminBar title="PARTICLES">
+            <button class="button secondary" type="button" :disabled="particleSaving" @click="saveParticleDraft">存成草稿</button>
+            <button class="button" type="button" :disabled="particleSaving" @click="publishParticle">
+              {{ particleSaving ? 'Saving…' : '發布' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             電子、質子、中子這些基本粒子的形象設定，會呈現在前台的「基本粒子」頁。<br>
             可自由新增其他粒子（光子、夸克⋯），用排序控制先後。
@@ -662,12 +755,6 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="submit" :disabled="particleSaving" @click="particleForm.published = true">
-                {{ particleSaving ? 'Saving…' : '發布' }}
-              </button>
-              <button class="button secondary" type="button" :disabled="particleSaving" @click="saveParticleDraft">
-                存成草稿
-              </button>
               <button
                 v-if="particleForm.original_slug"
                 class="button secondary"
@@ -681,7 +768,11 @@
 
         <!-- Site Settings -->
         <div v-if="section === 'site'" class="box">
-          <p class="title is-4">SITE SETTINGS</p>
+          <AdminBar title="SITE SETTINGS">
+            <button class="button" type="button" :disabled="siteSaving" @click="handleUpdateSiteSettings">
+              {{ siteSaving ? 'Saving…' : '儲存' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             網站層級的基本資料。標題與副標題會顯示在每一頁的左上角，
             描述用於搜尋引擎與分享連結時的摘要；留空則沿用系統預設文案。
@@ -762,9 +853,6 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="submit" :disabled="siteSaving">
-                {{ siteSaving ? 'Saving…' : 'Save' }}
-              </button>
               <button
                 v-if="siteBgCurrent"
                 class="button secondary"
@@ -788,7 +876,7 @@
         <!-- 圖層素材：全站共用的素材與設定。原本電子樣式另外養一套圖，
              但「基本粒子」本來就是可自由新增的粒子形象庫，改成直接引用它 -->
         <div v-if="section === 'electrons'" class="box">
-          <p class="title is-4">LAYER ASSETS</p>
+          <AdminBar title="LAYER ASSETS" />
           <p class="desc">
             全站共用的素材與設定。電子的畫法可以套用到任何元素，所以集中管理在這裡；<br>
             設一個<strong>預設</strong>之後，沒有另外指定的元素都會自動使用它。<br>
@@ -909,10 +997,15 @@
         <!-- 圖庫管理：通用的一組圖，透過 bind_type 決定能用在哪一類東西上。
              要讓新的東西也能有圖庫，只在後端 BINDABLE_TYPES 加一筆即可 -->
         <div v-if="section === 'libraries'" class="box">
-          <div class="section-head">
-            <p class="title is-4">IMAGE LIBRARIES</p>
-            <button class="button" type="button" @click="newLibrary">＋ 建立圖庫</button>
-          </div>
+          <AdminBar title="IMAGE LIBRARIES">
+            <template v-if="libraryForm">
+              <button class="button secondary" type="button" @click="libraryForm = null">取消</button>
+              <button class="button" type="button" :disabled="librarySaving" @click="handleSaveLibrary">
+                {{ librarySaving ? 'Saving…' : '儲存圖庫' }}
+              </button>
+            </template>
+            <button v-else class="button" type="button" @click="newLibrary">＋ 建立圖庫</button>
+          </AdminBar>
           <p class="desc">
             一個圖庫是一組圖，綁在某個對象上（基本粒子、元素、主族、分子，或不綁對象的全站圖庫）。<br>
             綁定類型決定這個圖庫將來能用在哪裡，之後要開放新的對象類型不必再做一套介面。
@@ -1002,18 +1095,16 @@
               @change="onLibraryImages"
             />
 
-            <div class="link-actions">
-              <button class="button" type="submit" :disabled="librarySaving">
-                {{ librarySaving ? 'Saving…' : '儲存圖庫' }}
-              </button>
-              <button class="button secondary" type="button" @click="libraryForm = null">取消</button>
-            </div>
           </form>
         </div>
 
         <!-- Creator Links -->
         <div v-if="section === 'links'" class="box">
-          <p class="title is-4">CREATOR LINKS</p>
+          <AdminBar title="CREATOR LINKS">
+            <button class="button" type="button" :disabled="creatorLinksSaving" @click="handleUpdateCreatorLinks">
+              {{ creatorLinksSaving ? 'Saving…' : '儲存' }}
+            </button>
+          </AdminBar>
           <p class="desc">
             設定要對外顯示的社群連結，數量不限。<br>
             儲存後會出現在每一頁最下方的頁尾，以及 /links 頁面；網址留空的項目會被忽略。<br>
@@ -1100,16 +1191,16 @@
 
             <div class="link-actions">
               <button class="button secondary" type="button" @click="addLink">＋ 新增連結</button>
-              <button class="button" type="submit" :disabled="creatorLinksSaving">
-                {{ creatorLinksSaving ? 'Saving…' : 'Save' }}
-              </button>
             </div>
           </form>
         </div>
 
         <!-- Update Story -->
         <div v-if="section === 'story'" class="box">
-          <p class="title is-4">UPDATE STORY</p>
+          <AdminBar title="UPDATE STORY">
+            <button class="button secondary" type="button" :disabled="loading" @click="handleSaveStoryDraft">存成草稿</button>
+            <button class="button" type="button" :disabled="loading" @click="handleUpdateStory">發布</button>
+          </AdminBar>
           <p class="desc">
             編輯單一元素的故事內容與代表圖片。<br>
             選擇元素後，Story 的文字會顯示在前台該元素的介紹頁（/stroy/{{ selectedSymbol || 'Symbol' }}），
@@ -1218,12 +1309,6 @@
               <button class="draft-link" type="button" @click="loadPublished">改看已發布內容</button>
             </div>
 
-            <div class="link-actions">
-              <button class="button" type="submit" :disabled="loading">發布</button>
-              <button class="button secondary" type="button" :disabled="loading" @click="handleSaveStoryDraft">
-                存成草稿
-              </button>
-            </div>
           </form>
 
           <!-- 圖片分層 -->
@@ -1414,6 +1499,9 @@ import { outerElectronCount } from '../utils/valence'
 import { parseFormula } from '../utils/formula'
 import { GROUP_SECTIONS } from '../utils/elementGroups'
 import { metaDef as pageMetaDef, NAV_POSITIONS } from '../utils/pageMeta'
+import { PAGE_BLOCKS, blockType, emptyBlock, emptyItem, blocksFrom } from '../utils/blockTypes'
+import PageBlocks from '../components/PageBlocks.vue'
+import AdminBar from '../components/AdminBar.vue'
 import { refreshPageMeta } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
@@ -1455,7 +1543,7 @@ const EMPTY_MOLECULE = () => ({
 
 const EMPTY_PAGE = () => ({
   original_slug: '', slug: '', title: '', subtitle: '', seo_description: '',
-  content: '', nav_position: 'sidebar', nav_order: 0, published: false
+  content: '', blocks: [], nav_position: 'sidebar', nav_order: 0, published: false
 })
 
 const AVATAR_SHAPES = [
@@ -1479,7 +1567,7 @@ const SECTIONS = [
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
-  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, FormulaBuilder },
+  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, FormulaBuilder },
   data() {
     return {
       authState,
@@ -1520,6 +1608,8 @@ export default {
       GALLERY_MAX,
       GROUP_SECTIONS,
       CATEGORY_PRESETS,
+      PAGE_BLOCKS,
+      blockPickerOpen: false,
       NAV_POSITIONS,
       layerForm: { nucleus: '', name_img: '', electron_style: '' },
       layerSaving: false,
@@ -2067,6 +2157,10 @@ export default {
         showToast(err.message || '圖片處理失敗', 'error')
       }
     },
+    async publishParticle() {
+      this.particleForm.published = true
+      await this.handleSaveParticle()
+    },
     async saveParticleDraft() {
       this.particleForm.published = false
       await this.handleSaveParticle()
@@ -2252,6 +2346,10 @@ export default {
         showToast(err.message || '圖片處理失敗', 'error')
       }
     },
+    async publishMolecule() {
+      this.moleculeForm.published = true
+      await this.handleSaveMolecule()
+    },
     async saveMoleculeDraft() {
       this.moleculeForm.published = false
       await this.handleSaveMolecule()
@@ -2370,7 +2468,7 @@ export default {
       if (!b) return
       this.pageForm = {
         original_slug: '', slug, title: b.title, content: b.content,
-        subtitle: '', seo_description: '',
+        blocks: blocksFrom(b), subtitle: '', seo_description: '',
         // 這兩頁本來就有自己的路由，不需要再出現在導覽列
         nav_position: 'none', nav_order: 0, published: true
       }
@@ -2383,6 +2481,8 @@ export default {
       this.pageForm = {
         original_slug: p.slug, slug: p.slug, title: p.title,
         subtitle: p.subtitle || '', seo_description: p.seo_description || '',
+        // 舊頁面沒有 blocks，用 blocksFrom 把 Markdown 轉成一個區塊帶進來
+        blocks: blocksFrom(p),
         content: p.content || '', nav_position: p.nav_position,
         nav_order: p.nav_order, published: p.published
       }
@@ -2417,6 +2517,44 @@ export default {
       }
       this.editKind = 'page'
       this.pageMode = 'edit'
+    },
+    blockLabel(type) {
+      return blockType(type)?.label || type
+    },
+    blockFields(type) {
+      return blockType(type)?.fields || []
+    },
+    addBlock(key) {
+      const block = emptyBlock(key)
+      if (block) this.pageForm.blocks.push(block)
+      this.blockPickerOpen = false
+    },
+    moveBlock(i, delta) {
+      const to = i + delta
+      if (to < 0 || to >= this.pageForm.blocks.length) return
+      const [b] = this.pageForm.blocks.splice(i, 1)
+      this.pageForm.blocks.splice(to, 0, b)
+    },
+    addItem(list, field) {
+      list.push(emptyItem(field))
+    },
+    moveItem(list, i, delta) {
+      const to = i + delta
+      if (to < 0 || to >= list.length) return
+      const [it] = list.splice(i, 1)
+      list.splice(to, 0, it)
+    },
+    async onBlockImage(e, target, key) {
+      const file = e.target.files[0]
+      e.target.value = ''
+      if (!file) return
+      try {
+        // 頁面裡的圖不像圖層要去背置中，沿用一般的壓縮就好
+        const result = await compressImage(file)
+        target[key] = await this.blobToDataUrl(result.blob)
+      } catch (err) {
+        showToast(err.message || '圖片處理失敗', 'error')
+      }
     },
     backToList() {
       this.pageMode = 'list'
@@ -3977,6 +4115,112 @@ export default {
 .motion-name { font-size: 14px; font-weight: bold; }
 .motion-desc { font-size: 12px; opacity: 0.7; line-height: 1.5; }
 
+/* ── 頁面區塊編輯器 ── */
+.blocks-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 18px 0 8px;
+}
+
+.blocks-head .label { margin: 0; }
+
+.block-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid rgba(157, 140, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(90, 70, 160, 0.1);
+}
+
+.block-type {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  grid-template-rows: auto auto;
+  gap: 2px 8px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(228, 251, 255, 0.03);
+  color: inherit;
+  cursor: pointer;
+}
+
+.block-type:hover { border-color: rgba(228, 251, 255, 0.35); }
+
+.block-type-icon {
+  grid-row: 1 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: rgba(228, 251, 255, 0.6);
+}
+
+.block-type-name { font-size: 14px; font-weight: bold; }
+.block-type-desc { font-size: 12px; opacity: 0.65; line-height: 1.5; }
+
+.block-card {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(3, 1, 12, 0.35);
+}
+
+.block-card-head,
+.block-list-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.block-index {
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(228, 251, 255, 0.12);
+  font-size: 12px;
+  text-align: center;
+}
+
+.block-name { flex: 1; font-weight: bold; color: #e4fbff; }
+.block-actions { display: flex; gap: 4px; }
+
+.block-field { margin-bottom: 10px; }
+.block-field .label { font-size: 12px; }
+
+.block-image {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.block-image img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(228, 251, 255, 0.14);
+}
+
+.block-image .input { flex: 1; min-width: 180px; }
+
+.block-list-item {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(228, 251, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(228, 251, 255, 0.03);
+}
+
 /* ── 元素故事草稿 ── */
 .draft-notice {
   display: flex;
@@ -4629,6 +4873,22 @@ button.button:disabled {
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 6px;
+}
+
+/* 頁面編輯有區塊編輯器之後會很長，動作列黏在頁首底下，捲到哪裡都按得到。
+   頁首是 sticky、底緣固定在 63px，所以這裡貼齊 63 而不是留空隙。
+   上方多給 12px 內距並用 -12px 抵銷，讓背景往上多蓋一段——只要 top 和
+   頁首底緣差一點點，捲動的內容就會從那條縫透出來。
+   負的左右外距＋補回內距則是讓背景蓋滿整個 box 寬度。 */
+.section-head--sticky {
+  position: sticky;
+  top: 63px;
+  z-index: 20;
+  margin: -36px -28px 6px;
+  padding: 26px 28px 14px;
+  background: rgba(14, 5, 26, 0.97);
+  border-bottom: 1px solid rgba(228, 251, 255, 0.1);
+  backdrop-filter: blur(4px);
 }
 
 /* 標題吃掉中間的空間，把動作按鈕推到兩端 */
