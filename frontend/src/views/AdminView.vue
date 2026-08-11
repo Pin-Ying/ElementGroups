@@ -227,7 +227,7 @@
               <label class="label">內容（Markdown）</label>
               <span class="label-row-actions">
                 <button
-                  v-if="editingBuiltinPage"
+                  v-if="hasBuiltinTemplate"
                   class="ai-toggle"
                   type="button"
                   @click="reloadBuiltinTemplate"
@@ -1421,6 +1421,11 @@ export default {
     },
     editingBuiltinPage() {
       return !!BUILTIN_PAGES[this.pageForm.slug]
+    },
+    // 內建模板是空的時候不顯示「載入最新內建模板」——按下去只會清空
+    // 編輯框，看起來像誤觸
+    hasBuiltinTemplate() {
+      return !!BUILTIN_PAGES[this.pageForm.slug]?.content?.trim()
     },
     // 系統頁面與自訂頁面合成同一份清單。系統頁排在前面（網址固定、順序
     // 也固定），自訂頁接在後面，依導覽位置分組後才照 nav_order 排
