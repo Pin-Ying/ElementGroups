@@ -604,13 +604,27 @@
             <label class="label">介紹</label>
             <textarea class="textarea" v-model="particleForm.description" rows="5" aria-label="粒子介紹"></textarea>
 
+            <div v-if="particlesMigratable" class="migrate-hint">
+              <span>粒子形象圖可以搬進通用圖庫，之後每顆粒子都能有多個樣貌。</span>
+              <button class="button secondary small" type="button" :disabled="migratingParticles" @click="handleMigrateParticles">
+                {{ migratingParticles ? '搬移中…' : '全部搬進圖庫' }}
+              </button>
+              <p class="field-hint">已經有圖庫的粒子（例如電子）會把形象圖併進去，不會另外開一個庫。</p>
+            </div>
+
             <label class="label">形象圖</label>
+            <div v-if="particleLibrary" class="migrated-notice">
+              這顆粒子的形象圖來自通用圖庫「{{ particleLibrary.name }}」（{{ particleLibrary.images.length }} 張），顯示的是預設那張。
+              <button class="draft-link" type="button" @click="section = 'libraries'; selectLibrary(particleLibrary)">
+                到「圖庫管理」編輯
+              </button>
+            </div>
             <div class="mol-image-row">
               <div class="mol-image-preview">
                 <img v-if="particleForm.img_data" :src="particleForm.img_data" alt="粒子形象圖" />
                 <span v-else class="layer-empty">未設定</span>
               </div>
-              <div class="mol-image-actions">
+              <div v-if="!particleLibrary" class="mol-image-actions">
                 <input type="file" accept="image/*" @change="onParticleImgChange" />
                 <button
                   v-if="electronChoices.length"
@@ -1362,7 +1376,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, migrateGalleries, getElectronMotion, setElectronMotion, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, suggestStory, suggestPage, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, migrateGalleries, migrateParticles, getElectronMotion, setElectronMotion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1493,6 +1507,7 @@ export default {
       libraryList: [],
       migrating: false,
       migratingGallery: false,
+      migratingParticles: false,
       bindable: [],
       bindTargets: [],
       libraryMax: 12,
@@ -1716,6 +1731,16 @@ export default {
     // 所有消費端只讀這兩個，不要各自判斷該讀哪一邊——搬遷時漏改一處就會
     // 出現「圖庫改了但別的地方沒跟著改」
     // 目前選中的元素是否已經有「其他樣貌」圖庫
+    // 目前編輯中的粒子是否已經有圖庫
+    particleLibrary() {
+      const slug = this.particleForm.original_slug || this.particleForm.slug
+      if (!slug) return null
+      return this.libraryList.find(l => l.bind_type === 'particle' && l.bind_id === slug) || null
+    },
+    // 還有粒子的形象圖沒進圖庫時才顯示搬遷入口
+    particlesMigratable() {
+      return this.particleList.some(p => p.img_data && !p.has_library)
+    },
     galleryLibrary() {
       if (!this.selectedSymbol) return null
       return this.libraryList.find(
@@ -2904,6 +2929,19 @@ export default {
         await this.loadLibraries()
       } catch (e) {
         showToast(e.response?.data?.message || '刪除失敗', 'error')
+      }
+    },
+    async handleMigrateParticles() {
+      this.migratingParticles = true
+      try {
+        const res = await migrateParticles()
+        showToast(res.data.message || '已搬移', 'success')
+        await this.loadLibraries()
+        await this.loadParticles()
+      } catch (e) {
+        showToast(e.response?.data?.message || '搬移失敗', 'error')
+      } finally {
+        this.migratingParticles = false
       }
     },
     async handleMigrateGalleries() {

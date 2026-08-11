@@ -17,7 +17,7 @@ from app.particles import normalize_particles, PARTICLES_NODE
 from app.page_meta import PAGE_META_NODE, normalize_all
 from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_groups, has_content
 from app.layers import normalize_layers, normalize_electron_styles, normalize_motion, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE
-from app.libraries import normalize_libraries, libraries_for, find_library, resolve_image, LIBRARIES_NODE
+from app.libraries import normalize_libraries, libraries_for, find_library, resolve_image, primary_image_data, LIBRARIES_NODE
 from app.stats import get_all_views, record_view
 from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
@@ -334,6 +334,12 @@ def get_particles():
     try:
         particles = normalize_particles(show_fdb(PARTICLES_NODE),
                                         include_drafts=current_user.is_authenticated)
+        # 搬進圖庫的粒子改用圖庫的預設圖當形象圖；沒搬的沿用自己的 img_data
+        libraries = normalize_libraries(show_fdb(LIBRARIES_NODE))
+        for particle in particles:
+            from_library = primary_image_data(libraries, "particle", particle["slug"])
+            if from_library:
+                particle["img_data"] = from_library
         return jsonify({"particles": particles})
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500

@@ -239,6 +239,16 @@ def libraries_for(libraries, bind_type, bind_id=""):
     ]
 
 
+def primary_image_data(libraries, bind_type, bind_id):
+    """某個對象的代表圖：圖庫的預設圖，沒設定就第一張。沒有圖庫時回空字串。
+
+    讓「單張 img_data」的舊欄位可以無痛換成「圖庫的預設圖」——呼叫端拿到
+    的一樣是一個 base64 字串，不必知道背後換了資料來源。
+    """
+    image = resolve_image(find_library(libraries, bind_type, bind_id))
+    return image["img_data"] if image else ""
+
+
 def resolve_image(library, image_id=""):
     """從圖庫挑一張圖：指定的優先，其次預設，最後第一張。"""
     if not library or not library["images"]:

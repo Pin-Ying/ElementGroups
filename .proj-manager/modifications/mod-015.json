@@ -1,0 +1,60 @@
+{
+ "modification_id": "mod-015",
+ "feature_id": "feature-014",
+ "type": "enhancement",
+ "scope": "fullstack",
+ "status": "applied",
+ "description": "把 _particles 的單張 img_data 搬進通用圖庫，每顆粒子從此可以有多個樣貌",
+ "created_at": "2026-08-11T04:10:00Z",
+ "created_by": "project-manager-skill",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": true,
+  "affects_schema": false,
+  "affects_dependencies": false,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/libraries.py",
+    "change_type": "modified",
+    "diff_summary": "新增 primary_image_data：把「單張 img_data」換成「圖庫的預設圖」，呼叫端拿到的一樣是字串"
+   },
+   {
+    "path": "backend/app/routes/public.py",
+    "change_type": "modified",
+    "diff_summary": "/particles 的形象圖改由圖庫預設圖覆蓋"
+   },
+   {
+    "path": "backend/app/routes/admin.py",
+    "change_type": "modified",
+    "diff_summary": "/admin/particles 同上並回傳 has_library；新增 /admin/particles/migrate；存檔時保護舊 img_data 不被圖庫的圖覆蓋"
+   },
+   {
+    "path": "frontend/src/api/index.js",
+    "change_type": "modified",
+    "diff_summary": "新增 migrateParticles"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "粒子編輯區加搬遷入口；有圖庫時形象圖改唯讀並導向圖庫管理；新增 particleLibrary / particlesMigratable"
+   }
+  ]
+ },
+ "root_cause": "站長最早的需求就是「每個基本粒子都可以有不同樣式」。這一步把單張的 img_data 換成圖庫的預設圖，粒子從此能有多個樣貌。",
+ "notes": [
+  "與前兩次不同的地方：電子已經有圖庫（先前搬電子樣式時建的），所以是「併入」而不是新建。同一顆粒子的各種樣貌本來就該在同一個庫裡",
+  "圖片內容已存在時略過，重複搬遷安全（實測第二次執行回「3 張已存在，略過」）",
+  "存檔保護：形象圖由圖庫接管後，POST 不再用前端送來的圖覆蓋 _particles.img_data，保留舊值當退路，否則兩邊會慢慢長成不同的東西",
+  "六個消費端逐一驗證：",
+  "  1) 前台 /particles — 形象圖來自圖庫預設",
+  "  2) 後台 /admin/particles — 同上，另回傳 has_library",
+  "  3) 搬遷端點 — 電子併入（1 張已存在略過）、質子與中子新建",
+  "  4) 重複搬遷 — 全部略過，不覆蓋",
+  "  5) 後台介面 — 提示「來自圖庫（2 張）」、上傳欄位收起、形象圖顯示預設那張",
+  "  6) 前台粒子頁 — 三顆粒子的圖與名稱正確",
+  "  另測多樣貌：給質子加第二張並切換預設，前台形象圖跟著在 PROTON_A / PROTON_B 之間切換"
+ ]
+}

@@ -22,7 +22,7 @@ from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_group
 from app.layers import normalize_layers, serialize_layers, normalize_electron_styles, normalize_motion, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE, MOTIONS
 from app.firebase import show_fdb, upload_fdb, upload_file, periodic_table_exists, upload_periodic_table, get_periodic_table, get_image_bytes, get_element_by_symbol, fdb
 from app.libraries import (normalize_libraries, serialize_library, bindable_definitions,
-                           libraries_for, find_library, library_id_for,
+                           libraries_for, find_library, library_id_for, primary_image_data,
                            BINDABLE_TYPES, LIBRARIES_NODE, MAX_IMAGES)
 from app import ai
 
@@ -334,6 +334,73 @@ def migrate_electron_styles():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
+@admin_bp.route("/admin/particles/migrate", methods=["POST"])
+@login_required
+def migrate_particles():
+    """把每顆粒子的 `img_data` 搬進通用圖庫，一顆粒子一個庫。
+
+    電子通常已經有圖庫（先前搬電子樣式時建立的），這種情況是把形象圖
+    「加進去」而不是新建——同一顆粒子的各種樣貌本來就該在同一個庫裡。
+    圖片內容已存在時略過，不會重複。
+    """
+    try:
+        particles = normalize_particles(show_fdb(PARTICLES_NODE), include_drafts=True)
+        libraries = normalize_libraries(show_fdb(LIBRARIES_NODE))
+
+        created, merged, skipped = 0, 0, 0
+        for particle in particles:
+            img = (particle.get("img_data") or "").strip()
+            if not img:
+                continue
+
+            slug = particle["slug"]
+            library = find_library(libraries, "particle", slug)
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+            if not library:
+                fdb.child(LIBRARIES_NODE).child(library_id_for("particle", slug)).set({
+                    "name": particle.get("name") or slug,
+                    "bind_type": "particle",
+                    "bind_id": slug,
+                    "default_image": "img-0",
+                    "images": {"img-0": {"name": particle.get("name") or slug,
+                                         "img_data": img, "order": 0}},
+                    "updated_at": now,
+                })
+                created += 1
+                continue
+
+            # 同一張圖已經在庫裡就不重複加
+            if any(i["img_data"] == img for i in library["images"]):
+                skipped += 1
+                continue
+
+            order = len(library["images"])
+            fdb.child(LIBRARIES_NODE).child(library["id"]).child("images").update({
+                f"img-particle-{order}": {
+                    "name": particle.get("name") or slug,
+                    "img_data": img,
+                    "order": order,
+                }
+            })
+            fdb.child(LIBRARIES_NODE).child(library["id"]).update({"updated_at": now})
+            merged += 1
+
+        if not (created or merged or skipped):
+            return jsonify({"result": "failure", "message": "沒有可搬移的粒子形象圖"}), 400
+
+        parts = []
+        if created:
+            parts.append(f"新建 {created} 個圖庫")
+        if merged:
+            parts.append(f"併入既有圖庫 {merged} 張")
+        if skipped:
+            parts.append(f"{skipped} 張已存在，略過")
+        return jsonify({"result": "success", "message": "、".join(parts)})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
 @admin_bp.route("/admin/gallery/migrate", methods=["POST"])
 @login_required
 def migrate_galleries():
@@ -544,14 +611,27 @@ def bindable_targets(bind_type):
 def manage_particles():
     if request.method == "GET":
         try:
-            return jsonify({"particles": normalize_particles(show_fdb(PARTICLES_NODE),
-                                                             include_drafts=True)})
+            particles = normalize_particles(show_fdb(PARTICLES_NODE), include_drafts=True)
+            libraries = normalize_libraries(show_fdb(LIBRARIES_NODE))
+            for particle in particles:
+                from_library = primary_image_data(libraries, "particle", particle["slug"])
+                if from_library:
+                    particle["img_data"] = from_library
+                # 讓後台知道這顆粒子的形象圖是不是由圖庫接管了
+                particle["has_library"] = bool(from_library)
+            return jsonify({"particles": particles})
         except Exception as e:
             return jsonify({"result": "failure", "message": str(e)}), 500
 
     try:
         payload = request.get_json() or {}
         slug, record = serialize_particle(payload)
+        # 形象圖已由圖庫接管時，保留原本存著的舊值當退路，不要被前端送來的
+        # （來自圖庫的）圖覆蓋，否則兩邊會慢慢長成不同的東西
+        if slug and find_library(normalize_libraries(show_fdb(LIBRARIES_NODE)), "particle", slug):
+            existing = show_fdb(f"{PARTICLES_NODE}/{slug}")
+            if isinstance(existing, dict):
+                record["img_data"] = (existing.get("img_data") or "").strip()
         if not slug:
             return jsonify({"result": "failure", "message": record}), 400
 

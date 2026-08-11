@@ -224,6 +224,10 @@ export function migrateElectronStyles() {
   return api.post('/admin/electron-styles/migrate')
 }
 
+export function migrateParticles() {
+  return api.post('/admin/particles/migrate')
+}
+
 export function migrateGalleries() {
   return api.post('/admin/gallery/migrate')
 }
