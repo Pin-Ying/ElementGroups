@@ -1,5 +1,7 @@
 import { reactive } from 'vue'
 import { getPages } from '../api'
+import { metaText } from './pageMeta'
+import { BUILTIN_PAGES } from '../utils/builtinPages'
 
 // 導覽列用的頁面清單。只含標題與位置，內容進頁面時才抓。
 const state = reactive({
@@ -31,11 +33,16 @@ export function pagesFor(position) {
 
 // 內建頁面有自己的路由，且在後台轉成可編輯之前不會出現在 _pages 裡。
 // 尚未轉換時沿用這裡的預設位置，轉換後就完全依後台設定。
+//
+// 標題刻意不在這裡另外寫一份：molecules / particles 取自 pageMeta 的頁面
+// 標題，guide / links 取自內建頁面。否則同一個頁面會有兩個名字，改了一邊
+// 另一邊就對不上——頁面標題已經是 Elementary Particles，頁尾卻還是
+// 「基本粒子」。用 getter 而非常數，pageMeta 晚一步載入時也會跟著更新。
 const BUILTIN_NAV = [
-  { slug: 'molecules', label: 'Molecule Groups', to: '/molecules', defaultPosition: 'footer' },
-  { slug: 'particles', label: '基本粒子', to: '/particles', defaultPosition: 'footer' },
-  { slug: 'guide', label: '元素說明書', to: '/guide', defaultPosition: 'footer' },
-  { slug: 'links', label: 'Connect', to: '/links', defaultPosition: 'footer' }
+  { slug: 'molecules', to: '/molecules', defaultPosition: 'footer', label: () => metaText('molecules', 'title') },
+  { slug: 'particles', to: '/particles', defaultPosition: 'footer', label: () => metaText('particles', 'title') },
+  { slug: 'guide', to: '/guide', defaultPosition: 'footer', label: () => BUILTIN_PAGES.guide.title },
+  { slug: 'links', to: '/links', defaultPosition: 'footer', label: () => BUILTIN_PAGES.links.title }
 ]
 
 /**
@@ -55,7 +62,7 @@ export function navItemsFor(position) {
         items.push({ to: b.to, label: page.title, draft: !page.published })
       }
     } else if (b.defaultPosition === position) {
-      items.push({ to: b.to, label: b.label, draft: false })
+      items.push({ to: b.to, label: b.label(), draft: false })
     }
   }
 

@@ -23,20 +23,24 @@
 
 <script>
 import { pagesState, ensurePages, navItemsFor } from '../store/pages'
+import { pageMetaState, ensurePageMeta } from '../store/pageMeta'
 
 export default {
   data() {
-    return { open: false, pagesState }
+    return { open: false, pagesState, pageMetaState }
   },
   computed: {
     items() {
-      // 讀一下 pages 讓 computed 依賴它，後台改完設定才會即時更新
+      // 讀一下這兩個 state 讓 computed 依賴它們：後台改完設定、或 pageMeta
+      // 晚一步載入時，導覽文字才會跟著更新
       this.pagesState.pages.length
+      this.pageMetaState.loaded
       return navItemsFor('sidebar')
     }
   },
   created() {
     ensurePages()
+    ensurePageMeta()
   }
 }
 </script>

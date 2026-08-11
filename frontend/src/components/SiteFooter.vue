@@ -32,7 +32,7 @@
 
 <script>
 import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
-import { ensurePageMeta, metaText } from '../store/pageMeta'
+import { pageMetaState, ensurePageMeta, metaText } from '../store/pageMeta'
 import SocialLink from './SocialLink.vue'
 import AdminLogin from './AdminLogin.vue'
 import { authState } from '../store/auth'
@@ -41,15 +41,18 @@ import { pagesState, ensurePages, navItemsFor } from '../store/pages'
 export default {
   components: { SocialLink, AdminLogin },
   data() {
-    return { creatorLinksState, authState, pagesState }
+    return { creatorLinksState, authState, pagesState, pageMetaState }
   },
   computed: {
     links() {
       return this.creatorLinksState.links
     },
     navItems() {
-      // 依賴 pagesState 才能在後台改完設定後即時更新
-      return this.pagesState.loaded || true ? navItemsFor('footer') : []
+      // 讀一下這兩個 state 讓 computed 依賴它們：後台改完設定、或 pageMeta
+      // 晚一步載入時，導覽文字才會跟著更新
+      this.pagesState.pages.length
+      this.pageMetaState.loaded
+      return navItemsFor('footer')
     }
   },
   methods: { metaText },
