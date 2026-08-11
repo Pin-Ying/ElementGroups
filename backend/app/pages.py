@@ -46,6 +46,9 @@ def normalize_page(slug, data):
     return {
         "slug": slug,
         "title": (data.get("title") or "").strip() or slug,
+        "subtitle": (data.get("subtitle") or "").strip(),
+        # 留空時前台會拿內文開頭當描述
+        "seo_description": (data.get("seo_description") or "").strip(),
         "content": data.get("content") or "",
         "nav_position": nav,
         "nav_order": order,
@@ -94,6 +97,8 @@ def serialize_page(payload):
 
     return slug, {
         "title": title,
+        "subtitle": (payload.get("subtitle") or "").strip(),
+        "seo_description": (payload.get("seo_description") or "").strip(),
         "content": payload.get("content") or "",
         "nav_position": nav,
         "nav_order": order,

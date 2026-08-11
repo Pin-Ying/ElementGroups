@@ -57,59 +57,160 @@
         <p class="content-title">{{ currentSection.label }}</p>
 
         <!-- Pages -->
+        <!-- 頁面管理（issue #20）：系統頁面與自訂頁面併成同一份清單，
+             點「編輯」才進表單。原本是三塊不同的東西疊在同一個捲動頁上，
+             要改哪裡得先捲到對的位置，才會覺得零散 -->
         <div v-if="section === 'pages'" class="box">
-          <p class="title is-4">PAGES</p>
-          <p class="desc">
-            自由新增與編輯頁面，內容使用 Markdown。<br>
-            未發布的頁面只有登入後看得到，可以先存成草稿寫完再發布。
-          </p>
-
-          <div class="page-list">
-            <button
-              v-for="p in pageList"
-              :key="p.slug"
-              class="page-item"
-              type="button"
-              :class="{ active: pageForm.original_slug === p.slug }"
-              @click="selectPage(p)"
-            >
-              <span class="page-item-title">{{ p.title }}</span>
-              <span class="page-item-meta">
-                /p/{{ p.slug }}
-                <span v-if="!p.published" class="draft-tag">草稿</span>
-              </span>
-            </button>
-            <button class="page-item page-item--new" type="button" @click="newPage">＋ 新增頁面</button>
-          </div>
-
-          <div v-if="importablePages.length" class="import-hint">
-            <span>內建頁面尚未轉成可編輯：</span>
-            <button
-              v-for="b in importablePages"
-              :key="b.slug"
-              class="draft-link"
-              type="button"
-              @click="importBuiltin(b.slug)"
-            >載入「{{ b.title }}」</button>
-            <p class="field-hint">
-              載入後即可自由編輯，儲存前不影響現有頁面；發布後該頁就改用你編輯的版本。
+          <!-- ── 清單 ── -->
+          <template v-if="pageMode === 'list'">
+            <div class="section-head">
+              <p class="title is-4">PAGES</p>
+              <button class="button" type="button" @click="newPage">＋ 建立新頁面</button>
+            </div>
+            <p class="desc">
+              系統頁面有固定網址，可以改文案但不能刪除；自訂頁面可自由新增、排序與刪除。<br>
+              未發布的頁面只有登入後看得到。
             </p>
-          </div>
 
-          <form class="page-form" @submit.prevent="handleSavePage">
+            <div class="page-table">
+              <div class="page-row page-row--head">
+                <span>排序</span>
+                <span>標題</span>
+                <span>路徑</span>
+                <span>狀態</span>
+                <span>導覽列</span>
+                <span>操作</span>
+              </div>
+
+              <div v-for="row in pageRows" :key="row.kind + ':' + row.key" class="page-row">
+                <span class="page-order">
+                  <template v-if="row.kind === 'custom'">
+                    <button
+                      class="icon-button"
+                      type="button"
+                      title="上移"
+                      :disabled="!row.canUp || pageSaving"
+                      @click="movePage(row, -1)"
+                    >▲</button>
+                    <button
+                      class="icon-button"
+                      type="button"
+                      title="下移"
+                      :disabled="!row.canDown || pageSaving"
+                      @click="movePage(row, 1)"
+                    >▼</button>
+                  </template>
+                </span>
+
+                <span class="page-title-cell">
+                  {{ row.title }}
+                  <span v-if="row.system" class="system-tag">系統</span>
+                </span>
+
+                <span class="page-path">{{ row.path }}</span>
+
+                <span>
+                  <span class="status-tag" :class="row.published ? 'is-live' : 'is-draft'">
+                    {{ row.published ? '已發布' : '草稿' }}
+                  </span>
+                </span>
+
+                <span class="page-nav-cell">{{ row.nav }}</span>
+
+                <span class="page-ops">
+                  <button class="button secondary small" type="button" @click="editRow(row)">編輯</button>
+                  <button
+                    v-if="row.kind === 'custom'"
+                    class="icon-button danger"
+                    type="button"
+                    :title="pendingDeletePage === row.key ? '再按一次確認刪除' : '刪除'"
+                    :class="{ confirming: pendingDeletePage === row.key }"
+                    @click="deleteRow(row)"
+                  >{{ pendingDeletePage === row.key ? '確認' : '✕' }}</button>
+                </span>
+              </div>
+            </div>
+          </template>
+
+          <!-- ── 編輯：內建文案 ── -->
+          <template v-else-if="editKind === 'meta'">
+            <div class="section-head">
+              <button class="button secondary" type="button" @click="backToList">← 返回列表</button>
+              <p class="title is-4">{{ metaDef ? metaDef.label : '' }}</p>
+              <button class="button" type="button" :disabled="metaSaving" @click="handleSaveMeta">
+                {{ metaSaving ? 'Saving…' : '儲存文案' }}
+              </button>
+            </div>
+            <p class="desc">
+              這頁的版面是固定的，可編輯的是上面的各段文字。<br>
+              欄位留空表示使用內建預設值（顯示在灰字提示裡）；部署更新預設文案不會蓋掉你改過的欄位。
+            </p>
+
+            <form v-if="metaDef" @submit.prevent="handleSaveMeta">
+              <div v-for="f in metaDef.fields" :key="f.name" class="meta-field">
+                <label class="label">{{ f.label }}</label>
+                <textarea
+                  v-if="f.multiline"
+                  class="textarea"
+                  rows="3"
+                  v-model="metaForm[f.name]"
+                  :placeholder="f.default || '（預設為空）'"
+                  :aria-label="f.label"
+                ></textarea>
+                <input
+                  v-else
+                  class="input"
+                  type="text"
+                  v-model="metaForm[f.name]"
+                  :placeholder="f.default || '（預設為空）'"
+                  :aria-label="f.label"
+                />
+              </div>
+            </form>
+          </template>
+
+          <!-- ── 編輯：Markdown 頁面（自訂頁與內建頁共用） ── -->
+          <template v-else>
+            <div class="section-head">
+              <button class="button secondary" type="button" @click="backToList">← 返回列表</button>
+              <p class="title is-4">{{ pageForm.original_slug || pageForm.slug ? `編輯頁面：${pageForm.title || pageForm.slug}` : '建立新頁面' }}</p>
+              <button class="button" type="button" :disabled="pageSaving" @click="publishPage">
+                {{ pageSaving ? 'Saving…' : '發布' }}
+              </button>
+            </div>
+
+            <p v-if="editingBuiltinPage" class="desc">
+              這是內建頁面，網址固定為 {{ '/' + pageForm.slug }}，也不會出現在導覽列。<br>
+              儲存後該頁就改用你編輯的版本；之後部署更新內建模板也不會蓋掉它。
+            </p>
+
+            <form class="page-form" @submit.prevent="publishPage">
             <div class="page-form-row">
               <div>
                 <label class="label">頁面標題</label>
                 <input class="input" type="text" v-model="pageForm.title" />
               </div>
               <div>
-                <label class="label">網址代稱</label>
-                <input class="input" type="text" v-model="pageForm.slug" aria-label="網址代稱" />
-                <p class="field-hint">網址為 /p/{{ pageForm.slug || '…' }}，只能用小寫英數字與連字號</p>
+                <label class="label">副標題</label>
+                <input class="input" type="text" v-model="pageForm.subtitle" aria-label="副標題" />
+                <p class="field-hint">顯示在標題底下，留空就不顯示</p>
               </div>
             </div>
 
             <div class="page-form-row">
+              <div v-if="!editingBuiltinPage">
+                <label class="label">網址代稱</label>
+                <input class="input" type="text" v-model="pageForm.slug" aria-label="網址代稱" />
+                <p class="field-hint">網址為 /p/{{ pageForm.slug || '…' }}，只能用小寫英數字與連字號</p>
+              </div>
+              <div>
+                <label class="label">SEO 描述</label>
+                <input class="input" type="text" v-model="pageForm.seo_description" aria-label="SEO 描述" />
+                <p class="field-hint">搜尋結果顯示的那段字，留空會自動取內文開頭</p>
+              </div>
+            </div>
+
+            <div v-if="!editingBuiltinPage" class="page-form-row">
               <div>
                 <label class="label">導覽位置</label>
                 <select class="select" v-model="pageForm.nav_position">
@@ -204,72 +305,15 @@
             </div>
 
             <div class="link-actions">
-              <button class="button" type="submit" :disabled="pageSaving" @click="pageForm.published = true">
+              <button class="button" type="submit" :disabled="pageSaving">
                 {{ pageSaving ? 'Saving…' : '發布' }}
               </button>
               <button class="button secondary" type="button" :disabled="pageSaving" @click="saveAsDraft">
                 存成草稿
               </button>
-              <button
-                v-if="pageForm.original_slug"
-                class="button secondary"
-                type="button"
-                :disabled="pageSaving"
-                @click="handleDeletePage"
-              >刪除此頁</button>
             </div>
           </form>
-
-          <!-- 內建頁面文案（issue #20）：附加頁面的標題與零碎文字都可覆寫 -->
-          <div class="meta-admin">
-            <p class="label">內建頁面文案</p>
-            <p class="field-hint">
-              附加頁面（分子圖鑑、基本粒子⋯）的標題與零碎文字。<br>
-              留空表示使用內建預設值；部署更新預設文案不會影響你改過的欄位。
-            </p>
-
-            <div class="meta-key-list">
-              <button
-                v-for="d in PAGE_META_DEFS"
-                :key="d.key"
-                class="page-item"
-                type="button"
-                :class="{ active: metaKey === d.key }"
-                @click="selectMetaKey(d.key)"
-              >
-                <span class="page-item-title">{{ d.label }}</span>
-              </button>
-            </div>
-
-            <form v-if="metaDef" @submit.prevent="handleSaveMeta">
-              <div v-for="f in metaDef.fields" :key="f.name" class="meta-field">
-                <label class="label">{{ f.label }}</label>
-                <textarea
-                  v-if="f.multiline"
-                  class="textarea"
-                  rows="3"
-                  v-model="metaForm[f.name]"
-                  :placeholder="f.default || '（預設為空）'"
-                  :aria-label="f.label"
-                ></textarea>
-                <input
-                  v-else
-                  class="input"
-                  type="text"
-                  v-model="metaForm[f.name]"
-                  :placeholder="f.default || '（預設為空）'"
-                  :aria-label="f.label"
-                />
-              </div>
-
-              <div class="link-actions">
-                <button class="button" type="submit" :disabled="metaSaving">
-                  {{ metaSaving ? 'Saving…' : '儲存文案' }}
-                </button>
-                <span class="ai-quota">欄位留空＝使用預設值（顯示在灰字提示）</span>
-              </div>
-            </form>
-          </div>
+          </template>
         </div>
 
         <!-- Molecules -->
@@ -1190,7 +1234,7 @@ import { BUILTIN_PAGES } from '../utils/builtinPages'
 import { outerElectronCount } from '../utils/valence'
 import { parseFormula } from '../utils/formula'
 import { GROUP_SECTIONS } from '../utils/elementGroups'
-import { PAGE_META_DEFS, metaDef as pageMetaDef } from '../utils/pageMeta'
+import { metaDef as pageMetaDef } from '../utils/pageMeta'
 import { refreshPageMeta } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
@@ -1203,6 +1247,22 @@ const NAV_POSITIONS = [
   { key: 'footer', label: '頁尾' },
   { key: 'header', label: '頁首' },
   { key: 'none', label: '不顯示於導覽' }
+]
+
+// 網址固定、由程式提供版面的頁面。可以改文案，但不能刪也不能改路徑。
+// 三種編輯方式：
+//   site     首頁文案在「網站設定」，這裡只做入口
+//   markdown /guide 與 /links，整頁內容就是 Markdown
+//   meta     版面固定，只有零碎文字可覆寫（PAGE_META_DEFS）
+const SYSTEM_PAGES = [
+  { kind: 'site', key: 'home', label: '首頁', path: '/' },
+  { kind: 'markdown', key: 'guide', path: '/guide' },
+  { kind: 'markdown', key: 'links', path: '/links' },
+  { kind: 'meta', key: 'molecules', path: '/molecules' },
+  { kind: 'meta', key: 'molecule', path: '/molecule/…' },
+  { kind: 'meta', key: 'particles', path: '/particles' },
+  { kind: 'meta', key: 'story', path: '/stroy/…' },
+  { kind: 'meta', key: 'footer', path: '（全站頁尾）' }
 ]
 
 // 常用化合物分類，datalist 建議用；可自由輸入其他分類
@@ -1220,7 +1280,7 @@ const EMPTY_MOLECULE = () => ({
 })
 
 const EMPTY_PAGE = () => ({
-  original_slug: '', slug: '', title: '',
+  original_slug: '', slug: '', title: '', subtitle: '', seo_description: '',
   content: '', nav_position: 'sidebar', nav_order: 0, published: false
 })
 
@@ -1285,7 +1345,6 @@ export default {
       FRAME_STYLES,
       GALLERY_MAX,
       GROUP_SECTIONS,
-      PAGE_META_DEFS,
       CATEGORY_PRESETS,
       NAV_POSITIONS,
       layerForm: { nucleus: '', name_img: '', electron_style: '' },
@@ -1307,6 +1366,11 @@ export default {
       newStyleInfo: null,
       styleSaving: false,
       pageList: [],
+      SYSTEM_PAGES,
+      // 清單／編輯兩段式，避免所有東西擠在同一個捲動頁
+      pageMode: 'list',
+      editKind: 'page',
+      pendingDeletePage: '',
       pageMetaAll: {},
       metaKey: '',
       metaForm: {},
@@ -1408,15 +1472,77 @@ export default {
         return { symbol: sym, hasStory, hasImage, label: sym + marks }
       })
     },
-    // 內建頁面中尚未存進資料庫的，提供一鍵載入
     editingBuiltinPage() {
       return !!BUILTIN_PAGES[this.pageForm.slug]
     },
-    importablePages() {
-      const existing = new Set(this.pageList.map(p => p.slug))
-      return Object.entries(BUILTIN_PAGES)
-        .filter(([slug]) => !existing.has(slug))
-        .map(([slug, p]) => ({ slug, title: p.title }))
+    // 系統頁面與自訂頁面合成同一份清單。系統頁排在前面（網址固定、順序
+    // 也固定），自訂頁接在後面，依導覽位置分組後才照 nav_order 排
+    pageRows() {
+      const rows = SYSTEM_PAGES.map(s => {
+        if (s.kind === 'markdown') {
+          // 資料庫有同名頁面表示已經改過，標題與發布狀態要看資料庫的版本
+          const saved = this.pageList.find(p => p.slug === s.key)
+          return {
+            kind: 'markdown',
+            key: s.key,
+            title: saved?.title || BUILTIN_PAGES[s.key].title,
+            path: s.path,
+            published: saved ? saved.published : true,
+            nav: '固定',
+            system: true,
+            saved
+          }
+        }
+        if (s.kind === 'site') {
+          return {
+            kind: 'site',
+            key: s.key,
+            title: this.siteForm.title || s.label,
+            path: s.path,
+            published: true,
+            nav: '固定',
+            system: true
+          }
+        }
+        return {
+          kind: 'meta',
+          key: s.key,
+          title: pageMetaDef(s.key)?.label || s.key,
+          path: s.path,
+          published: true,
+          nav: '固定',
+          system: true
+        }
+      })
+
+      const builtinSlugs = new Set(Object.keys(BUILTIN_PAGES))
+      const navRank = Object.fromEntries(NAV_POSITIONS.map((n, i) => [n.key, i]))
+      const custom = this.pageList
+        .filter(p => !builtinSlugs.has(p.slug))
+        .sort((a, b) =>
+          (navRank[a.nav_position] ?? 99) - (navRank[b.nav_position] ?? 99) ||
+          (a.nav_order || 0) - (b.nav_order || 0) ||
+          a.title.localeCompare(b.title)
+        )
+
+      custom.forEach((p, i) => {
+        const sameGroup = j => custom[j] && custom[j].nav_position === p.nav_position
+        rows.push({
+          kind: 'custom',
+          key: p.slug,
+          title: p.title,
+          path: `/p/${p.slug}`,
+          published: p.published,
+          nav: NAV_POSITIONS.find(n => n.key === p.nav_position)?.label || p.nav_position,
+          page: p,
+          // 排序只在同一個導覽位置內有意義，跨組交換不會改變畫面
+          canUp: sameGroup(i - 1),
+          canDown: sameGroup(i + 1),
+          neighbours: { up: custom[i - 1], down: custom[i + 1] }
+        })
+      })
+
+      return rows
     },
     selectedConfig() {
       return this.elementConfigs[this.selectedSymbol] || ''
@@ -2005,6 +2131,7 @@ export default {
       if (!b) return
       this.pageForm = {
         original_slug: '', slug, title: b.title, content: b.content,
+        subtitle: '', seo_description: '',
         // 這兩頁本來就有自己的路由，不需要再出現在導覽列
         nav_position: 'none', nav_order: 0, published: true
       }
@@ -2016,6 +2143,7 @@ export default {
       this.pageAiSuggestion = ''
       this.pageForm = {
         original_slug: p.slug, slug: p.slug, title: p.title,
+        subtitle: p.subtitle || '', seo_description: p.seo_description || '',
         content: p.content || '', nav_position: p.nav_position,
         nav_order: p.nav_order, published: p.published
       }
@@ -2025,6 +2153,82 @@ export default {
       this.pageAiTopic = ''
       this.pageAiDirection = ''
       this.pageAiSuggestion = ''
+      this.editKind = 'page'
+      this.pageMode = 'edit'
+    },
+    // 清單上按「編輯」：依這一列是哪種頁面決定要開哪個表單
+    editRow(row) {
+      this.pendingDeletePage = ''
+      if (row.kind === 'site') {
+        // 首頁文案本來就住在網站設定，這裡只是把入口收進清單
+        this.section = 'site'
+        return
+      }
+      if (row.kind === 'meta') {
+        this.selectMetaKey(row.key)
+        this.editKind = 'meta'
+        this.pageMode = 'edit'
+        return
+      }
+      if (row.kind === 'markdown' && !row.saved) {
+        // 還沒改過的內建頁，先把內建模板帶進編輯框；按發布才會真的覆寫
+        this.importBuiltin(row.key)
+      } else {
+        this.selectPage(row.saved || row.page)
+      }
+      this.editKind = 'page'
+      this.pageMode = 'edit'
+    },
+    backToList() {
+      this.pageMode = 'list'
+      this.pendingDeletePage = ''
+    },
+    // 同一個導覽位置內和上／下一頁交換 nav_order
+    async movePage(row, delta) {
+      const other = delta < 0 ? row.neighbours.up : row.neighbours.down
+      if (!other) return
+
+      this.pageSaving = true
+      try {
+        // nav_order 可能兩頁都是 0（沒排過），直接交換會沒有效果，
+        // 所以改成依目前的順序重新編號
+        const a = { ...row.page, nav_order: other.nav_order }
+        const b = { ...other, nav_order: row.page.nav_order }
+        if (a.nav_order === b.nav_order) {
+          a.nav_order = delta < 0 ? b.nav_order - 1 : b.nav_order + 1
+        }
+        await savePage({ ...a, original_slug: a.slug })
+        await savePage({ ...b, original_slug: b.slug })
+        await this.loadPages()
+        await refreshPages()
+      } catch (e) {
+        showToast(e.response?.data?.message || '排序失敗', 'error')
+      } finally {
+        this.pageSaving = false
+      }
+    },
+    // 清單上直接刪除，按兩次確認（與電子樣式庫同一套互動）
+    async deleteRow(row) {
+      if (this.pendingDeletePage !== row.key) {
+        this.pendingDeletePage = row.key
+        return
+      }
+      this.pendingDeletePage = ''
+      this.pageSaving = true
+      try {
+        const res = await deletePage(row.key)
+        showToast(res.data.message || '已刪除', 'success')
+        await this.loadPages()
+        await refreshPages()
+      } catch (e) {
+        showToast(e.response?.data?.message || '刪除失敗', 'error')
+      } finally {
+        this.pageSaving = false
+      }
+    },
+    async publishPage() {
+      this.pageForm.published = true
+      await this.handleSavePage()
     },
     async saveAsDraft() {
       this.pageForm.published = false
@@ -2042,22 +2246,6 @@ export default {
         await refreshPages()
       } catch (e) {
         showToast(e.response?.data?.message || '儲存失敗', 'error')
-      } finally {
-        this.pageSaving = false
-      }
-    },
-    async handleDeletePage() {
-      const slug = this.pageForm.original_slug
-      if (!slug) return
-      this.pageSaving = true
-      try {
-        const res = await deletePage(slug)
-        showToast(res.data.message || '已刪除', 'success')
-        this.newPage()
-        await this.loadPages()
-        await refreshPages()
-      } catch (e) {
-        showToast(e.response?.data?.message || '刪除失敗', 'error')
       } finally {
         this.pageSaving = false
       }
@@ -3374,26 +3562,6 @@ export default {
   .style-upload { grid-template-columns: 1fr; }
 }
 
-/* ── 內建頁面匯入提示 ── */
-.import-hint {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 0 0 16px;
-  padding: 10px 14px;
-  border: 1px solid rgba(157, 140, 255, 0.28);
-  border-radius: 8px;
-  background: rgba(90, 70, 160, 0.12);
-  font-size: 13px;
-  color: rgba(228, 251, 255, 0.7);
-}
-
-.import-hint .field-hint {
-  flex-basis: 100%;
-  margin: 0;
-}
-
 /* ── 元素故事草稿 ── */
 .draft-notice {
   display: flex;
@@ -4037,19 +4205,109 @@ button.button:disabled {
   opacity: 0.7;
 }
 
-/* ── 內建頁面文案 ── */
-.meta-admin {
-  margin-top: 26px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(228, 251, 255, 0.12);
-}
-
-.meta-key-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0 14px;
-}
-
 .meta-field { margin-bottom: 4px; }
+
+/* ── 頁面管理：清單／編輯 ── */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+/* 標題吃掉中間的空間，把動作按鈕推到兩端 */
+.section-head .title { margin: 0; flex: 1; }
+
+.page-table {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+  border: 1px solid rgba(228, 251, 255, 0.12);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.page-row {
+  display: grid;
+  grid-template-columns: 68px minmax(120px, 1.6fr) minmax(100px, 1.2fr) 84px 96px auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 14px;
+  border-top: 1px solid rgba(228, 251, 255, 0.08);
+  font-size: 13px;
+}
+
+.page-row:first-child { border-top: none; }
+
+.page-row--head {
+  background: rgba(228, 251, 255, 0.05);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+}
+
+.page-order { display: flex; gap: 2px; }
+.page-order .icon-button { padding: 0 4px; font-size: 11px; }
+
+.page-title-cell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: bold;
+}
+
+.page-path {
+  font-family: monospace;
+  font-size: 12px;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+
+.system-tag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(228, 251, 255, 0.12);
+  font-size: 11px;
+  font-weight: normal;
+  opacity: 0.75;
+}
+
+.status-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.status-tag.is-live { background: rgba(110, 231, 110, 0.14); color: #6ee76e; }
+.status-tag.is-draft { background: rgba(255, 196, 107, 0.14); color: #ffc46b; }
+
+.page-nav-cell { font-size: 12px; opacity: 0.7; }
+
+.page-ops {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.button.small { padding: 4px 12px; font-size: 12px; }
+
+/* 窄螢幕排不下六欄，改成兩欄的卡片，欄位前面補上名稱 */
+@media (max-width: 700px) {
+  .page-row--head { display: none; }
+
+  .page-row {
+    grid-template-columns: 1fr auto;
+    gap: 6px 10px;
+    padding: 12px 14px;
+  }
+
+  .page-order { grid-row: 1; grid-column: 2; justify-content: flex-end; }
+  .page-title-cell { grid-row: 1; grid-column: 1; }
+  .page-path { grid-column: 1 / -1; }
+  .page-nav-cell::before { content: '導覽列：'; }
+  .page-ops { grid-column: 1 / -1; justify-content: flex-start; }
+}
 </style>

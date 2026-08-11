@@ -4,6 +4,7 @@
 
     <template v-if="page">
       <p class="title">{{ page.title }}</p>
+      <p v-if="page.subtitle" class="page-subtitle">{{ page.subtitle }}</p>
       <p v-if="!page.published" class="draft-badge">草稿 — 只有登入後看得到</p>
       <MarkdownContent :source="page.content" />
     </template>
@@ -41,7 +42,8 @@ export default {
         // 分頁標題帶上頁面名稱，回首頁時 App 會再改回來
         setPageSeo({
           title: `${this.page.title}｜${siteSettingsState.title}`,
-          description: markdownExcerpt(this.page.content),
+          // 後台沒寫 SEO 描述就退回內文開頭
+          description: this.page.seo_description || markdownExcerpt(this.page.content),
           path: `/p/${this.slug}`,
           noindex: !this.page.published
         })
@@ -67,6 +69,14 @@ export default {
 
 .page .title {
   text-align: center;
+}
+
+/* 與分子圖鑑、基本粒子頁的副標題一致 */
+.page-subtitle {
+  font-size: 14px;
+  color: rgba(228, 251, 255, 0.55);
+  margin: 6px 0 18px;
+  white-space: pre-wrap;
 }
 
 .draft-badge {
