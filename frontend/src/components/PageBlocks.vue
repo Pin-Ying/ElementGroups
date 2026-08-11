@@ -38,6 +38,7 @@
 // 既有的 renderMarkdown 處理。utils/markdown.js 本來就支援 :::cards、
 // :::note、:::links，重寫一套只會多一份要維護的樣式。
 import MarkdownContent from './MarkdownContent.vue'
+import { blockToMarkdown } from '../utils/blockTypes'
 
 export default {
   components: { MarkdownContent },
@@ -58,24 +59,7 @@ export default {
       return data?.image || ''
     },
     toMarkdown(block) {
-      const d = block.data || {}
-
-      if (block.type === 'text' || block.type === 'markdown') return d.body || ''
-      if (block.type === 'note') return `:::note\n${d.body || ''}\n:::`
-      if (block.type === 'links') return ':::links\n:::'
-
-      if (block.type === 'cards') {
-        const items = (d.items || [])
-          .filter(it => (it.title || '').trim() || (it.body || '').trim())
-          .map(it => {
-            // 標題與附註用 | 分隔，是 :::cards 既有的格式
-            const heading = it.note ? `${it.title} | ${it.note}` : it.title
-            return `### ${heading}\n${it.body || ''}`
-          })
-        return items.length ? `:::cards\n${items.join('\n\n')}\n:::` : ''
-      }
-
-      return ''
+      return blockToMarkdown(block)
     }
   }
 }

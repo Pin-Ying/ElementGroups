@@ -14,7 +14,7 @@ import { builtinPage } from '../utils/builtinPages'
 import { siteSettingsState } from '../store/siteSettings'
 import { setPageSeo, markdownExcerpt } from '../utils/seo'
 import PageBlocks from '../components/PageBlocks.vue'
-import { blocksFrom } from '../utils/blockTypes'
+import { blocksFrom, blocksToText } from '../utils/blockTypes'
 
 export default {
   components: { PageBlocks },
@@ -45,7 +45,7 @@ export default {
     setPageSeo({
       title: `${this.page.title}｜${siteSettingsState.title}`,
       // Markdown 的前幾行就是這頁在講什麼，拿來當描述比另外寫一句準
-      description: markdownExcerpt(this.page.content),
+      description: markdownExcerpt(blocksToText(this.pageBlocks)),
       path: '/guide',
       noindex: this.fromDatabase && !this.published
     })

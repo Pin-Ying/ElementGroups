@@ -78,8 +78,9 @@ export function getMolecule(slug) {
   return api.get(`/molecules/${slug}`)
 }
 
-export function suggestPage(payload) {
-  return api.post('/admin/page-suggest', payload)
+// 所有 AI 建議共用這一支；kind 決定用哪個提示模板
+export function aiSuggest(payload) {
+  return api.post('/admin/ai/suggest', payload)
 }
 
 export function getPageMeta() {
@@ -176,9 +177,6 @@ export function getAiStatus() {
   return api.get('/ai/status')
 }
 
-export function suggestStory(payload) {
-  return api.post('/admin/story-suggest', payload)
-}
 
 export function getRecentElements(limit = 8) {
   return api.get('/elements/recent', { params: { limit } })

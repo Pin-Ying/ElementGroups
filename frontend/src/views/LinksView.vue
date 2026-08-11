@@ -16,7 +16,7 @@ import { creatorLinksState, ensureCreatorLinks } from '../store/creatorLinks'
 import { siteSettingsState } from '../store/siteSettings'
 import { setPageSeo, markdownExcerpt } from '../utils/seo'
 import PageBlocks from '../components/PageBlocks.vue'
-import { blocksFrom } from '../utils/blockTypes'
+import { blocksFrom, blocksToText } from '../utils/blockTypes'
 
 export default {
   components: { PageBlocks },
@@ -46,7 +46,7 @@ export default {
     }
     setPageSeo({
       title: `${this.page.title}｜${siteSettingsState.title}`,
-      description: markdownExcerpt(this.page.content) || creatorLinksState.description,
+      description: markdownExcerpt(blocksToText(this.pageBlocks)) || creatorLinksState.description,
       path: '/links'
     })
   }

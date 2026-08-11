@@ -117,67 +117,29 @@ def backfill_img_data():
         return jsonify({"result": "failure", "message": str(e)}), 500
 
 
-@admin_bp.route("/admin/page-suggest", methods=["POST"])
+@admin_bp.route("/admin/ai/suggest", methods=["POST"])
 @login_required
-def page_suggest():
-    """頁面內容的 AI 協助（issue #19）。與故事共用每日額度。"""
-    if not ai.is_enabled():
-        return jsonify({"result": "failure", "message": "AI 功能未啟用"}), 400
+def ai_suggest():
+    """所有 AI 建議共用的端點。
 
+    kind 決定用哪個提示模板（見 app/ai.py 的 SUGGEST_KINDS），context 是
+    該用途需要的資料。新增用途不必再開一支端點。
+    """
     data = request.get_json() or {}
-    topic = (data.get("topic") or "").strip()
-    if not topic:
-        return jsonify({"result": "failure", "message": "請先描述頁面主題"}), 400
-
     try:
-        text, used, limit = ai.generate_page(
-            topic,
+        text, used, limit = ai.suggest(
+            (data.get("kind") or "").strip(),
+            context=data.get("context") or {},
             draft=(data.get("draft") or "").strip(),
             direction=(data.get("direction") or "").strip(),
         )
         return jsonify({"result": "success", "suggestion": text, "used": used, "limit": limit})
-    except Exception as e:
-        return jsonify({"result": "failure", "message": str(e)}), 502
-
-
-@admin_bp.route("/admin/story-suggest", methods=["POST"])
-@login_required
-def story_suggest():
-    if not ai.is_enabled():
-        return jsonify({"result": "failure", "message": "AI 功能未啟用"}), 400
-
-    data = request.get_json() or {}
-    symbol = (data.get("symbol") or "").strip()
-    if not symbol:
-        return jsonify({"result": "failure", "message": "缺少 symbol"}), 400
-
-    element = get_element_by_symbol(symbol)
-    if not element:
-        return jsonify({"result": "failure", "message": f"找不到元素 {symbol}"}), 404
-
-    # 勾選帶入主族形象時，後端自己查該元素所屬族的設定（issue #16）
-    group_info = ""
-    if data.get("include_group"):
-        key = group_key_for(element.get("AtomicNumber"))
-        if key:
-            group = normalize_group(key, show_fdb(f"{GROUPS_NODE}/{key}"))
-            if group_has_content(group):
-                pieces = [f"所屬族：{key}"]
-                if group["name"]:
-                    pieces.append(f"形象名稱：{group['name']}")
-                if group["description"]:
-                    pieces.append(f"共同特色：{group['description']}")
-                group_info = "\n".join(pieces)
-
-    try:
-        text, used, limit = ai.generate_story(
-            element,
-            draft=(data.get("draft") or "").strip(),
-            direction=(data.get("direction") or "").strip(),
-            reference=(data.get("reference") or "").strip(),
-            group_info=group_info,
-        )
-        return jsonify({"result": "success", "suggestion": text, "used": used, "limit": limit})
+    except ValueError as e:
+        # 輸入問題（不認得的 kind、缺主題、找不到元素）算 400
+        return jsonify({"result": "failure", "message": str(e)}), 400
+    except RuntimeError as e:
+        # 未啟用或額度用盡
+        return jsonify({"result": "failure", "message": str(e)}), 400
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 502
 

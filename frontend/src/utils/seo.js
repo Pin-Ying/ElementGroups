@@ -80,6 +80,9 @@ export function truncate(text, max = 155) {
 export function markdownExcerpt(md, max = 155) {
   const text = String(md || '')
     .replace(/```[\s\S]*?```/g, ' ')
+    // 本站的 :::cards / :::note / :::links 圍籬是版面指令不是內文，
+    // 留著會變成搜尋結果上的「:::links :::」
+    .replace(/^:::.*$/gm, ' ')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')

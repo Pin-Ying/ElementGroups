@@ -1,0 +1,41 @@
+{
+ "id": "mod-030",
+ "date": "2026-08-11",
+ "issue": 26,
+ "branch": "feature/ai-assist",
+ "title": "接上真實 Gemini 實測：模型型號已退役，輸出格式則不需要清理",
+ "type": "fix",
+ "summary": "站長填入 API key 後實測，發現預設的 gemini-2.0-flash 已退役、API 直接回 404，等於 AI 功能在任何用預設值的環境都是壞的。改用 gemini-flash-latest。同時確認四種用途的實際輸出都是乾淨純文字，先前預想的輸出清理不需要做。",
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/config.py",
+    "change_type": "modified",
+    "diff_summary": "AI_MODEL 預設改為 gemini-flash-latest，補上型號會退役的說明"
+   },
+   {
+    "path": "backend/.env.example",
+    "change_type": "modified",
+    "diff_summary": "同步型號，附上查詢可用清單的指令"
+   },
+   {
+    "path": "backend/app/gemini.py",
+    "change_type": "modified",
+    "diff_summary": "錯誤訊息移除已退役的型號舉例"
+   },
+   {
+    "path": "backend/scripts/try_ai.py",
+    "change_type": "modified",
+    "diff_summary": "輸出後附字數行數，並偵測是否被 ``` 或引號包住"
+   }
+  ]
+ },
+ "notes": [
+  "gemini-2.0-flash 回 404 並附訊息 no longer available。這不只是本機問題——config.py 的預設值就是它，任何沒有明確指定 AI_MODEL 的環境都會壞，包含線上",
+  "改用 gemini-flash-latest：型號退役是會再發生的事，-latest 會自己跟著走。要固定版本就在 .env 指定明確型號",
+  "可用清單可用 GET /v1beta/models?key=... 查，指令寫進 .env.example",
+  "四種用途的真實輸出全部乾淨：沒有 ``` 圍籬、沒有引號包覆、沒有「好的，這是我為您撰寫的」這類開場白。page-seo 32 字一行、group-archetype 248 字一段、element-story 260 字兩段、page-content 1402 字且正確用上 :::cards 與 :::note",
+  "所以先前提議的輸出清理（剝圍籬、去引號、壓單行）暫時不做。沒有實際發生的問題就加防禦，只是多一層以後要維護、又沒有測試涵蓋的東西。試用腳本已經會偵測並標示這兩種情況，真的出現再處理",
+  "docker 把 stdout 與 stderr 分兩個串流送，先 print 不保證先出現，所以統計固定印在正文之後；正文走 stdout，導向檔案時拿到的是乾淨內容"
+ ]
+}

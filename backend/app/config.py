@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     # 前端也不會顯示相關按鈕。
     AI_PROVIDER: str = "gemini"
     AI_API_KEY: str = ""
-    AI_MODEL: str = "gemini-2.0-flash"
+    # Google 會讓舊型號退役，屆時 API 直接回 404。想固定在某個版本就在
+    # .env 指定；不指定的話這個預設值要跟著更新
+    AI_MODEL: str = "gemini-flash-latest"
     AI_DAILY_LIMIT: int = 50
     # 思考型模型會先花掉一部分輸出預算，太低會讓正文被截斷
     AI_MAX_OUTPUT_TOKENS: int = 4096

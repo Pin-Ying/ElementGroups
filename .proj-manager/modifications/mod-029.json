@@ -1,0 +1,42 @@
+{
+ "id": "mod-029",
+ "date": "2026-08-11",
+ "issue": 26,
+ "branch": "feature/ai-assist",
+ "title": "把提示與模型呼叫從 ai.py 拆出來，讓本機不需要 Firebase 也能試真實輸出",
+ "type": "refactor",
+ "summary": "站長想在本機用真的 Gemini key 試輸出，但 app.ai 連帶載入 Firebase，而本機沒有可用憑證，於是完全試不了。提示與呼叫本來就只需要 settings，拆成 prompts.py 與 gemini.py，額度計數（唯一真的需要資料庫的部分）留在 ai.py。",
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/prompts.py",
+    "change_type": "added",
+    "diff_summary": "四個 build_*_prompt，純函式、無外部相依"
+   },
+   {
+    "path": "backend/app/gemini.py",
+    "change_type": "added",
+    "diff_summary": "call_gemini：送出提示與解讀回應，只需要 settings"
+   },
+   {
+    "path": "backend/app/ai.py",
+    "change_type": "modified",
+    "diff_summary": "只留額度計數、kind 註冊表與 suggest 入口"
+   },
+   {
+    "path": "backend/scripts/try_ai.py",
+    "change_type": "added",
+    "diff_summary": "本機試真實輸出的 CLI，四種 kind 各附示範 context，--show-prompt 可不呼叫模型"
+   }
+  ]
+ },
+ "notes": [
+  "拆法的依據是「需不需要資料庫」：提示是 context 的純函式、呼叫模型只要 API key，只有額度計數要讀 Firebase。原本三件事在同一個模組，最重的相依就綁死了最輕的兩件",
+  "try_ai.py 必須繞過 app/__init__.py——它 import auth、auth import firebase，所以連 from app.config import settings 都會去連資料庫。做法是先塞一個只有 __path__ 的空 app 套件進 sys.modules，之後 import app.xxx 當成子模組直接載入，__init__ 不執行",
+  "這支腳本的呼叫不會計入每日額度，因為額度記在 Firebase。文件字串裡有講明，免得誤以為線上額度被吃掉",
+  "--show-prompt 不需要 key 也不花額度，純粹看提示組出來長怎樣；四種 kind 都實測過",
+  "element-story 在正式流程是後端自己去 Firebase 撈整筆元素資料，腳本裡改用一份等價的假資料，才能不連資料庫就試",
+  "routes 只用到 ai.is_enabled / ai.get_usage / ai.suggest，三個都還在 ai.py，對外介面沒有變",
+  "還沒做：模型輸出的清理（剝 ``` 圍籬、去引號、page-seo 壓成單行）。要先看真實輸出長怎樣才知道該剝什麼，所以順序是先有這支腳本"
+ ]
+}
