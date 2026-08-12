@@ -780,3 +780,27 @@ AI 協助補齊基本粒子、分子、網站設定（issue #26 第三階段，m
 
 ### 至此 issue #26 的接點
 元素故事、頁面內容、區塊 Markdown、主族形象、頁面 SEO、粒子形象稱呼、粒子介紹、分子介紹、網站描述。「內建頁面的零碎文案」照 issue 判斷不做；「圖片說明文字」需要 vision model，另案。
+
+---
+
+## [修正] - 2026-08-11 | fix/library-read-amplification
+
+### 變更類型
+前台 7 個端點不再整包讀 `_libraries`（issue #30 第一步，mod-032）
+
+### 背景
+`_libraries` 一個節點裝著所有圖庫的所有圖片 base64。7 個公開端點都是 `show_fdb(LIBRARIES_NODE)` 整包讀下來，只為了取出其中一張圖——與先前 `/elements/seo` 那次 30 秒 timeout 是同一個病。
+
+### 做法
+- `show_fdb_where()`：以子欄位過濾讀取。RTDB 的 orderBy 需要索引，沒有索引時接住例外退回整包讀，所以現在合併不會壞
+- 查清單的端點用 `bind_type` 過濾；查單一對象的用 `bind_id`（精準得多）
+- 頁面端點改成先掃出區塊參照到哪些圖庫再逐一讀；沒有圖片參照就完全不碰 `_libraries`
+
+### 量測（8 個圖庫 / 4.58MB）
+改動前 7 個端點都讀 100%；改動後單一對象降到 12.5%（正好一個圖庫），清單端點只讀該類型。
+
+### 要在 Firebase 主控台補一行
+```json
+"_libraries": { ".indexOn": ["bind_type", "bind_id"] }
+```
+沒加也能運作（會走 fallback），加了之後自動變快、不必改程式。

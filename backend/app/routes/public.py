@@ -12,7 +12,7 @@ from app.elements import get_atomicOrbital, get_characteristic, get_abMax
 from app.links import normalize_creator_links
 from app.completion import get_completion
 from app.gallery import normalize_gallery
-from app.pages import normalize_page, normalize_pages, resolve_block_images, PAGES_NODE
+from app.pages import normalize_page, normalize_pages, resolve_block_images, referenced_library_ids, PAGES_NODE
 from app.molecules import normalize_molecule, normalize_molecules, MOLECULES_NODE
 from app.particles import normalize_particles, PARTICLES_NODE
 from app.page_meta import PAGE_META_NODE, normalize_all
@@ -20,7 +20,7 @@ from app.groups import GROUPS_NODE, GROUP_KEYS, normalize_group, normalize_group
 from app.layers import normalize_layers, normalize_electron_styles, normalize_motion, resolve_electron_style, LAYERS_NODE, ELECTRON_STYLES_NODE, ELECTRON_DEFAULT_NODE, MOTION_NODE
 from app.libraries import normalize_libraries, libraries_for, find_library, resolve_image, primary_image_data, LIBRARIES_NODE
 from app.stats import get_all_views, record_view
-from app.firebase import show_fdb, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
+from app.firebase import show_fdb, show_fdb_where, get_periodic_table, get_element_by_symbol, get_element_by_atomic_number, get_image_bytes
 
 public_bp = Blueprint("public", __name__, url_prefix="/api")
 
@@ -285,7 +285,8 @@ def get_element_layers(symbol):
         style_id = ""
 
         library = next(iter(libraries_for(
-            normalize_libraries(show_fdb(LIBRARIES_NODE)), "particle", "electron")), None)
+            normalize_libraries(show_fdb_where(LIBRARIES_NODE, "bind_id", "electron")),
+            "particle", "electron")), None)
 
         if library:
             image = resolve_image(library, picked)
@@ -314,7 +315,7 @@ def get_element_layers(symbol):
 def get_element_groups():
     """所有已設定形象的族。"""
     try:
-        libraries = normalize_libraries(show_fdb(LIBRARIES_NODE))
+        libraries = normalize_libraries(show_fdb_where(LIBRARIES_NODE, "bind_type", "group"))
         groups = normalize_groups(show_fdb(GROUPS_NODE))
         for group in groups:
             from_library = primary_image_data(libraries, "group", group["key"])
@@ -334,7 +335,7 @@ def get_element_group(key):
     try:
         group = normalize_group(key, show_fdb(f"{GROUPS_NODE}/{key}"))
         from_library = primary_image_data(
-            normalize_libraries(show_fdb(LIBRARIES_NODE)), "group", key)
+            normalize_libraries(show_fdb_where(LIBRARIES_NODE, "bind_id", key)), "group", key)
         if from_library:
             group["img_data"] = from_library
         return jsonify(group)
@@ -358,7 +359,7 @@ def get_particles():
         particles = normalize_particles(show_fdb(PARTICLES_NODE),
                                         include_drafts=current_user.is_authenticated)
         # 搬進圖庫的粒子改用圖庫的預設圖當形象圖；沒搬的沿用自己的 img_data
-        libraries = normalize_libraries(show_fdb(LIBRARIES_NODE))
+        libraries = normalize_libraries(show_fdb_where(LIBRARIES_NODE, "bind_type", "particle"))
         for particle in particles:
             from_library = primary_image_data(libraries, "particle", particle["slug"])
             if from_library:
@@ -395,7 +396,8 @@ def get_molecule(slug):
         molecule = normalize_molecule(slug, show_fdb(f"{MOLECULES_NODE}/{slug}"))
         if molecule:
             from_library = primary_image_data(
-                normalize_libraries(show_fdb(LIBRARIES_NODE)), "molecule", slug)
+                normalize_libraries(show_fdb_where(LIBRARIES_NODE, "bind_id", slug)),
+                "molecule", slug)
             if from_library:
                 molecule["img_data"] = from_library
         if not molecule:
@@ -432,8 +434,12 @@ def get_page(slug):
         if not page["published"] and not current_user.is_authenticated:
             return jsonify({"result": "failure", "exception": "Page not found"}), 404
         # 區塊裡的圖庫參照在這裡解析成實際圖片，渲染端就不必認識圖庫
-        page["blocks"] = resolve_block_images(
-            page["blocks"], normalize_libraries(show_fdb(LIBRARIES_NODE)))
+        # 只讀區塊真的參照到的圖庫；沒有參照就完全不必碰 _libraries
+        used = referenced_library_ids(page["blocks"])
+        libraries = normalize_libraries({
+            lib_id: show_fdb(f"{LIBRARIES_NODE}/{lib_id}") for lib_id in used
+        }) if used else []
+        page["blocks"] = resolve_block_images(page["blocks"], libraries)
         return jsonify(page)
     except Exception as e:
         return jsonify({"result": "failure", "exception": str(e)}), 500
@@ -467,7 +473,8 @@ def get_element_gallery(symbol):
         # 搬進圖庫的元素改讀圖庫；沒搬的照舊。圖庫的 name 對應舊的 caption，
         # 回傳形狀維持不變，前端不必知道資料換了地方
         library = find_library(
-            normalize_libraries(show_fdb(LIBRARIES_NODE)), "element", symbol)
+            normalize_libraries(show_fdb_where(LIBRARIES_NODE, "bind_id", symbol)),
+            "element", symbol)
         if library:
             return jsonify({"images": [
                 {"img_data": i["img_data"], "caption": i["name"]} for i in library["images"]

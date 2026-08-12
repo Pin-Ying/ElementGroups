@@ -60,6 +60,29 @@ def normalize_blocks(raw):
     return blocks
 
 
+def referenced_library_ids(blocks):
+    """區塊裡用到的圖庫 id。
+
+    解析區塊圖片時只需要這幾個圖庫，不必把整個 _libraries 讀下來——那裡面
+    是所有圖庫的所有 base64。
+    """
+    found = set()
+
+    def collect(value):
+        if isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            ref = value.get("image_ref")
+            if isinstance(ref, dict) and ref.get("library"):
+                found.add(ref["library"])
+            for item in value.values():
+                collect(item)
+
+    collect(blocks)
+    return found
+
+
 def resolve_block_images(blocks, libraries):
     """把區塊裡的圖庫參照換成實際的圖片 base64。
 

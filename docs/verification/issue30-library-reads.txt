@@ -1,0 +1,11 @@
+整包 _libraries = 4.58 MB
+
+端點                                        讀取量      佔整包
+--------------------------------------------------------
+/element-groups                       1759 KB    37.5%   [200]
+/element-groups/1A                     586 KB    12.5%   [200]
+/particles                            1173 KB    25.0%   [200]
+/molecules/water                       586 KB    12.5%   [200]
+/elements/H/gallery                    586 KB    12.5%   [200]
+/elements/H/layers                     586 KB    12.5%   [200]
+/pages/p1                              586 KB    12.5%   [200]
