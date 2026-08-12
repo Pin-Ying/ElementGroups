@@ -1,0 +1,42 @@
+{
+ "id": "mod-033",
+ "date": "2026-08-11",
+ "issue": null,
+ "branch": "fix/library-read-amplification",
+ "title": "後台登入加管理員白名單",
+ "type": "security",
+ "summary": "login() 原本只驗證帳密在這個 Firebase 專案裡有效，沒有檢查這個人是不是站長，而 Firebase Auth 的註冊是打 Google 的公開端點。等於任何人只要能在專案裡建帳號就能進後台。加上 ADMIN_ACCOUNTS 白名單。",
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/auth.py",
+    "change_type": "modified",
+    "diff_summary": "新增 is_allowed()，login() 通過帳密驗證後再比對白名單"
+   },
+   {
+    "path": "backend/app/config.py",
+    "change_type": "modified",
+    "diff_summary": "新增 ADMIN_ACCOUNTS 設定"
+   },
+   {
+    "path": "backend/.env.example",
+    "change_type": "modified",
+    "diff_summary": "同步設定說明"
+   },
+   {
+    "path": "backend/scripts/list_auth_users.py",
+    "change_type": "added",
+    "diff_summary": "列出專案內所有帳號，用來查自己的 UID 並檢查有無陌生帳號"
+   }
+  ]
+ },
+ "notes": [
+  "是在回答「規則怎麼設才不會被入侵」時查出來的。結論是規則反而不是重點——前端完全沒有 firebase 相依（package.json 只有 axios/echarts/vue/vue-router），後端一律走 Admin SDK 而 Admin SDK 不受規則約束，所以規則可以直接全關；真正的洞在登入",
+  "拒絕時回傳的訊息和密碼錯誤一模一樣（Incorrect email or password）。講「這個帳號不能進後台」等於告訴對方帳號存在、只是權限不夠",
+  "留空＝放行，但每次登入印警告。這是為了不讓既有部署更新後突然登不進去；代價是沒設定就等於沒有這道鎖，所以警告要明顯",
+  "UID 與 email 都接受，比對前一律轉小寫；只有空白的設定值視為未設定",
+  "測過六組情境共十四個案例：未設定、UID 比對、email 比對、大小寫、多筆、只有空白、email 為 None 或空字串",
+  "另外查到：整個 codebase 沒有任何 admin_uid／allowlist 檢查，所以這是第一道",
+  "主控台那邊還是建議關掉自行註冊，兩層都要。站長回報找不到該選項，Firebase 主控台版面會變動，所以程式端這道鎖更重要"
+ ]
+}

@@ -780,3 +780,58 @@ AI 協助補齊基本粒子、分子、網站設定（issue #26 第三階段，m
 
 ### 至此 issue #26 的接點
 元素故事、頁面內容、區塊 Markdown、主族形象、頁面 SEO、粒子形象稱呼、粒子介紹、分子介紹、網站描述。「內建頁面的零碎文案」照 issue 判斷不做；「圖片說明文字」需要 vision model，另案。
+
+---
+
+## [修正] - 2026-08-11 | fix/library-read-amplification
+
+### 變更類型
+前台 7 個端點不再整包讀 `_libraries`（issue #30 第一步，mod-032）
+
+### 背景
+`_libraries` 一個節點裝著所有圖庫的所有圖片 base64。7 個公開端點都是 `show_fdb(LIBRARIES_NODE)` 整包讀下來，只為了取出其中一張圖——與先前 `/elements/seo` 那次 30 秒 timeout 是同一個病。
+
+### 做法
+- `show_fdb_where()`：以子欄位過濾讀取。RTDB 的 orderBy 需要索引，沒有索引時接住例外退回整包讀，所以現在合併不會壞
+- 查清單的端點用 `bind_type` 過濾；查單一對象的用 `bind_id`（精準得多）
+- 頁面端點改成先掃出區塊參照到哪些圖庫再逐一讀；沒有圖片參照就完全不碰 `_libraries`
+
+### 量測（8 個圖庫 / 4.58MB）
+改動前 7 個端點都讀 100%；改動後單一對象降到 12.5%（正好一個圖庫），清單端點只讀該類型。
+
+### 索引用腳本加，不必開主控台
+```bash
+python scripts/ensure_db_index.py            # 預覽
+python scripts/ensure_db_index.py --apply    # 寫入
+```
+RTDB 有 `/.settings/rules.json` 端點，用既有的 service account 就能讀寫。那支端點是整份覆寫，所以腳本先備份、只補缺的 `.indexOn`、預設不寫入。沒加索引也能運作（會走 fallback），加了之後自動變快、不必改程式。
+
+---
+
+## [安全] - 2026-08-11 | fix/library-read-amplification
+
+### 變更類型
+後台登入加管理員白名單（mod-033）
+
+### 發現
+在回答「Firebase 規則怎麼設才不會被入侵」時查出來的。結論是**規則不是重點**——前端完全沒有 firebase 相依，後端一律走 Admin SDK 而 Admin SDK 不受規則約束，所以規則可以直接全關。真正的洞在登入：
+
+`login()` 只驗證「這組帳密在這個 Firebase 專案裡有效」，沒有檢查「這個人是不是站長」。Firebase Auth 的註冊是打 Google 的公開端點，只需要依設計就不是機密的 `FIREBASE_API_KEY`。**任何人只要能在專案裡建一個帳號，就能進後台並取得完整寫入權限。**
+
+### 做法
+- 新增 `ADMIN_ACCOUNTS` 設定（逗號分隔，UID 或 email 皆可，不分大小寫）
+- 拒絕時的訊息與密碼錯誤完全相同，不洩漏「帳號存在但權限不足」
+- 留空＝放行但每次登入印警告，避免既有部署更新後登不進去
+- `scripts/list_auth_users.py` 用來查自己的 UID，並檢查有無陌生帳號
+
+### 建議的資料庫規則
+```json
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "_libraries": { ".indexOn": ["bind_type", "bind_id"] }
+  }
+}
+```
+Admin SDK 不受規則約束，所以全關不影響功能。`.indexOn` 是索引宣告不是權限，兩者可並存。

@@ -17,6 +17,17 @@ class Settings(BaseSettings):
     FIREBASE_STORAGE_ENABLED: bool = False
     FIREBASE_DATABASE_URL: str
 
+    # 允許登入後台的帳號。以逗號分隔，可填 UID 或 email（大小寫不拘）。
+    #
+    # 為什麼需要：login() 只驗證「這組帳密在這個 Firebase 專案裡有效」，
+    # 不驗證「這個人是不是站長」。Firebase Auth 的註冊是打 Google 的公開
+    # 端點，只要 FIREBASE_API_KEY（依設計就不是機密），任何人建一個帳號
+    # 就能登入後台。這裡是程式端的第二道鎖，不依賴主控台的設定。
+    #
+    # 留空＝不檢查（沿用舊行為），但每次登入都會印警告。
+    # 用 `python scripts/list_auth_users.py` 可以查出自己的 UID。
+    ADMIN_ACCOUNTS: str = ""
+
     # Firebase Client (Pyrebase)
     FIREBASE_API_KEY: str
     FIREBASE_AUTH_DOMAIN: str

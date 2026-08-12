@@ -7,6 +7,7 @@ from flask_login import (
     current_user,
     logout_user,
 )
+from app.config import settings
 from app.firebase import auth_pyrebase
 from firebase_admin import auth
 
@@ -55,6 +56,27 @@ def load_user_from_request(request):
         return None
 
 
+def _allowed_accounts():
+    """設定裡允許登入的帳號，正規化成小寫集合。空集合代表沒有設定。"""
+    return {a.strip().lower() for a in settings.ADMIN_ACCOUNTS.split(",") if a.strip()}
+
+
+def is_allowed(uid, email):
+    """這個帳號可以進後台嗎？
+
+    沒設定 ADMIN_ACCOUNTS 就一律放行——這是為了不讓既有部署在更新後突然
+    登不進去，但那等於沒有這道鎖，所以會每次都叫。
+    """
+    allowed = _allowed_accounts()
+    if not allowed:
+        print(
+            "[auth] 警告：未設定 ADMIN_ACCOUNTS，任何在這個 Firebase 專案裡"
+            "有效的帳號都能登入後台。請填入自己的 UID 或 email。"
+        )
+        return True
+    return uid.lower() in allowed or (email or "").lower() in allowed
+
+
 def login(email, password):
     if not email or not password:
         return None, "Missing email or password"
@@ -69,6 +91,12 @@ def login(email, password):
 
         if uid != uid_admin:
             return None, "UID mismatch"
+
+        # 帳密是對的，但不是站長。錯誤訊息刻意和密碼錯誤一模一樣——講出
+        # 「這個帳號不能進後台」等於告訴對方帳號存在、只是權限不夠
+        if not is_allowed(uid, email):
+            print(f"[auth] 拒絕非管理員登入：{email}")
+            return None, "Incorrect email or password"
 
         if uid not in users:
             users[uid] = User(uid, email)

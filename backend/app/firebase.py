@@ -126,6 +126,30 @@ def upload_fdb(element, datas):
     fdb.child(element).set(datas)
 
 
+def show_fdb_where(node, child_key, value):
+    """只取 `node` 底下 `child_key` 等於 `value` 的子項，而不是整個節點。
+
+    為什麼需要這個：像 `_libraries` 這種節點，子項裡含 base64 圖片，整包讀
+    下來是好幾 MB。要找「綁在某一類對象上的圖庫」時，只需要其中一小部分。
+
+    RTDB 的 orderBy 查詢需要在資料庫規則加索引：
+
+        "_libraries": { ".indexOn": ["bind_type"] }
+
+    沒有索引時 REST API 會直接回錯誤，所以這裡接住例外並退回整包讀取——
+    功能不會壞，只是沒有變快。加了索引之後自動生效，不必再改程式。
+    """
+    try:
+        return fdb.child(node).order_by_child(child_key).equal_to(value).get()
+    except Exception as e:
+        print(f"[show_fdb_where] {node}.{child_key} 查詢失敗，退回整包讀取：{e}")
+        data = fdb.child(node).get()
+        if not isinstance(data, dict):
+            return data
+        return {k: v for k, v in data.items()
+                if isinstance(v, dict) and v.get(child_key) == value}
+
+
 def show_fdb(element=None):
     """讀取資料。找不到節點時回 None，連線或權限錯誤則往上拋。
 
