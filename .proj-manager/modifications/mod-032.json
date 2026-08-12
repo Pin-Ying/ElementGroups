@@ -32,6 +32,16 @@
     "path": "docs/verification/issue30-library-reads.txt",
     "change_type": "added",
     "diff_summary": "量測結果"
+   },
+   {
+    "path": "backend/scripts/ensure_db_index.py",
+    "change_type": "added",
+    "diff_summary": "用程式把 .indexOn 寫進 RTDB 規則；預設只預覽，--apply 才寫入"
+   },
+   {
+    "path": ".gitignore",
+    "change_type": "modified",
+    "diff_summary": "排除規則備份檔"
    }
   ]
  },
@@ -43,6 +53,11 @@
   "頁面端點沒有用查詢，而是先掃出區塊參照到哪些圖庫再逐一讀——區塊可以指向任何圖庫，用 bind 過濾不對。沒有任何圖片參照的頁面完全不碰 _libraries",
   "量測（8 個圖庫、每個 3 張 200KB 的圖，共 4.58MB）：改動前 7 個端點都讀 100%；改動後單一對象的端點降到 12.5%（正好一個圖庫），清單端點降到只讀該類型",
   "admin.py 還有 8 處整包讀取，本次不動——圖庫管理與挑圖器本來就需要完整清單，而且需登入、流量低",
-  "驗證方式：用假的資料層跑真的 Flask 路由，同時檢查讀取量與回傳內容（圖片有沒有正確帶到、沒有圖庫的對象會不會壞、無參照的頁面是否完全不讀）。九項全過。本機沒有 Firebase 憑證，真後端起不來，所以沒有做端對端測試"
+  "驗證方式：用假的資料層跑真的 Flask 路由，同時檢查讀取量與回傳內容（圖片有沒有正確帶到、沒有圖庫的對象會不會壞、無參照的頁面是否完全不讀）。九項全過。本機沒有 Firebase 憑證，真後端起不來，所以沒有做端對端測試",
+  "索引不必手動到主控台加：RTDB 有一支 /.settings/rules.json 端點，用專案既有的 service account 換 access token 就能讀寫（scope 需要 firebase.database 與 userinfo.email）",
+  "那支端點是整份覆寫，所以 ensure_db_index.py 的做法是先讀下來、備份成檔案、只補上缺的 .indexOn、印出差異，預設不寫入，加 --apply 才動作。只會新增索引，不碰任何 .read/.write",
+  "規則裡若有註解（主控台允許，但不是合法 JSON）就拒絕動作並請人工加——寧可不做，也不要把註解解析掉",
+  "合併邏輯測過五種情況：空規則、已有部分索引、已經齊全、.indexOn 是字串、節點已有讀寫規則；另外驗證非物件節點會擋下、原物件不會被就地修改。腳本本身沒有連線測試過，本機沒有 Firebase 憑證",
+  "備份檔含安全規則，已加進 .gitignore"
  ]
 }

@@ -799,8 +799,9 @@ AI 協助補齊基本粒子、分子、網站設定（issue #26 第三階段，m
 ### 量測（8 個圖庫 / 4.58MB）
 改動前 7 個端點都讀 100%；改動後單一對象降到 12.5%（正好一個圖庫），清單端點只讀該類型。
 
-### 要在 Firebase 主控台補一行
-```json
-"_libraries": { ".indexOn": ["bind_type", "bind_id"] }
+### 索引用腳本加，不必開主控台
+```bash
+python scripts/ensure_db_index.py            # 預覽
+python scripts/ensure_db_index.py --apply    # 寫入
 ```
-沒加也能運作（會走 fallback），加了之後自動變快、不必改程式。
+RTDB 有 `/.settings/rules.json` 端點，用既有的 service account 就能讀寫。那支端點是整份覆寫，所以腳本先備份、只補缺的 `.indexOn`、預設不寫入。沒加索引也能運作（會走 fallback），加了之後自動變快、不必改程式。
