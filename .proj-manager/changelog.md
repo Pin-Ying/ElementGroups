@@ -805,3 +805,33 @@ python scripts/ensure_db_index.py            # 預覽
 python scripts/ensure_db_index.py --apply    # 寫入
 ```
 RTDB 有 `/.settings/rules.json` 端點，用既有的 service account 就能讀寫。那支端點是整份覆寫，所以腳本先備份、只補缺的 `.indexOn`、預設不寫入。沒加索引也能運作（會走 fallback），加了之後自動變快、不必改程式。
+
+---
+
+## [安全] - 2026-08-11 | fix/library-read-amplification
+
+### 變更類型
+後台登入加管理員白名單（mod-033）
+
+### 發現
+在回答「Firebase 規則怎麼設才不會被入侵」時查出來的。結論是**規則不是重點**——前端完全沒有 firebase 相依，後端一律走 Admin SDK 而 Admin SDK 不受規則約束，所以規則可以直接全關。真正的洞在登入：
+
+`login()` 只驗證「這組帳密在這個 Firebase 專案裡有效」，沒有檢查「這個人是不是站長」。Firebase Auth 的註冊是打 Google 的公開端點，只需要依設計就不是機密的 `FIREBASE_API_KEY`。**任何人只要能在專案裡建一個帳號，就能進後台並取得完整寫入權限。**
+
+### 做法
+- 新增 `ADMIN_ACCOUNTS` 設定（逗號分隔，UID 或 email 皆可，不分大小寫）
+- 拒絕時的訊息與密碼錯誤完全相同，不洩漏「帳號存在但權限不足」
+- 留空＝放行但每次登入印警告，避免既有部署更新後登不進去
+- `scripts/list_auth_users.py` 用來查自己的 UID，並檢查有無陌生帳號
+
+### 建議的資料庫規則
+```json
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "_libraries": { ".indexOn": ["bind_type", "bind_id"] }
+  }
+}
+```
+Admin SDK 不受規則約束，所以全關不影響功能。`.indexOn` 是索引宣告不是權限，兩者可並存。
