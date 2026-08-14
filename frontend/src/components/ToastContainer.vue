@@ -6,12 +6,12 @@
           v-for="toast in toastState.toasts"
           :key="toast.id"
           class="toast"
-          :class="`toast--${toast.type}`"
-          @click="removeToast(toast.id)"
+          :class="[`toast--${toast.type}`, { 'toast--sticky': toast.sticky }]"
+          @click="toast.sticky || removeToast(toast.id)"
         >
           <span class="toast-icon">{{ icons[toast.type] }}</span>
           <span class="toast-msg">{{ toast.message }}</span>
-          <button class="toast-close" @click.stop="removeToast(toast.id)">✕</button>
+          <button class="toast-close" title="關閉" aria-label="關閉" @click.stop="removeToast(toast.id)">✕</button>
         </div>
       </transition-group>
     </div>
@@ -26,7 +26,8 @@ export default {
     return {
       toastState,
       removeToast,
-      icons: { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' }
+      // error 原本也是 ✕，和右邊的關閉鈕撞成兩個 X
+      icons: { success: '✓', error: '!', warning: '⚠', info: 'ℹ' }
     }
   }
 }
@@ -88,11 +89,27 @@ export default {
   width: 18px;
   text-align: center;
 }
+.toast--error .toast-icon {
+  font-size: 17px;
+  font-weight: 700;
+}
 
 .toast-msg {
   flex: 1;
   line-height: 1.4;
   word-break: break-word;
+}
+
+/* 停留型（錯誤）訊息：點本體不關閉，文字可以選取複製，只能按 ✕ 關掉 */
+.toast--sticky {
+  cursor: default;
+}
+.toast--sticky .toast-msg {
+  cursor: text;
+  user-select: text;
+}
+.toast--sticky .toast-close {
+  opacity: 0.75;
 }
 
 .toast-close {
