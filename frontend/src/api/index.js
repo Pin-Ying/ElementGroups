@@ -294,4 +294,23 @@ export function updateDefaultImg(formData) {
   })
 }
 
+// ── 隱形浮水印（issue #25）──
+export function getWatermarkSettings() {
+  return api.get('/admin/watermark')
+}
+
+export function saveWatermarkSettings(data) {
+  return api.post('/admin/watermark', data)
+}
+
+// 拿一張圖試套，回傳套用後與還原圖；不會存任何東西
+export function previewWatermark(data) {
+  return api.post('/admin/watermark/preview', data)
+}
+
+// 檢驗可疑圖片有沒有本站的浮水印
+export function inspectWatermark(img_data) {
+  return api.post('/admin/watermark/inspect', { img_data })
+}
+
 export default api

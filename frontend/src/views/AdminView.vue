@@ -1413,6 +1413,9 @@
           </div>
         </div>
 
+        <!-- 浮水印 -->
+        <WatermarkPanel v-if="section === 'watermark'" />
+
         <!-- 維護工具 -->
         <div v-if="section === 'maintenance'" class="box maintenance-box">
           <div class="maintenance-item">
@@ -1537,12 +1540,14 @@ const SECTIONS = [
   { key: 'groups', label: '主族形象', icon: '❖' },
   { key: 'particles', label: '基本粒子', icon: '◉' },
   { key: 'links', label: '社群連結', icon: '⚯' },
+  { key: 'watermark', label: '浮水印', icon: '◈' },
   { key: 'maintenance', label: '維護工具', icon: '⚒' }
 ]
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import WatermarkPanel from '../components/WatermarkPanel.vue'
 
 export default {
-  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, AiField, FormulaBuilder },
+  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, AiField, FormulaBuilder, WatermarkPanel },
   data() {
     return {
       authState,

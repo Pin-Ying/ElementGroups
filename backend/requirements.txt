@@ -3,6 +3,8 @@ Flask
 Flask-Cors
 Flask_Login
 pandas
+numpy
+Pillow
 pydantic-settings
 python-dotenv
 Pyrebase4

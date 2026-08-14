@@ -1,0 +1,29 @@
+{
+ "id": "mod-034",
+ "date": "2026-08-14",
+ "issue": 25,
+ "branch": "feature/watermark",
+ "title": "隱形浮水印（issue #25）",
+ "type": "feature",
+ "summary": "issue #25 原本要的三件事裡，右鍵阻擋與截圖浮水印都不成立（圖片顯示在螢幕上位元組就在對方電腦裡，瀏覽器也偵測不到截圖）。目標改成「拿走也沒用，或拿走能被抓到」，實作隱形浮水印：簽名藏在色度裡、亮度不動，後台可開關與決定長相（文字或自訂圖樣）。",
+ "changes": {
+  "files": [
+   {"path": "backend/app/watermark.py", "change_type": "added", "diff_summary": "嵌入、盲偵測、圖樣產生與設定讀寫；核心不碰 Firebase"},
+   {"path": "backend/app/routes/admin.py", "change_type": "modified", "diff_summary": "三支端點（設定／試套用／檢驗）；11 處上傳路徑接上 mark_payload"},
+   {"path": "backend/scripts/try_watermark.py", "change_type": "added", "diff_summary": "本機試浮水印，不需要 Firebase"},
+   {"path": "backend/scripts/backfill_watermark.py", "change_type": "added", "diff_summary": "把浮水印補到既有圖片；預設預覽，--apply 才寫入"},
+   {"path": "backend/requirements.txt", "change_type": "modified", "diff_summary": "新增 Pillow 與 numpy"},
+   {"path": "frontend/src/components/WatermarkPanel.vue", "change_type": "added", "diff_summary": "後台面板：開關、文字／圖樣、強度、試套用、檢驗"},
+   {"path": "frontend/src/views/AdminView.vue", "change_type": "modified", "diff_summary": "新增「浮水印」分頁掛上面板"},
+   {"path": "frontend/src/api/index.js", "change_type": "modified", "diff_summary": "四支 API 函式"}
+  ]
+ },
+ "notes": [
+  "上傳點統一走 mark_payload：它遞迴走過整包要寫進 RTDB 的資料，只認 data:image/…;base64, 開頭的字串。區塊編輯器的圖片藏在巢狀結構裡，逐欄位處理會漏",
+  "Storage 那份也要套。原本 upload_file 送的是使用者上傳的原始位元組，開了 Storage 的話 /api/elements/{symbol}/img 會直接漏出乾淨的原圖",
+  "面板做成獨立元件而不是塞進 AdminView：那支已經 4860 行（issue #29）",
+  "既有圖片不會自動補，要跑 scripts/backfill_watermark.py。它一個節點一個節點讀（issue #30 的教訓），寫入是一張圖一個路徑地寫，中途失敗不會弄壞整個節點",
+  "檢驗比對的是「目前的設定」。換過簽名之後，舊圖要用當初那個簽名才驗得出來——這是刻意的取捨，存歷史簽名會讓資料模型變複雜",
+  "沒做動態圖的逐幀浮水印：前端上傳流程走 canvas，GIF 早就被壓成單張了"
+ ]
+}
