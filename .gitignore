@@ -29,3 +29,6 @@ __pycache__/
 
 # 資料庫規則的備份（ensure_db_index.py 產生），含安全規則不進版控
 backend/db-rules-backup-*.json
+
+# Claude Code 的本機設定（含 GH_TOKEN，不進版控）
+.claude/settings.local.json
