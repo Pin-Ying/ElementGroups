@@ -1,0 +1,49 @@
+{
+ "feature_id": "feature-016",
+ "name": "隱形浮水印",
+ "description": "後台上傳的圖片自動在色度（chroma）裡藏進簽名，亮度不動所以肉眼看不出來；把色度差放大就會浮出簽名。後台可開關、可選擇簽名是文字或自訂圖樣、可調強度，並附試套用與檢驗可疑圖片兩個工具。",
+ "status": "completed",
+ "created_at": "2026-08-14T00:00:00Z",
+ "files": [
+  "backend/app/watermark.py",
+  "backend/app/routes/admin.py",
+  "backend/scripts/try_watermark.py",
+  "backend/scripts/backfill_watermark.py",
+  "frontend/src/components/WatermarkPanel.vue",
+  "frontend/src/views/AdminView.vue",
+  "frontend/src/api/index.js"
+ ],
+ "dependencies": [],
+ "api_endpoints": [
+  "GET/POST /api/admin/watermark",
+  "POST /api/admin/watermark/preview",
+  "POST /api/admin/watermark/inspect"
+ ],
+ "data_model": [
+  {
+   "name": "_watermark",
+   "fields": [
+    "enabled（開關）",
+    "mode（text｜image）",
+    "text（簽名文字，最多 16 字）",
+    "pattern（圖片模式的圖樣，base64）",
+    "strength（1〜6，預設 3）",
+    "tile（圖樣單元邊長，預設 192px）"
+   ]
+  }
+ ],
+ "notes": [
+  "嵌入直接在 RGB 上加一組固定位移（ΔR −1.402、ΔG +0.370、ΔB +1.772），那正好等價於 Cb +1／Cr −1 而 ΔY = 0。原本寫成轉 YCbCr 改完再轉回來，一來一回的取整讓每個像素的 Y 都差 1，就沒辦法宣稱亮度不動了",
+  "圖樣先畫在 tile/BLOCK 的小格子再放大 BLOCK 倍（BLOCK=8）。實測 BLOCK=4 太細，JPEG 色度量化壓一次就掉七成",
+  "偵測是盲的（不需要原圖），用 FFT 一次算完所有位移的相關值，所以被裁切過的圖也對得上；再對多個尺度重跑，縮放過的圖也驗得到",
+  "偵測前先把殘差夾在中位數的三倍以內：輪廓、色塊交界的色度落差是浮水印的十幾倍，不壓下來相關值整個被邊緣主導",
+  "高通一定要用移動平均這種位置無關的做法。原本用「縮小再放大」取低頻，在平滑漸層圖上留下以取樣格為週期的漣漪，乾淨的圖假陽性 3.4（門檻 0.5）",
+  "一個尺度至少要能放進 6 個圖樣單元才列入比對。放大兩倍的圖樣只是幾團色塊，很容易和畫面裡的色塊對上——合成測試圖的假陽性就是這樣來的",
+  "強度預設 3：實測 2 在「縮一半再壓 q0.6」之後就驗不到，4 以上在大片平塗的淺色底上開始看得出紋路",
+  "同一張圖不會被套第二次——套之前先驗一次，已經有浮水印就原封不動回傳。後台每次儲存都把整批圖重送，沒有這條的話位移會一次次疊上去，存幾次就看得見了",
+  "套用失敗一律回傳原圖並在日誌印一行。浮水印是加值功能，不該讓後台存不了圖",
+  "實測 9 張圖：原圖分數 0.53〜1.56（門檻 0.75），乾淨的圖 0.04〜0.29，沒有誤判；裁掉 30% 後 4/7 仍驗得到；縮一半再壓 q0.6 後 6/7 驗得到",
+  "文字模式在 python:3.11-slim 上只能用英數——那個映像檔沒有任何中文字型。存設定時就會擋下來並要求改用圖片模式，不會默默畫出一排豆腐",
+  "邊長小於 64px 的圖不套（電子、圖層那種疊上去的小素材），套了也讀不出來"
+ ]
+}

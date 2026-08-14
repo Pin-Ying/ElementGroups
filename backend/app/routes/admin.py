@@ -26,6 +26,7 @@ from app.libraries import (normalize_libraries, serialize_library, bindable_defi
                            targets_from_node,
                            BINDABLE_TYPES, LIBRARIES_NODE, MAX_IMAGES)
 from app import ai
+from app import watermark
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api")
 
@@ -178,7 +179,10 @@ def manage_default_image():
             return jsonify({"result": "failure", "message": "No image provided"}), 400
 
         image_bytes = image.read()
-        img_data = "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8")
+        img_data = watermark.mark_data_url(
+            "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8"))
+        # Storage 送的要是套過浮水印的那份，否則 /api/elements/…/img 會漏出乾淨的原圖
+        image_bytes = base64.b64decode(img_data.split(",", 1)[1])
 
         img = ""
         if settings.FIREBASE_STORAGE_ENABLED:
@@ -220,10 +224,10 @@ def manage_electron_styles():
             # 用時間戳當 id，避免與既有樣式衝突
             style_id = datetime.datetime.now(datetime.timezone.utc).strftime("s%Y%m%d%H%M%S%f")
 
-        fdb.child(ELECTRON_STYLES_NODE).child(style_id).set({
+        fdb.child(ELECTRON_STYLES_NODE).child(style_id).set(watermark.mark_payload({
             "name": name or style_id,
             "img_data": img_data,
-        })
+        }))
         return jsonify({"result": "success", "message": "電子樣式已儲存", "id": style_id})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -455,7 +459,7 @@ def manage_layers(symbol):
         if not record:
             return jsonify({"result": "failure", "message": "沒有要更新的欄位"}), 400
         # 用 update：只送了原子核時不該把手寫名那層清掉
-        fdb.child(LAYERS_NODE).child(symbol).update(record)
+        fdb.child(LAYERS_NODE).child(symbol).update(watermark.mark_payload(record))
         return jsonify({"result": "success", "message": "圖層已儲存"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -488,7 +492,7 @@ def update_element_group(key):
         if record is None:
             return jsonify({"result": "failure", "message": "無效的資料"}), 400
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        fdb.child(GROUPS_NODE).child(key).set(record)
+        fdb.child(GROUPS_NODE).child(key).set(watermark.mark_payload(record))
         return jsonify({"result": "success", "message": "主族形象已儲存"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -526,7 +530,7 @@ def manage_libraries():
         library_id, record = serialize_library(request.get_json() or {})
         if not library_id:
             return jsonify({"result": "failure", "message": record}), 400
-        fdb.child(LIBRARIES_NODE).child(library_id).set(record)
+        fdb.child(LIBRARIES_NODE).child(library_id).set(watermark.mark_payload(record))
         return jsonify({"result": "success", "message": "圖庫已儲存", "id": library_id})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -597,7 +601,7 @@ def manage_particles():
             fdb.child(PARTICLES_NODE).child(original).delete()
 
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        fdb.child(PARTICLES_NODE).child(slug).set(record)
+        fdb.child(PARTICLES_NODE).child(slug).set(watermark.mark_payload(record))
         return jsonify({"result": "success", "message": "粒子已儲存", "slug": slug})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -654,7 +658,7 @@ def manage_molecules():
             fdb.child(MOLECULES_NODE).child(original).delete()
 
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        fdb.child(MOLECULES_NODE).child(slug).set(record)
+        fdb.child(MOLECULES_NODE).child(slug).set(watermark.mark_payload(record))
         return jsonify({"result": "success", "message": "分子已儲存", "slug": slug})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -695,7 +699,7 @@ def manage_pages():
             fdb.child(PAGES_NODE).child(original).delete()
 
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        fdb.child(PAGES_NODE).child(slug).set(record)
+        fdb.child(PAGES_NODE).child(slug).set(watermark.mark_payload(record))
         return jsonify({"result": "success", "message": "頁面已儲存", "slug": slug})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -748,6 +752,7 @@ def manage_gallery(symbol):
                 "message": f"最多只能放 {GALLERY_MAX} 張，目前有 {len(images)} 張"
             }), 400
 
+        images = watermark.mark_payload(images)
         cleaned = []
         for item in images:
             if not isinstance(item, dict):
@@ -829,8 +834,83 @@ def manage_site_settings():
             if data.get("clear_bg_image"):
                 payload["bg_image"] = ""
 
-        upload_fdb("_site_settings", payload)
+        upload_fdb("_site_settings", watermark.mark_payload(payload))
         return jsonify({"result": "success", "message": "Site settings updated!"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/watermark", methods=["GET", "POST"])
+@login_required
+def manage_watermark():
+    """隱形浮水印的設定（issue #25）。開關、簽名文字或自訂圖樣、強度。"""
+    if request.method == "GET":
+        try:
+            return jsonify(watermark.load_settings())
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    try:
+        record = watermark.save_settings(request.get_json() or {})
+        return jsonify({"result": "success", "message": "浮水印設定已儲存", "settings": record})
+    except ValueError as e:
+        # 圖樣做不出來（沒填文字、沒有中文字型、圖樣整片空白）
+        return jsonify({"result": "failure", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/watermark/preview", methods=["POST"])
+@login_required
+def preview_watermark():
+    """拿一張圖試套，回傳套用前後與還原圖，用來調強度。不會存任何東西。"""
+    try:
+        settings_used = watermark.normalize(request.get_json() or {})
+        img_data = ((request.get_json() or {}).get("img_data") or "").strip()
+        image = watermark.decode_data_url(img_data)
+        if image is None:
+            return jsonify({"result": "failure", "message": "請選一張圖片"}), 400
+
+        marked = watermark.embed(image, settings_used)
+        result = watermark.inspect(marked, settings_used)
+        return jsonify({
+            "result": "success",
+            "marked": watermark.encode_data_url(marked, keep_alpha="A" in marked.getbands()),
+            "recovered": result["preview"],
+            "amplitude": result["amplitude"],
+            "threshold": result["threshold"],
+        })
+    except ValueError as e:
+        return jsonify({"result": "failure", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/watermark/inspect", methods=["POST"])
+@login_required
+def inspect_watermark():
+    """檢驗一張可疑的圖片有沒有本站的浮水印。
+
+    比對用的是「目前的設定」——換過簽名之後，舊圖要用舊的簽名才驗得出來。
+    """
+    try:
+        img_data = ((request.get_json() or {}).get("img_data") or "").strip()
+        image = watermark.decode_data_url(img_data)
+        if image is None:
+            return jsonify({"result": "failure", "message": "請選一張圖片"}), 400
+
+        current = watermark.load_settings()
+        result = watermark.inspect(image, current)
+        return jsonify({
+            "result": "success",
+            "found": result["found"],
+            "amplitude": result["amplitude"],
+            "threshold": result["threshold"],
+            "scale": result["scale"],
+            "recovered": result["preview"],
+        })
+    except ValueError as e:
+        return jsonify({"result": "failure", "message": str(e)}), 400
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
 
@@ -914,7 +994,10 @@ def update_story():
 
         if image and image.filename:
             image_bytes = image.read()
-            img_data = "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8")
+            img_data = watermark.mark_data_url(
+                "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8"))
+            # 同上：Storage 那份也要有浮水印
+            image_bytes = base64.b64decode(img_data.split(",", 1)[1])
 
             img = ""
             if settings.FIREBASE_STORAGE_ENABLED:
