@@ -872,42 +872,10 @@ def preview_watermark():
             return jsonify({"result": "failure", "message": "請選一張圖片"}), 400
 
         marked = watermark.embed(image, settings_used)
-        result = watermark.inspect(marked, settings_used)
         return jsonify({
             "result": "success",
             "marked": watermark.encode_data_url(marked, keep_alpha="A" in marked.getbands()),
-            "recovered": result["preview"],
-            "amplitude": result["amplitude"],
-            "threshold": result["threshold"],
-        })
-    except ValueError as e:
-        return jsonify({"result": "failure", "message": str(e)}), 400
-    except Exception as e:
-        return jsonify({"result": "failure", "message": str(e)}), 500
-
-
-@admin_bp.route("/admin/watermark/inspect", methods=["POST"])
-@login_required
-def inspect_watermark():
-    """檢驗一張可疑的圖片有沒有本站的浮水印。
-
-    比對用的是「目前的設定」——換過簽名之後，舊圖要用舊的簽名才驗得出來。
-    """
-    try:
-        img_data = ((request.get_json() or {}).get("img_data") or "").strip()
-        image = watermark.decode_data_url(img_data)
-        if image is None:
-            return jsonify({"result": "failure", "message": "請選一張圖片"}), 400
-
-        current = watermark.load_settings()
-        result = watermark.inspect(image, current)
-        return jsonify({
-            "result": "success",
-            "found": result["found"],
-            "amplitude": result["amplitude"],
-            "threshold": result["threshold"],
-            "scale": result["scale"],
-            "recovered": result["preview"],
+            "recovered": watermark.reveal_data_url(marked),
         })
     except ValueError as e:
         return jsonify({"result": "failure", "message": str(e)}), 400

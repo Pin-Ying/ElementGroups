@@ -53,6 +53,37 @@ export const PAGE_META_DEFS = [
     ]
   },
   {
+    key: 'watermark',
+    label: '浮水印檢視（/watermark）',
+    fields: [
+      { name: 'title', label: '頁面標題', default: 'Watermark Check' },
+      {
+        name: 'subtitle',
+        label: '副標題',
+        default: '這個站的作品都藏了一層看不見的簽名。把圖丟進來，色度差會被放大，簽名就會浮出來。',
+        multiline: true
+      },
+      {
+        name: 'hint',
+        label: '操作說明',
+        default: '也可以把圖直接拖進這個框，或按 Ctrl/⌘ + V 貼上。圖片不會上傳，全部在你自己的瀏覽器裡處理。',
+        multiline: true
+      },
+      { name: 'original_label', label: '左邊那張圖的說明', default: '原圖' },
+      { name: 'result_label', label: '右邊那張圖的說明', default: '放大色度差之後' },
+      {
+        name: 'result_hint',
+        label: '結果下方的說明',
+        default: '看到重複鋪滿整張的簽名，就是從這個站拿走的。壓過、縮過、裁過的圖會比較模糊，'
+          + '調整放大倍率再看一次；整張都是雜訊看不出圖樣，那就不是這裡的圖。',
+        multiline: true
+      },
+      // 這頁是給讀者主動查的工具，預設就放在左側選單
+      { name: 'nav_position', label: '導覽位置', type: 'select', options: NAV_POSITIONS, default: 'sidebar' },
+      { name: 'nav_order', label: '導覽排序', type: 'number', default: '0' }
+    ]
+  },
+  {
     key: 'story',
     label: '元素頁區塊標題',
     fields: [

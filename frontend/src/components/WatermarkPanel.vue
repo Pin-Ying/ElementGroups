@@ -8,8 +8,8 @@
 
     <p class="desc">
       把簽名藏進圖片的色度裡，亮度完全不動——正常觀看看不出來，把色度差放大就會浮出來。
-      開啟之後，<strong>後台新上傳的圖片</strong>會自動套用；已經存在的舊圖不會自動處理
-      （要補的話在下面的「檢驗」確認，或請工程師跑一次回填腳本）。
+      開啟之後，<strong>後台新上傳的圖片</strong>會自動套用；已經存在的舊圖不會自動處理，
+      要補的話請工程師跑一次回填腳本。
     </p>
 
     <div class="field">
@@ -82,31 +82,17 @@
       </figure>
     </div>
     <p v-if="preview.marked" class="hint">
-      偵測分數 {{ preview.amplitude }}（門檻 {{ preview.threshold }}）。分數越高越禁得起壓縮與縮圖。
+      看第二張確認肉眼看不出差別、第三張讀得出簽名。讀不出來就把強度調高一級再試。
     </p>
 
     <hr>
 
-    <!-- 檢驗：拿到可疑圖片時用 -->
-    <div class="field">
-      <label class="label">檢驗可疑圖片</label>
-      <input class="input" type="file" accept="image/*" @change="onInspectChange">
-      <p class="hint">
-        丟一張在別處看到的圖進來，看看是不是從這裡拿走的。比對用的是<strong>目前的設定</strong>——
-        換過簽名之後，舊圖要用當初那個簽名才驗得出來。
-      </p>
-    </div>
-
-    <div v-if="check.done" class="check-result" :class="check.found ? 'is-found' : 'is-clean'">
-      <p class="check-title">{{ check.found ? '✓ 驗到本站的浮水印' : '✗ 沒有驗到' }}</p>
-      <p class="hint">
-        分數 {{ check.amplitude }}（門檻 {{ check.threshold }}，比對尺寸 ×{{ check.scale }}）。
-        <template v-if="!check.found">
-          被裁切、縮很小或反覆轉存過的圖可能低於門檻，右邊的還原圖若仍看得出簽名，一樣算數。
-        </template>
-      </p>
-      <img v-if="check.recovered" :src="check.recovered" class="recovered" alt="還原">
-    </div>
+    <p class="desc">
+      要查一張在別處看到的圖是不是從這裡拿走的，用前台的
+      <router-link to="/watermark">浮水印檢視</router-link>頁——那頁在瀏覽器裡把色度差放大給人看，
+      讀者自己也能查。這裡不做「是／不是」的自動判定：判定得對上圖片被縮放的比例，
+      而稍微縮過的圖就對不上，只會給出看起來很確定卻是錯的答案。
+    </p>
 
     <p v-if="msg" class="msg" :class="msgType">{{ msg }}</p>
   </div>
@@ -118,7 +104,7 @@
 // 拆成獨立元件而不是塞進 AdminView：那支已經 4860 行、十個分頁擠在一起
 // （issue #29），沒必要再往裡面堆。這裡自己打自己的四支端點。
 import AdminBar from './AdminBar.vue'
-import { getWatermarkSettings, saveWatermarkSettings, previewWatermark, inspectWatermark } from '../api'
+import { getWatermarkSettings, saveWatermarkSettings, previewWatermark } from '../api'
 import { showToast } from '../store/toast'
 import { compressImage } from '../utils/imageCompress'
 
@@ -142,8 +128,7 @@ export default {
     return {
       MODES,
       form: { enabled: false, mode: 'text', text: '', pattern: '', strength: 3 },
-      preview: { original: '', marked: '', recovered: '', amplitude: 0, threshold: 0 },
-      check: { done: false, found: false, amplitude: 0, threshold: 0, scale: 1, recovered: '' },
+      preview: { original: '', marked: '', recovered: '' },
       saving: false,
       msg: '',
       msgType: ''
@@ -183,23 +168,7 @@ export default {
         const img_data = await this.pick(event)
         if (!img_data) return
         const { data } = await previewWatermark({ ...this.form, enabled: true, img_data })
-        this.preview = {
-          original: img_data,
-          marked: data.marked,
-          recovered: data.recovered,
-          amplitude: data.amplitude,
-          threshold: data.threshold
-        }
-      } catch (e) {
-        this.fail(e)
-      }
-    },
-    async onInspectChange(event) {
-      try {
-        const img_data = await this.pick(event)
-        if (!img_data) return
-        const { data } = await inspectWatermark(img_data)
-        this.check = { done: true, ...data }
+        this.preview = { original: img_data, marked: data.marked, recovered: data.recovered }
       } catch (e) {
         this.fail(e)
       }
@@ -276,29 +245,6 @@ export default {
   margin-top: 6px;
   font-size: 0.82rem;
   opacity: 0.7;
-}
-
-.check-result {
-  margin: 14px 0;
-  padding: 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(228, 251, 255, 0.15);
-}
-
-.check-result.is-found {
-  border-color: rgba(126, 227, 245, 0.6);
-}
-
-.check-title {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.recovered {
-  margin-top: 10px;
-  max-width: 320px;
-  width: 100%;
-  border-radius: 6px;
 }
 
 hr {

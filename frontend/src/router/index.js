@@ -8,6 +8,7 @@ import PageView from '../views/PageView.vue'
 import MoleculesView from '../views/MoleculesView.vue'
 import ParticlesView from '../views/ParticlesView.vue'
 import MoleculeView from '../views/MoleculeView.vue'
+import WatermarkView from '../views/WatermarkView.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: HomeView },
@@ -24,7 +25,8 @@ const routes = [
     props: route => ({ element: route.query.element || '' })
   },
   { path: '/molecule/:slug', name: 'Molecule', component: MoleculeView, props: true },
-  { path: '/particles', name: 'Particles', component: ParticlesView }
+  { path: '/particles', name: 'Particles', component: ParticlesView },
+  { path: '/watermark', name: 'Watermark', component: WatermarkView }
 ]
 
 const router = createRouter({

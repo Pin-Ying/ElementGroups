@@ -5,8 +5,9 @@
     python scripts/try_watermark.py 某張圖.jpg           # 用自己的圖
     python scripts/try_watermark.py 圖.jpg --text EG --strength 2
 
-會印出三種情況的偵測結果，並把對照圖寫到 /tmp：
-乾淨的圖（不該驗到）、套完的圖、以及縮 50% 再壓 quality 0.6 之後的圖。
+會把對照圖寫到 /tmp：乾淨的圖、套完的圖，以及兩張還原圖（原尺寸與
+縮 50% 再壓 quality 0.6 之後）——簽名讀不讀得出來就看還原圖。
+順便檢查「重複套用」擋得住，以及亮度真的沒動。
 """
 
 import argparse
@@ -55,11 +56,11 @@ def to_data_url(image, quality=85):
 
 
 def report(label, image, settings):
-    result = watermark.inspect(image, settings)
-    flag = "驗到" if result["found"] else "沒驗到"
-    print(f"  {label:<24} {flag}  振幅 {result['amplitude']:.3f}"
-          f"（門檻 {result['threshold']}, 比對尺寸 ×{result['scale']}）")
-    return result
+    """印出「這張是不是已經套過了」。這個判定只用來擋重複套用，不是給人
+    判斷盜圖的——後者看還原圖，見下面存出來的對照圖。"""
+    marked = watermark.already_marked(image, settings)
+    print(f"  {label:<24} {'已套過' if marked else '沒套過'}")
+    return marked
 
 
 def save(data_url, path):
@@ -101,10 +102,9 @@ def main():
     shrunk = marked.resize((marked.width // 2, marked.height // 2), Image.LANCZOS)
     shrunk = watermark.decode_data_url(to_data_url(shrunk, quality=60))
 
-    print("\n偵測：")
-    report("乾淨的圖（不該驗到）", watermark.decode_data_url(clean_url), settings)
-    marked_result = report("套完的圖", marked, settings)
-    shrunk_result = report("縮 50% + 壓 q0.6", shrunk, settings)
+    print("\n重複套用檢查（後台每次儲存都會重送整批圖，靠這個擋掉疊加）：")
+    report("乾淨的圖（該是沒套過）", watermark.decode_data_url(clean_url), settings)
+    report("套完的圖（該是已套過）", marked, settings)
 
     print("\n亮度檢查：")
     import numpy as np
@@ -117,8 +117,9 @@ def main():
     print("\n對照圖：")
     save(clean_url, os.path.join(args.out, "wm-clean.jpg"))
     save(marked_url, os.path.join(args.out, "wm-marked.jpg"))
-    save(marked_result["preview"], os.path.join(args.out, "wm-recovered.png"))
-    save(shrunk_result["preview"], os.path.join(args.out, "wm-recovered-shrunk.png"))
+    # 還原圖：簽名讀不讀得出來看這兩張。前台的檢視頁在瀏覽器裡做同一件事
+    save(watermark.reveal_data_url(marked), os.path.join(args.out, "wm-recovered.png"))
+    save(watermark.reveal_data_url(shrunk), os.path.join(args.out, "wm-recovered-shrunk.png"))
     return 0
 
 

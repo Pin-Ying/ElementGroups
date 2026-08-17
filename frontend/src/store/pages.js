@@ -56,6 +56,13 @@ const BUILTIN_NAV = [
     position: () => metaText('particles', 'nav_position'),
     order: () => Number(metaText('particles', 'nav_order')) || 0
   },
+  {
+    slug: 'watermark',
+    to: '/watermark',
+    label: () => metaText('watermark', 'title'),
+    position: () => metaText('watermark', 'nav_position'),
+    order: () => Number(metaText('watermark', 'nav_order')) || 0
+  },
   { slug: 'guide', to: '/guide', label: () => BUILTIN_PAGES.guide.title, position: () => 'footer', order: () => 0 },
   { slug: 'links', to: '/links', label: () => BUILTIN_PAGES.links.title, position: () => 'footer', order: () => 0 }
 ]

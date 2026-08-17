@@ -10,7 +10,7 @@
 """
 
 # 允許的頁面 key。新增附加頁面時在這裡補一個 key 即可
-META_KEYS = ("molecules", "molecule", "particles", "story", "footer")
+META_KEYS = ("molecules", "molecule", "particles", "watermark", "story", "footer")
 
 PAGE_META_NODE = "_page_meta"
 

@@ -308,9 +308,4 @@ export function previewWatermark(data) {
   return api.post('/admin/watermark/preview', data)
 }
 
-// 檢驗可疑圖片有沒有本站的浮水印
-export function inspectWatermark(img_data) {
-  return api.post('/admin/watermark/inspect', { img_data })
-}
-
 export default api

@@ -9,9 +9,11 @@ Cr 減同一個圖樣，Y 完全不碰。正常觀看看不出來，把色度差
    最細的紋路也有好幾像素寬。JPEG 的 4:2:0 色度次取樣會把 2×2 的色度平均掉、
    DCT 量化又特別粗暴地對付色度高頻——細線條的圖樣壓一次就沒了。
 
-2. **偵測是盲的**（不需要原圖）。因為圖樣是零均值的，平滑的畫面內容和它相關
-   幾乎為零，直接拿殘差去內積就能估回當初嵌入的振幅。同一份殘差放大之後就是
-   給人看的「還原圖」。
+2. **不做「是不是盜圖」的自動判定**，只把殘差放大成還原圖（`reveal`），由人自己
+   看有沒有簽名。判定要拿圖樣去比對所有位移與縮放比例，而任意比例縮放過的圖對
+   不上模板：實測縮到 0.75 驗得到，0.8 或 0.7 就掉到門檻的一半以下——離散地掃
+   幾個比例會漏掉大部分真的盜圖，那種會說謊的是非題比沒有結論更糟。
+   程式裡唯一保留的判定是 `already_marked`，用途只有擋掉重複套用。
 
 模組本身不碰 Firebase，設定的讀寫才會 import——這樣本機沒有憑證也能直接試
 `python scripts/try_watermark.py`。
@@ -41,17 +43,16 @@ BLOCK = 8
 DEFAULT_STRENGTH = 3
 MAX_STRENGTH = 6
 
-# 偵測分數要多大才算「驗到了」。壓縮、縮放會吃掉一部分訊號，實測套完的圖
-# 大約落在強度的一半（d=2 → 0.9〜1.2），乾淨的圖在 ±0.2 以內，所以門檻取
-# 強度的 1/4，兩邊都留得下餘裕
+# `already_marked` 的分數要多大才算「這張已經套過了」。實測剛套完的圖落在
+# 1.0〜1.9，乾淨的圖在 0.1 以內，所以門檻取強度的 1/4，兩邊都留得下餘裕
 DETECT_RATIO = 0.25
 DETECT_FLOOR = 0.35
 
-# 縮放過的圖也要驗得出來，所以圖樣尺寸多試幾種
-DETECT_SCALES = (1.0, 0.75, 0.5, 1.5, 2.0, 0.25)
-
-# 一個尺度至少要能放進幾個圖樣單元才列入比對
-MIN_TILES = 6
+# 還原圖的參數。窗要比圖樣的紋路大、比畫面內容小，取預設 tile 的四分之一；
+# 放大倍率是肉眼看得出圖樣的下限附近。前端 utils/watermarkReveal.js 用同一組值，
+# 兩邊的還原圖才會長得一樣
+REVEAL_WINDOW = DEFAULT_TILE // 4
+REVEAL_GAIN = 24
 
 # 中文字型不是每個環境都有；python:3.11-slim 裡一個都沒有。
 # 找不到就在存設定時直接報錯，叫使用者改用圖片模式，不要默默畫出一堆豆腐。
@@ -277,69 +278,64 @@ def _highpass(signal, window):
     return signal - _box1d(_box1d(signal, window, 0), window, 1)
 
 
-def inspect(image, settings):
-    """盲偵測：不需要原圖。回傳估到的振幅、是否算驗到、以及給人看的還原圖。
+def reveal(image, radius=REVEAL_WINDOW):
+    """抽出色度殘差：正常的畫面內容被減掉，只留下浮水印所在的頻段。
 
-    對每一種可能的縮放比例，用 FFT 一次算完「圖樣對齊在任何位置」的相關值：
-    被裁過的圖對不上原本的相位，逐點比對會完全驗不到，掃過所有位移才抓得住。
-    分數取「最高的那個位移」減掉「所有位移的雜訊水準」——畫面本身的紋理會
-    讓每個位移都有一點反應，只有真的浮水印會在某一個位移上冒出尖峰。
+    放大之後就是給人看的「還原圖」。前端 utils/watermarkReveal.js 是同一組
+    運算的 JS 版本，前台的檢視頁在瀏覽器裡跑，不必把圖上傳。
     """
-    base = tile_mask(settings)
-    signal = _chroma(image)
-    height, width = signal.shape
-    opaque = None
+    return _highpass(_chroma(image), radius)
+
+
+def reveal_data_url(image, gain=REVEAL_GAIN, radius=REVEAL_WINDOW):
+    """還原圖，灰階 PNG。128 是中間值，殘差放大 gain 倍。"""
+    preview = np.clip(128 + reveal(image, radius) * gain, 0, 255).astype(np.uint8)
+    return encode_data_url(Image.fromarray(preview, "L"), keep_alpha=True)
+
+
+def already_marked(image, settings, mask=None):
+    """這張圖是不是已經套過現在這個浮水印了。
+
+    只給 `mark_data_url` 用來擋掉重複套用：後台每次儲存都會把整批圖重送，
+    沒有這道檢查的話同樣的位移會一次次疊上去，存幾次就看得見了。
+
+    用 FFT 一次算完「圖樣對齊在任何位置」的相關值——圖樣是週期性的，所以
+    只有一個 tile 內的位移是新的。分數取「最高的那個位移」減掉「所有位移的
+    雜訊水準」：畫面本身的紋理會讓每個位移都有一點反應，真的套過才會在某一
+    個位移上冒出尖峰。
+
+    刻意只比對原尺寸。這裡要判斷的是「剛剛存進來的這張是不是我們自己套的」，
+    那張圖不會被縮放過，掃描縮放比例只會多花時間又多一次誤判的機會——而誤判
+    成「已經套過」的代價是這張圖從此漏掉浮水印。
+
+    （被別人縮放、轉存過的圖要不要算本站的，改由前台的檢視頁把還原圖攤開來
+    讓人自己看。自動判定得對上任意縮放比例，離散地掃幾個比例只會漏掉大部分
+    情況：實測縮到 0.75 驗得到，0.8 或 0.7 就掉到門檻的一半以下。）
+    """
+    base = tile_mask(settings) if mask is None else mask
+    size = base.shape[0]
+    residual = _highpass(_chroma(image), max(8, size // 4))
+    # 邊緣（人物輪廓、色塊交界）的色度落差是浮水印的十幾倍，不壓下來的話
+    # 相關值整個被它們主導。夾在中位數的幾倍以內，訊號完全保得住
+    limit = 3.0 * max(0.5, float(np.median(np.abs(residual))))
+    residual = np.clip(residual, -limit, limit)
+
+    height, width = residual.shape
+    pattern = _tiled(base, height, width)
     if "A" in image.getbands():
         opaque = (np.asarray(image.getchannel("A"), dtype=np.float32) > 0).astype(np.float32)
+        residual = residual * opaque
+        pattern = pattern * opaque
 
-    best = 0.0
-    best_scale = 1.0
-    best_residual = None
-    for scale in DETECT_SCALES:
-        size = max(8, int(round(settings["tile"] * scale)))
-        # 圖樣在這張圖裡重複不到幾次的話，樣本太少、估出來的東西不能信：
-        # 一個放大兩倍的圖樣就只是幾團色塊，很容易和畫面裡的色塊對上
-        # （合成測試圖的假陽性就是這樣來的：×2 尺度、分數 2.4）
-        if height * width < MIN_TILES * size * size:
-            continue
-        # 圖被縮放過的話紋路也跟著縮，高通的窗要一起跟著換
-        residual = _highpass(signal, max(8, size // 4))
-        # 邊緣（人物輪廓、色塊交界）的色度落差是浮水印的十幾倍，不壓下來的話
-        # 相關值整個被它們主導。夾在中位數的幾倍以內，訊號完全保得住
-        limit = 3.0 * max(0.5, float(np.median(np.abs(residual))))
-        residual = np.clip(residual, -limit, limit)
-        mask = np.asarray(
-            Image.fromarray(base, mode="F").resize((size, size), Image.NEAREST), dtype=np.float32)
-        pattern = _tiled(mask, height, width)
-        if opaque is not None:
-            residual = residual * opaque
-            pattern = pattern * opaque
-        energy = float((pattern * pattern).sum())
-        if energy <= 0:
-            continue
+    energy = float((pattern * pattern).sum())
+    if energy <= 0:
+        return False
 
-        # 每個位移的相關值。圖樣是週期性的，所以只有一個 tile 內的位移是新的
-        correlation = np.fft.irfft2(
-            np.fft.rfft2(residual) * np.conj(np.fft.rfft2(pattern)), s=(height, width)
-        )[:size, :size] / energy
-        peak = float(correlation.max())
-        noise = float(np.percentile(np.abs(correlation), 90))
-        score = peak - noise
-        if best_residual is None or score > best:
-            best, best_scale, best_residual = score, scale, residual
-
-    if best_residual is None:
-        best_residual = _highpass(signal, 8)
-
-    threshold = max(DETECT_FLOOR, settings["strength"] * DETECT_RATIO)
-    preview = np.clip(128 + best_residual * 24, 0, 255).astype(np.uint8)
-    return {
-        "found": best >= threshold,
-        "amplitude": round(best, 3),
-        "threshold": round(threshold, 3),
-        "scale": best_scale,
-        "preview": encode_data_url(Image.fromarray(preview, "L"), keep_alpha=True),
-    }
+    correlation = np.fft.irfft2(
+        np.fft.rfft2(residual) * np.conj(np.fft.rfft2(pattern)), s=(height, width)
+    )[:min(size, height), :min(size, width)] / energy
+    score = float(correlation.max()) - float(np.percentile(np.abs(correlation), 90))
+    return score >= max(DETECT_FLOOR, settings["strength"] * DETECT_RATIO)
 
 
 def mark_data_url(img_data, settings=None, mask=None):
@@ -362,7 +358,7 @@ def mark_data_url(img_data, settings=None, mask=None):
         mask = tile_mask(settings) if mask is None else mask
         # 已經有浮水印的圖不要再套一次：同樣的圖樣疊兩次，位移就變兩倍，
         # 存個幾次之後就看得見了。後台每次儲存都會把整批圖重送，所以這條必要。
-        if inspect(image, settings)["found"]:
+        if already_marked(image, settings, mask):
             return img_data
         keep_alpha = "A" in image.getbands()
         return encode_data_url(embed(image, settings, mask), keep_alpha)
