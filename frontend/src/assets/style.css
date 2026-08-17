@@ -96,6 +96,16 @@ a {
     transform: scale(0.97);
 }
 
+/* 沒有這條的話，停用時會吃到瀏覽器預設的白底，配上原本的白字就整顆看不見 */
+.button:disabled,
+.button:disabled:hover {
+    cursor: not-allowed;
+    background-color: transparent;
+    border-color: rgba(228, 251, 255, 0.3);
+    color: rgba(255, 255, 255, 0.45);
+    transform: none;
+}
+
 .button.active {
     background-color: rgba(228, 251, 255, 0.2);
     border-color: #e4fbff;

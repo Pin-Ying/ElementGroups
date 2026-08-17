@@ -57,12 +57,8 @@ export const PAGE_META_DEFS = [
     label: '浮水印檢視（/watermark）',
     fields: [
       { name: 'title', label: '頁面標題', default: 'Watermark Check' },
-      {
-        name: 'subtitle',
-        label: '副標題',
-        default: '這個站的作品都藏了一層看不見的簽名。把圖丟進來，色度差會被放大，簽名就會浮出來。',
-        multiline: true
-      },
+      // 預設留空，由站長自己在後台填。空的時候頁面不顯示副標，SEO 描述退回頁面標題
+      { name: 'subtitle', label: '副標題', default: '', multiline: true },
       {
         name: 'hint',
         label: '操作說明',
@@ -74,18 +70,21 @@ export const PAGE_META_DEFS = [
       {
         name: 'sign_hint',
         label: '「自己印一個」的說明',
-        default: '簽名會被畫成粗塊狀圖樣鋪滿整張圖，2〜4 個字最清楚，中文也可以。'
-          + '印好的圖看起來跟原圖沒兩樣，但右邊放大色度差就讀得出來——這就是這個站保護作品的方式。',
+        default: '簽名會被畫成粗塊狀圖樣鋪滿整張圖，英數 2〜4 個字最清楚。'
+          + '印好的圖看起來跟原圖沒兩樣，但右邊顯影就讀得出來——這就是這個站保護作品的方式。',
         multiline: true
       },
       { name: 'original_label', label: '原圖那張的說明', default: '原圖' },
       { name: 'marked_label', label: '印好那張的說明', default: '印上簽名之後' },
-      { name: 'result_label', label: '放大那張的說明', default: '放大色度差之後' },
+      { name: 'result_label', label: '顯影那張的說明', default: '放大色度差之後' },
+      // 「放大倍率」會被讀成把圖放大；它其實是把微弱的色度差乘上倍數，讓它從
+      // 看不見變成看得見，所以用「顯影」
+      { name: 'gain_label', label: '強度滑桿的名稱', default: '顯影強度' },
       {
         name: 'result_hint',
         label: '結果下方的說明',
         default: '看到重複鋪滿整張的簽名，就是從這個站拿走的。壓過、縮過、裁過的圖會比較模糊，'
-          + '調整放大倍率再看一次；整張都是雜訊看不出圖樣，那就不是這裡的圖。',
+          + '調整顯影強度再看一次；整張都是雜訊看不出圖樣，那就不是這裡的圖。',
         multiline: true
       },
       // 這頁是給讀者主動查的工具，預設就放在左側選單

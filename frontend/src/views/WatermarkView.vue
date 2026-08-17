@@ -18,8 +18,9 @@
       <p class="hint">{{ metaText('watermark', 'hint') }}</p>
     </div>
 
-    <!-- 自己印一個：簽名是訪客自己打的，和站長的浮水印無關 -->
-    <div v-if="ready" class="sign">
+    <!-- 自己印一個：簽名是訪客自己打的，和站長的浮水印無關。
+         一進頁面就顯示，否則不選圖就看不出這頁還能印，會以為是另一個頁面 -->
+    <div class="sign">
       <label class="label" for="wm-text">{{ metaText('watermark', 'sign_label') }}</label>
       <div class="sign-row">
         <input
@@ -34,7 +35,8 @@
         <button
           class="button"
           type="button"
-          :disabled="busy || !signature.trim()"
+          :disabled="busy || !ready || !signature.trim()"
+          :title="ready ? '' : '先選一張圖'"
           @click="applySignature"
         >{{ busy ? '處理中…' : '印上去' }}</button>
         <button
@@ -63,9 +65,9 @@
     </div>
 
     <div v-if="ready" class="controls">
-      <label class="label" for="wm-gain">放大倍率 {{ gain }}</label>
+      <label class="label" for="wm-gain">{{ metaText('watermark', 'gain_label') }} {{ gain }}</label>
       <input id="wm-gain" type="range" :min="MIN_GAIN" :max="MAX_GAIN" v-model.number="gain" class="slider">
-      <button class="button" type="button" @click="downloadCanvas">另存放大後的圖</button>
+      <button class="button" type="button" @click="downloadCanvas">另存這張</button>
     </div>
 
     <p v-if="ready && scaled" class="hint">
@@ -81,7 +83,7 @@
 // 1. 丟一張圖進來，把色度差放大——如果是這個站的作品就會浮出簽名。
 // 2. 自己打一個簽名印在自己的圖上，看看「藏得住又讀得出來」是怎麼回事。
 //
-// 全部在瀏覽器裡算，圖片和簽名都不會上傳（理由寫在 utils/watermarkReveal.js）。
+// 全部在瀏覽器裡算，圖片和簽名都不會上傳（理由寫在 utils/watermark.js）。
 // 這頁刻意只「顯示」不「判定」：自動判定必須拿簽名圖樣去比對所有位移與縮放
 // 比例，任意比例縮放過的圖對不上模板就會回報「沒有」，那種會說謊的是非題比
 // 沒有結論更糟。
@@ -90,10 +92,9 @@ import { siteSettingsState } from '../store/siteSettings'
 import { setPageSeo } from '../utils/seo'
 import { showToast } from '../store/toast'
 import {
-  chromaResidual, residualToImageData, imageDataFrom,
-  DEFAULT_GAIN, MIN_GAIN, MAX_GAIN
-} from '../utils/watermarkReveal'
-import { markImage, MAX_TEXT } from '../utils/watermarkEmbed'
+  chromaResidual, residualToImageData, imageDataFrom, markImage,
+  DEFAULT_GAIN, MIN_GAIN, MAX_GAIN, MAX_TEXT
+} from '../utils/watermark'
 
 export default {
   data() {
