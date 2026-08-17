@@ -476,6 +476,17 @@ def _put(tree, path, value):
     node[path[-1]] = value
 
 
+def _join(base, path):
+    """組出資料庫路徑。path 可能是空的——那表示 base 本身就是那張圖。"""
+    return "/".join([base, *path]) if path else base
+
+
+def _ref(fdb, base, path):
+    """指向那張圖的 Reference。空路徑不能丟給 child()，RTDB 會拒絕空字串。"""
+    reference = fdb.child(base)
+    return reference.child("/".join(path)) if path else reference
+
+
 def _leaves(tree, prefix=()):
     """走出所有 (路徑, 原圖) 組合。"""
     if isinstance(tree, str):
@@ -539,14 +550,13 @@ def repaint(origin_path, settings=None, offset=0, limit=BATCH_SIZE):
         image = decode_data_url(original)
         if image is None:
             continue
-        location = "/".join(path)
         try:
             # 關掉浮水印就把原圖放回去，站上的圖回到沒有浮水印的樣子
             value = original if not settings["enabled"] else encode_data_url(
                 embed(image, settings, mask), "A" in image.getbands())
-            fdb.child(origin_path).child(location).set(value)
+            _ref(fdb, origin_path, path).set(value)
         except Exception as e:  # noqa: BLE001
-            print(f"watermark: {origin_path}/{location} 重印失敗，維持原樣", e)
+            print(f"watermark: {_join(origin_path, path)} 重印失敗，維持原樣", e)
     return len(chunk), offset + len(chunk) < len(leaves)
 
 
@@ -555,6 +565,16 @@ BACKFILL_NODES = (
     "_default", "_libraries", "_gallery", "_particles", "_molecules",
     "_element_groups", "_electron_styles", "_layers", "_pages", "_site_settings",
 )
+
+# 底下直接就是欄位、整個節點算一份工作的。其餘節點是「一個子項一份」
+# （`_particles/photon`、`_pages/about`⋯）。
+#
+# 這裡刻意用明列，不靠 shallow 查詢的回傳值去猜：RTDB 的 shallow 對物件會把
+# 每一個 key 的值都截成 true，不管子值原本是字串還是物件，所以「值是不是 true」
+# 分不出這兩種形狀。原本用那個方式判斷，`_default` 就被當成「一個子項一份」，
+# 工作變成指向 `_default/img_data` 這個葉節點，讀回來是字串、組出的相對路徑是
+# 空字串，最後炸在 .child("")。
+SINGLETON_NODES = ("_default", "_site_settings")
 
 
 def backfill(path, settings=None, offset=0, limit=BATCH_SIZE):
@@ -586,10 +606,9 @@ def backfill(path, settings=None, offset=0, limit=BATCH_SIZE):
 
     mask = tile_mask(settings)
     for leaf, img_data in chunk:
-        location = "/".join(leaf)
-        marked = mark_data_url(img_data, settings, mask, origin_path=f"{path}/{location}")
+        marked = mark_data_url(img_data, settings, mask, origin_path=_join(path, leaf))
         if marked != img_data:
-            fdb.child(path).child(location).set(marked)
+            _ref(fdb, path, leaf).set(marked)
     return len(chunk), offset + len(chunk) < len(images)
 
 
@@ -605,15 +624,11 @@ def backfill_targets():
                if isinstance(info, dict) and info.get("image")]
 
     for node in BACKFILL_NODES:
-        children = shallow_fdb(node)
-        if not children:
+        if node in SINGLETON_NODES:
+            if shallow_fdb(node):
+                targets.append(node)
             continue
-        # 同 repaint_targets：底下每個都還有東西 → 一個子項一份工作；
-        # 出現純量 → 這層就是欄位，整個節點一份
-        if all(value is True for value in children.values()):
-            targets.extend(f"{node}/{child}" for child in children)
-        else:
-            targets.append(node)
+        targets.extend(f"{node}/{child}" for child in shallow_fdb(node))
     return targets
 
 
@@ -626,12 +641,10 @@ def repaint_targets():
     from app.firebase import shallow_fdb
     targets = []
     for node in shallow_fdb(ORIGINALS_NODE):
-        children = shallow_fdb(f"{ORIGINALS_NODE}/{node}")
-        # shallow 對「底下還有東西」的 key 回 True、對純量回值本身。
-        # 底下每個都還有東西 → 一個對象一份工作（`periodic_table/Fe`）；
-        # 出現純量 → 這層就是欄位，整個節點是一份工作（`_site_settings`）
-        if children and all(value is True for value in children.values()):
-            targets.extend(f"{node}/{child}" for child in children)
-        else:
+        # 元素代表圖備份在 `_originals/{符號}/img_data`，底下直接是欄位，
+        # 和 `_default`／`_site_settings` 一樣整個算一份；其餘節點一個子項一份
+        if node in SINGLETON_NODES or not node.startswith("_"):
             targets.append(node)
+        else:
+            targets.extend(f"{node}/{child}" for child in shallow_fdb(f"{ORIGINALS_NODE}/{node}"))
     return targets
