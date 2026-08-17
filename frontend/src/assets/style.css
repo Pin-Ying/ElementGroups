@@ -350,3 +350,14 @@ a {
         font-size: 16px;
     }
 }
+
+/* ── 圖片保護（issue #25）── */
+/* 前台的圖不給右鍵另存、不給拖走、手機長按也不跳儲存選單。
+   擋得住「順手存一張」，擋不住 F12、公開圖片網址與截圖——那是原理上的事，
+   真正的防線是隱形浮水印。掛在 <html> 上的 class 由 utils/imageGuard.js 依
+   頁面切換：後台與浮水印檢視頁不擋。 */
+.guard-images img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    user-select: none;
+}
