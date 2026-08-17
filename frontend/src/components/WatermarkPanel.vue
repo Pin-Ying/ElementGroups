@@ -8,8 +8,17 @@
 
     <p class="desc">
       把簽名藏進圖片的色度裡，亮度完全不動——正常觀看看不出來，把色度差放大就會浮出來。
-      開啟之後，<strong>後台新上傳的圖片</strong>會自動套用；已經存在的舊圖不會自動處理，
-      要補的話請工程師跑一次回填腳本。
+      開啟之後，<strong>後台新上傳的圖片</strong>會自動套用，同時把沒有浮水印的原圖另外
+      備份起來（存在單獨的節點，前台讀不到）。
+      <br>
+      之後<strong>改了簽名、強度或開關，按下儲存就會用原圖把既有的圖重印一遍</strong>——
+      不重印的話站上會同時存在新舊兩種簽名。在啟用浮水印之前就上傳的舊圖沒有原圖備份，
+      那些要請工程師跑一次回填腳本。
+    </p>
+
+    <p v-if="repainting" class="hint">
+      正在用新設定重印既有的圖片…{{ repainting.done }} / {{ repainting.total }}
+      （已重印 {{ repainting.images }} 張）
     </p>
 
     <div class="field">
@@ -104,7 +113,10 @@
 // 拆成獨立元件而不是塞進 AdminView：那支已經 4860 行、十個分頁擠在一起
 // （issue #29），沒必要再往裡面堆。這裡自己打自己的四支端點。
 import AdminBar from './AdminBar.vue'
-import { getWatermarkSettings, saveWatermarkSettings, previewWatermark } from '../api'
+import {
+  getWatermarkSettings, saveWatermarkSettings, previewWatermark,
+  getRepaintTargets, repaintWatermark
+} from '../api'
 import { showToast } from '../store/toast'
 import { compressImage } from '../utils/imageCompress'
 
@@ -129,6 +141,7 @@ export default {
       MODES,
       form: { enabled: false, mode: 'text', text: '', pattern: '', strength: 3 },
       preview: { original: '', marked: '', recovered: '' },
+      repainting: null,
       saving: false,
       msg: '',
       msgType: ''
@@ -181,10 +194,50 @@ export default {
         this.msg = data.message
         this.msgType = 'success'
         showToast(data.message, 'success')
+        await this.repaint()
       } catch (e) {
         this.fail(e)
       } finally {
         this.saving = false
+      }
+    },
+    /**
+     * 用新設定把既有的圖重印一遍。
+     *
+     * 改了簽名卻不重印，站上的舊圖還是舊簽名，兩種簽名混在一起之後就分不出
+     * 哪張是什麼時候的了。重印一定是從備份的原圖重來——拿已經套過的圖再套
+     * 一次只會疊上去。
+     *
+     * 一個位置一次請求：全部一起做會超過後端的 30 秒上限，而且只有一個
+     * worker（issue #28），整站會在那段時間沒反應。
+     */
+    async repaint() {
+      this.repainting = { total: 0, done: 0, images: 0 }
+      try {
+        const { data } = await getRepaintTargets()
+        const targets = data.targets || []
+        this.repainting.total = targets.length
+        if (!targets.length) return
+        for (const path of targets) {
+          try {
+            const { data: one } = await repaintWatermark(path)
+            this.repainting.images += one.count || 0
+          } catch (e) {
+            // 單一位置失敗不該中斷整批：其餘照樣重印，最後一次報告
+            console.error('重印失敗:', path, e)
+            this.repainting.failed = (this.repainting.failed || 0) + 1
+          }
+          this.repainting.done++
+        }
+        const failed = this.repainting.failed
+        showToast(
+          `既有圖片已用新設定重印 ${this.repainting.images} 張`
+            + (failed ? `，有 ${failed} 個位置失敗（見主控台）` : ''),
+          failed ? 'error' : 'success')
+      } catch (e) {
+        this.fail(e)
+      } finally {
+        this.repainting = null
       }
     }
   }

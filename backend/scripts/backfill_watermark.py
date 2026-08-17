@@ -3,6 +3,9 @@
 開啟浮水印之後，只有新上傳的圖會被套用；資料庫裡原本就有的圖不會自動變。
 這支腳本掃過所有存圖片的節點，對還沒有浮水印的圖套一次再寫回去。
 
+`--apply` 時會順便把每張圖的原圖備份到 `_originals`，之後在後台改簽名或強度
+就能從原圖重印（沒有備份的圖重印不了——已經套過的圖再套只會疊上去）。
+
 用法（在 backend/ 底下）：
 
     python scripts/backfill_watermark.py                 # 預覽，不寫入
@@ -87,11 +90,14 @@ def process(root, settings, apply_changes):
 
     changed = 0
     for path, img_data in images:
-        marked = watermark.mark_data_url(img_data, settings)
+        location = "/".join(path)
+        # 補上浮水印的同時把原圖備份到 _originals，之後換簽名才有東西可以重印。
+        # 預覽模式不傳，才不會只是看一下就寫東西進資料庫
+        marked = watermark.mark_data_url(
+            img_data, settings, origin_path=location if apply_changes else None)
         if marked == img_data:
             continue
         changed += 1
-        location = "/".join(path)
         size = (len(marked) - len(img_data)) // 1024
         print(f"    {'寫入' if apply_changes else '待補'} {location}（{size:+d}KB）")
         if apply_changes:

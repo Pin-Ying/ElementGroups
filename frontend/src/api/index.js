@@ -308,4 +308,14 @@ export function previewWatermark(data) {
   return api.post('/admin/watermark/preview', data)
 }
 
+// 換過簽名之後，從備份的原圖把站上的圖重印一次。
+// 一次做完會超過後端的 30 秒上限，所以先問有哪些位置，再一個一個叫
+export function getRepaintTargets() {
+  return api.get('/admin/watermark/repaint')
+}
+
+export function repaintWatermark(path) {
+  return api.post('/admin/watermark/repaint', { path })
+}
+
 export default api

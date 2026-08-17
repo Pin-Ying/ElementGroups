@@ -12,7 +12,7 @@ from app.config import settings
 from app.elements import element_info
 from app.links import normalize_creator_links, serialize_creator_links
 from app.completion import update_completion, rebuild_completion
-from app.gallery import normalize_gallery
+from app.gallery import normalize_gallery, GALLERY_NODE
 from app.pages import normalize_pages, serialize_page, normalize_slug, PAGES_NODE
 from app.molecules import normalize_molecules, serialize_molecule, normalize_slug as molecule_slug, MOLECULES_NODE
 from app.page_meta import PAGE_META_NODE, META_KEYS, normalize_meta
@@ -180,7 +180,8 @@ def manage_default_image():
 
         image_bytes = image.read()
         img_data = watermark.mark_data_url(
-            "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8"))
+            "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8"),
+            origin_path="_default/img_data")
         # Storage 送的要是套過浮水印的那份，否則 /api/elements/…/img 會漏出乾淨的原圖
         image_bytes = base64.b64decode(img_data.split(",", 1)[1])
 
@@ -227,7 +228,7 @@ def manage_electron_styles():
         fdb.child(ELECTRON_STYLES_NODE).child(style_id).set(watermark.mark_payload({
             "name": name or style_id,
             "img_data": img_data,
-        }))
+        }, origin_path=f"{ELECTRON_STYLES_NODE}/{style_id}"))
         return jsonify({"result": "success", "message": "電子樣式已儲存", "id": style_id})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -459,7 +460,8 @@ def manage_layers(symbol):
         if not record:
             return jsonify({"result": "failure", "message": "沒有要更新的欄位"}), 400
         # 用 update：只送了原子核時不該把手寫名那層清掉
-        fdb.child(LAYERS_NODE).child(symbol).update(watermark.mark_payload(record))
+        fdb.child(LAYERS_NODE).child(symbol).update(
+            watermark.mark_payload(record, origin_path=f"{LAYERS_NODE}/{symbol}"))
         return jsonify({"result": "success", "message": "圖層已儲存"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -492,7 +494,8 @@ def update_element_group(key):
         if record is None:
             return jsonify({"result": "failure", "message": "無效的資料"}), 400
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        fdb.child(GROUPS_NODE).child(key).set(watermark.mark_payload(record))
+        fdb.child(GROUPS_NODE).child(key).set(
+            watermark.mark_payload(record, origin_path=f"{GROUPS_NODE}/{key}"))
         return jsonify({"result": "success", "message": "主族形象已儲存"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -530,7 +533,8 @@ def manage_libraries():
         library_id, record = serialize_library(request.get_json() or {})
         if not library_id:
             return jsonify({"result": "failure", "message": record}), 400
-        fdb.child(LIBRARIES_NODE).child(library_id).set(watermark.mark_payload(record))
+        fdb.child(LIBRARIES_NODE).child(library_id).set(
+            watermark.mark_payload(record, origin_path=f"{LIBRARIES_NODE}/{library_id}"))
         return jsonify({"result": "success", "message": "圖庫已儲存", "id": library_id})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -601,7 +605,8 @@ def manage_particles():
             fdb.child(PARTICLES_NODE).child(original).delete()
 
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        fdb.child(PARTICLES_NODE).child(slug).set(watermark.mark_payload(record))
+        fdb.child(PARTICLES_NODE).child(slug).set(
+            watermark.mark_payload(record, origin_path=f"{PARTICLES_NODE}/{slug}"))
         return jsonify({"result": "success", "message": "粒子已儲存", "slug": slug})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -658,7 +663,8 @@ def manage_molecules():
             fdb.child(MOLECULES_NODE).child(original).delete()
 
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        fdb.child(MOLECULES_NODE).child(slug).set(watermark.mark_payload(record))
+        fdb.child(MOLECULES_NODE).child(slug).set(
+            watermark.mark_payload(record, origin_path=f"{MOLECULES_NODE}/{slug}"))
         return jsonify({"result": "success", "message": "分子已儲存", "slug": slug})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -699,7 +705,8 @@ def manage_pages():
             fdb.child(PAGES_NODE).child(original).delete()
 
         record["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        fdb.child(PAGES_NODE).child(slug).set(watermark.mark_payload(record))
+        fdb.child(PAGES_NODE).child(slug).set(
+            watermark.mark_payload(record, origin_path=f"{PAGES_NODE}/{slug}"))
         return jsonify({"result": "success", "message": "頁面已儲存", "slug": slug})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -752,7 +759,7 @@ def manage_gallery(symbol):
                 "message": f"最多只能放 {GALLERY_MAX} 張，目前有 {len(images)} 張"
             }), 400
 
-        images = watermark.mark_payload(images)
+        images = watermark.mark_payload(images, origin_path=f"{GALLERY_NODE}/{symbol}")
         cleaned = []
         for item in images:
             if not isinstance(item, dict):
@@ -834,7 +841,7 @@ def manage_site_settings():
             if data.get("clear_bg_image"):
                 payload["bg_image"] = ""
 
-        upload_fdb("_site_settings", watermark.mark_payload(payload))
+        upload_fdb("_site_settings", watermark.mark_payload(payload, origin_path="_site_settings"))
         return jsonify({"result": "success", "message": "Site settings updated!"})
     except Exception as e:
         return jsonify({"result": "failure", "message": str(e)}), 500
@@ -877,6 +884,36 @@ def preview_watermark():
             "marked": watermark.encode_data_url(marked, keep_alpha="A" in marked.getbands()),
             "recovered": watermark.reveal_data_url(marked),
         })
+    except ValueError as e:
+        return jsonify({"result": "failure", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/watermark/repaint", methods=["GET", "POST"])
+@login_required
+def repaint_watermark():
+    """換過簽名（或改了強度、關掉開關）之後，從備份的原圖把站上的圖重印一次。
+
+    不能拿已經套過的圖再套一次——那只會疊上去，所以一定要從原圖重來。
+
+    GET 回傳待處理的位置清單，POST 一次處理一個位置。一次做完會撞上 gunicorn
+    的 30 秒上限，而且只有一個 worker（issue #28），整站會在那段時間沒反應；
+    交給前端一個一個叫，順便還能顯示進度。
+    """
+    if request.method == "GET":
+        try:
+            return jsonify({"targets": watermark.repaint_targets()})
+        except Exception as e:
+            return jsonify({"result": "failure", "message": str(e)}), 500
+
+    try:
+        path = ((request.get_json() or {}).get("path") or "").strip()
+        # 只認清單裡的位置。這個值會被拿去組資料庫路徑，不驗的話等於開放
+        # 「指定任意節點寫入」
+        if path not in watermark.repaint_targets():
+            return jsonify({"result": "failure", "message": "不認得這個位置"}), 400
+        return jsonify({"result": "success", "path": path, "count": watermark.repaint(path)})
     except ValueError as e:
         return jsonify({"result": "failure", "message": str(e)}), 400
     except Exception as e:
@@ -963,7 +1000,8 @@ def update_story():
         if image and image.filename:
             image_bytes = image.read()
             img_data = watermark.mark_data_url(
-                "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8"))
+                "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("utf-8"),
+                origin_path=f"{symbol}/img_data")
             # 同上：Storage 那份也要有浮水印
             image_bytes = base64.b64decode(img_data.split(",", 1)[1])
 

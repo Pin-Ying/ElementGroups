@@ -159,3 +159,15 @@ def show_fdb(element=None):
     if element is None:
         return fdb.get()
     return fdb.child(element).get()
+
+
+def shallow_fdb(element):
+    """只讀第一層的 key，不把底下的資料拉下來。
+
+    用在「這個節點底下有哪些東西」這種問題上。像 `_originals` 底下全是 base64
+    原圖，整包讀是好幾 MB，只為了知道有哪些位置要處理（issue #30 的教訓）。
+
+    RTDB 的 shallow 查詢對「底下還有東西」的 key 回 True，對純量直接回值本身，
+    所以拿回來的 dict 可以分辨這兩種情況。
+    """
+    return fdb.child(element).get(shallow=True) or {}

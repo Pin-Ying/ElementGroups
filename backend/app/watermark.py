@@ -28,9 +28,15 @@ from PIL import Image, ImageDraw, ImageFont
 
 WATERMARK_NODE = "_watermark"
 
-# 小於這個邊長的圖不套。電子、圖層那種疊上去的小素材套了也讀不出來，
-# 卻要冒著在小圖上被看見的風險。
-MIN_EDGE = 64
+# 沒有浮水印的原圖備份。放在獨立節點，公開端點各自只讀自己那個節點，
+# 天生就碰不到這裡（見「原圖備份與重印」那一段）
+ORIGINALS_NODE = "_originals"
+
+# 圖太小就不套。要求短邊至少放得下一個完整的圖樣單元，而且整張至少放得下
+# MIN_TILES 個——電子、圖層那種小素材套了也讀不出來，更要緊的是 already_marked
+# 在樣本這麼少的時候會不可靠（實測 400×300 剛套完就驗不到自己），於是每次
+# 儲存都再疊一層，存幾次就看得見了。
+MIN_TILES = 6
 
 # 圖樣單元的邊長（px）與「先畫小再放大」的倍率。
 # BLOCK 實測過 4／8／16：4 太細，JPEG 的色度量化壓一次就掉了七成；
@@ -49,7 +55,7 @@ DETECT_RATIO = 0.25
 DETECT_FLOOR = 0.35
 
 # 還原圖的參數。窗要比圖樣的紋路大、比畫面內容小，取預設 tile 的四分之一；
-# 放大倍率是肉眼看得出圖樣的下限附近。前端 utils/watermarkReveal.js 用同一組值，
+# 放大倍率是肉眼看得出圖樣的下限附近。前端 utils/watermark.js 用同一組值，
 # 兩邊的還原圖才會長得一樣
 REVEAL_WINDOW = DEFAULT_TILE // 4
 REVEAL_GAIN = 24
@@ -192,6 +198,13 @@ def _tiled(mask, height, width):
     return np.tile(mask, reps)[:height, :width]
 
 
+def too_small(image, settings):
+    """這張圖小到不該套浮水印。見 MIN_TILES 的說明。"""
+    tile = settings["tile"]
+    width, height = image.size
+    return min(width, height) < tile or width * height < MIN_TILES * tile * tile
+
+
 # ── 套用與偵測 ────────────────────────────────────────────────────────
 
 def decode_data_url(img_data):
@@ -281,7 +294,7 @@ def _highpass(signal, window):
 def reveal(image, radius=REVEAL_WINDOW):
     """抽出色度殘差：正常的畫面內容被減掉，只留下浮水印所在的頻段。
 
-    放大之後就是給人看的「還原圖」。前端 utils/watermarkReveal.js 是同一組
+    放大之後就是給人看的「還原圖」。前端 utils/watermark.js 是同一組
     運算的 JS 版本，前台的檢視頁在瀏覽器裡跑，不必把圖上傳。
     """
     return _highpass(_chroma(image), radius)
@@ -299,14 +312,17 @@ def already_marked(image, settings, mask=None):
     只給 `mark_data_url` 用來擋掉重複套用：後台每次儲存都會把整批圖重送，
     沒有這道檢查的話同樣的位移會一次次疊上去，存幾次就看得見了。
 
-    用 FFT 一次算完「圖樣對齊在任何位置」的相關值——圖樣是週期性的，所以
-    只有一個 tile 內的位移是新的。分數取「最高的那個位移」減掉「所有位移的
-    雜訊水準」：畫面本身的紋理會讓每個位移都有一點反應，真的套過才會在某一
-    個位移上冒出尖峰。
+    只看「圖樣對齊在原點」那一個位移。套用是從 (0, 0) 開始鋪的，所以我們自己
+    套的圖一定對齊在原點——不需要掃過所有位移去找尖峰。掃了反而危險：那是
+    取 size² 個候選裡的最大值，圖只比圖樣單元大一點時（400×300 的圖只放得下
+    兩個多一點）樣本太少，最大值就是雜訊，乾淨的圖會被誤判成「已經套過」而
+    從此漏掉浮水印。
 
-    刻意只比對原尺寸。這裡要判斷的是「剛剛存進來的這張是不是我們自己套的」，
-    那張圖不會被縮放過，掃描縮放比例只會多花時間又多一次誤判的機會——而誤判
-    成「已經套過」的代價是這張圖從此漏掉浮水印。
+    分數是原點的相關值減掉所有位移的雜訊水準：畫面本身的紋理會讓每個位移都
+    有一點反應，真的套過才會在原點上冒出來。
+
+    也只比對原尺寸。這裡要判斷的是「剛剛存進來的這張是不是我們自己套的」，
+    那張圖不會被縮放過。
 
     （被別人縮放、轉存過的圖要不要算本站的，改由前台的檢視頁把還原圖攤開來
     讓人自己看。自動判定得對上任意縮放比例，離散地掃幾個比例只會漏掉大部分
@@ -316,8 +332,12 @@ def already_marked(image, settings, mask=None):
     size = base.shape[0]
     residual = _highpass(_chroma(image), max(8, size // 4))
     # 邊緣（人物輪廓、色塊交界）的色度落差是浮水印的十幾倍，不壓下來的話
-    # 相關值整個被它們主導。夾在中位數的幾倍以內，訊號完全保得住
-    limit = 3.0 * max(0.5, float(np.median(np.abs(residual))))
+    # 相關值整個被它們主導。夾在中位數的幾倍以內，邊緣壓得住。
+    #
+    # 但下限要留到浮水印訊號本身的振幅（大約就是強度）以上：平塗、漸層那種
+    # 乾淨的畫面中位數很小，只看中位數會把訊號自己也削掉一半，變成「剛套完
+    # 卻驗不到自己」，接著每次儲存都再套一層。
+    limit = 2.0 * settings["strength"]
     residual = np.clip(residual, -limit, limit)
 
     height, width = residual.shape
@@ -334,12 +354,15 @@ def already_marked(image, settings, mask=None):
     correlation = np.fft.irfft2(
         np.fft.rfft2(residual) * np.conj(np.fft.rfft2(pattern)), s=(height, width)
     )[:min(size, height), :min(size, width)] / energy
-    score = float(correlation.max()) - float(np.percentile(np.abs(correlation), 90))
+    score = float(correlation[0, 0]) - float(np.percentile(np.abs(correlation), 90))
     return score >= max(DETECT_FLOOR, settings["strength"] * DETECT_RATIO)
 
 
-def mark_data_url(img_data, settings=None, mask=None):
+def mark_data_url(img_data, settings=None, mask=None, origin_path=None):
     """套浮水印到一張 base64 圖片，回傳新的 data URL。
+
+    `origin_path` 給了就把還沒套過的原圖留一份在 `_originals/{origin_path}`，
+    之後換簽名可以從原圖重印（見 `keep_original`）。
 
     刻意做成「出任何問題都原封不動回傳」——浮水印是加值功能，
     絕對不該讓後台存不了圖。
@@ -349,9 +372,7 @@ def mark_data_url(img_data, settings=None, mask=None):
         return img_data
 
     image = decode_data_url(img_data)
-    if image is None:
-        return img_data
-    if min(image.size) < MIN_EDGE:
+    if image is None or too_small(image, settings):
         return img_data
 
     try:
@@ -361,17 +382,28 @@ def mark_data_url(img_data, settings=None, mask=None):
         if already_marked(image, settings, mask):
             return img_data
         keep_alpha = "A" in image.getbands()
-        return encode_data_url(embed(image, settings, mask), keep_alpha)
+        marked = encode_data_url(embed(image, settings, mask), keep_alpha)
+        if origin_path:
+            keep_original(origin_path, img_data)
+        return marked
     except Exception as e:  # noqa: BLE001 — 見上方 docstring
         print("watermark: 套用失敗，維持原圖", e)
         return img_data
 
 
-def mark_payload(value, settings=None):
+def mark_payload(value, settings=None, origin_path=None):
     """走過整包要寫進 RTDB 的資料，把每一個 base64 圖片欄位換成套過浮水印的版本。
 
     區塊編輯器的圖片藏在巢狀結構裡，逐個欄位處理會漏；這裡不管它長在哪，
     只認 `data:image/…;base64,` 開頭的字串。
+
+    `origin_path`（例如 `_particles/photon`）給了就順便把原圖存進
+    `_originals/{origin_path}`，位置與資料裡的位置一一對應。整包覆寫，所以
+    這次沒送來的圖片欄位——被刪掉的區塊、換掉的圖——留下的原圖也會跟著消失，
+    不會慢慢積成一堆沒人認領的 base64。
+
+    這一批裡「已經套過」的圖是後台重送的既有內容，它的原圖本來就在
+    `_originals` 裡，原封不動搬過去。
     """
     settings = load_settings() if settings is None else settings
     if not settings["enabled"]:
@@ -382,13 +414,148 @@ def mark_payload(value, settings=None):
         print("watermark: 設定不完整，略過", e)
         return value
 
-    def walk(node):
+    existing = load_originals(origin_path) if origin_path else {}
+    originals = {}
+
+    def walk(node, path):
         if isinstance(node, str):
-            return mark_data_url(node, settings, mask) if node.startswith("data:image/") else node
+            if not node.startswith("data:image/"):
+                return node
+            image = decode_data_url(node)
+            if image is None or too_small(image, settings):
+                return node
+            try:
+                if already_marked(image, settings, mask):
+                    kept = _dig(existing, path)
+                    if isinstance(kept, str):
+                        _put(originals, path, kept)
+                    return node
+                marked = encode_data_url(embed(image, settings, mask), "A" in image.getbands())
+                _put(originals, path, node)
+                return marked
+            except Exception as e:  # noqa: BLE001 — 同 mark_data_url：不能讓後台存不了圖
+                print("watermark: 套用失敗，維持原圖", e)
+                return node
         if isinstance(node, dict):
-            return {k: walk(v) for k, v in node.items()}
+            return {k: walk(v, path + [str(k)]) for k, v in node.items()}
         if isinstance(node, list):
-            return [walk(v) for v in node]
+            return [walk(v, path + [str(i)]) for i, v in enumerate(node)]
         return node
 
-    return walk(value)
+    result = walk(value, [])
+    if origin_path:
+        save_originals(origin_path, originals)
+    return result
+
+
+# ── 原圖備份與重印 ────────────────────────────────────────────────────
+#
+# 原圖存在獨立的 `_originals` 節點，而不是放在資料旁邊多一個欄位。
+# 公開端點各自只讀自己那個節點，天生就碰不到 `_originals`——如果把原圖擺在
+# 同一筆資料裡，每一支端點都得記得把它濾掉，漏掉一支就等於把沒有浮水印的
+# 原圖直接送出去，那比不備份還糟。
+
+def _dig(tree, path):
+    """照 path 走進巢狀結構；RTDB 會把稀疏陣列存成數字 key 的 dict，所以兩種都要吃。"""
+    node = tree
+    for key in path:
+        if isinstance(node, dict):
+            node = node.get(key)
+        elif isinstance(node, list):
+            index = int(key) if key.isdigit() else -1
+            node = node[index] if 0 <= index < len(node) else None
+        else:
+            return None
+    return node
+
+
+def _put(tree, path, value):
+    node = tree
+    for key in path[:-1]:
+        node = node.setdefault(key, {})
+    node[path[-1]] = value
+
+
+def _leaves(tree, prefix=()):
+    """走出所有 (路徑, 原圖) 組合。"""
+    if isinstance(tree, str):
+        yield list(prefix), tree
+    elif isinstance(tree, dict):
+        for key, value in tree.items():
+            yield from _leaves(value, prefix + (str(key),))
+    elif isinstance(tree, list):
+        for index, value in enumerate(tree):
+            if value is not None:
+                yield from _leaves(value, prefix + (str(index),))
+
+
+def load_originals(origin_path):
+    from app.firebase import show_fdb
+    return show_fdb(f"{ORIGINALS_NODE}/{origin_path}") or {}
+
+
+def save_originals(origin_path, originals):
+    from app.firebase import fdb
+    fdb.child(ORIGINALS_NODE).child(origin_path).set(originals or {})
+
+
+def keep_original(origin_path, img_data):
+    """單張圖的版本。路徑最後一段就是欄位名，例如 `Fe/img_data`。"""
+    from app.firebase import fdb
+    fdb.child(ORIGINALS_NODE).child(origin_path).set(img_data)
+
+
+def repaint(origin_path, settings=None):
+    """把 `_originals/{origin_path}` 底下的原圖用目前的設定重新套一次，寫回原位。
+
+    換過簽名或強度之後用這個——直接拿已經套過的圖再套一次只會疊上去，
+    必須從原圖重來。
+
+    一張圖一個路徑地寫（`fdb.child(...).set(...)`），不整包覆寫：整包寫回去
+    會把這中間站長在後台改過的文字欄位一起蓋掉。
+    """
+    settings = load_settings() if settings is None else settings
+    from app.firebase import fdb
+
+    originals = load_originals(origin_path)
+    if not originals:
+        return 0
+
+    mask = tile_mask(settings) if settings["enabled"] else None
+    done = 0
+    for path, original in _leaves(originals):
+        image = decode_data_url(original)
+        if image is None:
+            continue
+        target = fdb.child(origin_path).child("/".join(path))
+        if not settings["enabled"]:
+            # 關掉浮水印就把原圖放回去，站上的圖回到沒有浮水印的樣子
+            target.set(original)
+            done += 1
+            continue
+        try:
+            target.set(encode_data_url(embed(image, settings, mask), "A" in image.getbands()))
+            done += 1
+        except Exception as e:  # noqa: BLE001
+            print(f"watermark: {origin_path}/{'/'.join(path)} 重印失敗，維持原樣", e)
+    return done
+
+
+def repaint_targets():
+    """列出所有備份過原圖的位置，一個位置一次重印工作。
+
+    只讀 key 不讀圖：`_originals` 底下全是 base64，整包讀下來是好幾 MB
+    （issue #30 那個教訓）。
+    """
+    from app.firebase import shallow_fdb
+    targets = []
+    for node in shallow_fdb(ORIGINALS_NODE):
+        children = shallow_fdb(f"{ORIGINALS_NODE}/{node}")
+        # shallow 對「底下還有東西」的 key 回 True、對純量回值本身。
+        # 底下每個都還有東西 → 一個對象一份工作（`periodic_table/Fe`）；
+        # 出現純量 → 這層就是欄位，整個節點是一份工作（`_site_settings`）
+        if children and all(value is True for value in children.values()):
+            targets.extend(f"{node}/{child}" for child in children)
+        else:
+            targets.append(node)
+    return targets

@@ -1475,7 +1475,7 @@ import { BUILTIN_PAGES } from '../utils/builtinPages'
 import { outerElectronCount } from '../utils/valence'
 import { parseFormula } from '../utils/formula'
 import { GROUP_SECTIONS } from '../utils/elementGroups'
-import { metaDef as pageMetaDef, NAV_POSITIONS } from '../utils/pageMeta'
+import { metaDef as pageMetaDef, fieldDefault as pageMetaDefault, NAV_POSITIONS } from '../utils/pageMeta'
 import { PAGE_BLOCKS, blockType, emptyBlock, emptyItem, blocksFrom, blocksToText } from '../utils/blockTypes'
 import PageBlocks from '../components/PageBlocks.vue'
 import AdminBar from '../components/AdminBar.vue'
@@ -1501,6 +1501,7 @@ const SYSTEM_PAGES = [
   { kind: 'meta', key: 'molecules', label: '分子圖鑑', path: '/molecules' },
   { kind: 'meta', key: 'molecule', label: '分子頁', path: '/molecule/…' },
   { kind: 'meta', key: 'particles', label: '基本粒子', path: '/particles' },
+  { kind: 'meta', key: 'watermark', label: '浮水印檢視', path: '/watermark' },
   { kind: 'meta', key: 'story', label: '元素頁區塊標題', path: '/stroy/…' },
   { kind: 'meta', key: 'footer', label: '頁尾', path: '（全站頁尾）' }
 ]
@@ -1795,9 +1796,11 @@ export default {
             system: true
           }
         }
-        // 純文案頁的導覽位置存在 _page_meta，不是「固定」
+        // 純文案頁的導覽位置存在 _page_meta，不是「固定」。沒存過就顯示該頁自己
+        // 的預設值——寫死 footer 的話，預設在別處的頁面（浮水印檢視是 sidebar）
+        // 會在這份清單上顯示錯的位置
         const navKey = pageMetaDef(s.key)?.fields.some(f => f.name === 'nav_position')
-          ? (this.pageMetaAll[s.key]?.nav_position || 'footer')
+          ? (this.pageMetaAll[s.key]?.nav_position || pageMetaDefault(s.key, 'nav_position'))
           : ''
         return {
           kind: 'meta',
