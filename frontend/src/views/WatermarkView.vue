@@ -18,10 +18,43 @@
       <p class="hint">{{ metaText('watermark', 'hint') }}</p>
     </div>
 
-    <div v-if="ready" class="result">
+    <!-- 自己印一個：簽名是訪客自己打的，和站長的浮水印無關 -->
+    <div v-if="ready" class="sign">
+      <label class="label" for="wm-text">{{ metaText('watermark', 'sign_label') }}</label>
+      <div class="sign-row">
+        <input
+          id="wm-text"
+          class="input"
+          type="text"
+          :maxlength="MAX_TEXT"
+          :placeholder="metaText('watermark', 'sign_placeholder')"
+          v-model="signature"
+          @keyup.enter="applySignature"
+        >
+        <button
+          class="button"
+          type="button"
+          :disabled="busy || !signature.trim()"
+          @click="applySignature"
+        >{{ busy ? '處理中…' : '印上去' }}</button>
+        <button
+          v-if="markedUrl"
+          class="button"
+          type="button"
+          @click="download(markedUrl, 'watermarked', markedExt)"
+        >下載這張</button>
+      </div>
+      <p class="hint">{{ metaText('watermark', 'sign_hint') }}</p>
+    </div>
+
+    <div v-if="ready" class="result" :class="{ 'is-three': !!markedUrl }">
       <figure>
         <img :src="originalUrl" :alt="metaText('watermark', 'original_label')">
         <figcaption>{{ metaText('watermark', 'original_label') }}</figcaption>
+      </figure>
+      <figure v-if="markedUrl">
+        <img :src="markedUrl" :alt="metaText('watermark', 'marked_label')">
+        <figcaption>{{ metaText('watermark', 'marked_label') }}</figcaption>
       </figure>
       <figure>
         <canvas ref="canvas"></canvas>
@@ -32,7 +65,7 @@
     <div v-if="ready" class="controls">
       <label class="label" for="wm-gain">放大倍率 {{ gain }}</label>
       <input id="wm-gain" type="range" :min="MIN_GAIN" :max="MAX_GAIN" v-model.number="gain" class="slider">
-      <button class="button" type="button" @click="download">另存放大後的圖</button>
+      <button class="button" type="button" @click="downloadCanvas">另存放大後的圖</button>
     </div>
 
     <p v-if="ready && scaled" class="hint">
@@ -43,13 +76,15 @@
 </template>
 
 <script>
-// 浮水印檢視（issue #25）。給一般讀者用：丟一張圖進來，把色度差放大，
-// 如果是這個站的作品就會浮出簽名。
+// 浮水印檢視（issue #25）。給一般讀者用的小工具，兩件事：
 //
-// 全部在瀏覽器裡算，圖片不會上傳（理由寫在 utils/watermarkReveal.js）。
-// 這頁刻意只「顯示」不「判定」：自動判定必須拿簽名圖樣去比對所有位移與
-// 縮放比例，任意比例縮放過的圖對不上模板就會回報「沒有」，那種會說謊的
-// 是非題比沒有結論更糟。
+// 1. 丟一張圖進來，把色度差放大——如果是這個站的作品就會浮出簽名。
+// 2. 自己打一個簽名印在自己的圖上，看看「藏得住又讀得出來」是怎麼回事。
+//
+// 全部在瀏覽器裡算，圖片和簽名都不會上傳（理由寫在 utils/watermarkReveal.js）。
+// 這頁刻意只「顯示」不「判定」：自動判定必須拿簽名圖樣去比對所有位移與縮放
+// 比例，任意比例縮放過的圖對不上模板就會回報「沒有」，那種會說謊的是非題比
+// 沒有結論更糟。
 import { ensurePageMeta, metaText } from '../store/pageMeta'
 import { siteSettingsState } from '../store/siteSettings'
 import { setPageSeo } from '../utils/seo'
@@ -58,18 +93,24 @@ import {
   chromaResidual, residualToImageData, imageDataFrom,
   DEFAULT_GAIN, MIN_GAIN, MAX_GAIN
 } from '../utils/watermarkReveal'
+import { markImage, MAX_TEXT } from '../utils/watermarkEmbed'
 
 export default {
   data() {
     return {
       MIN_GAIN,
       MAX_GAIN,
+      MAX_TEXT,
       gain: DEFAULT_GAIN,
+      signature: '',
       busy: false,
       dragging: false,
       ready: false,
       scaled: false,
       originalUrl: '',
+      markedUrl: '',
+      markedExt: 'jpg',
+      sourceData: null,
       residual: null,
       width: 0,
       height: 0
@@ -100,20 +141,41 @@ export default {
       this.busy = true
       try {
         const { imageData, width, height, scaled } = await imageDataFrom(file)
-        this.residual = chromaResidual(imageData)
+        this.sourceData = imageData
         this.width = width
         this.height = height
         this.scaled = scaled
-        if (this.originalUrl) URL.revokeObjectURL(this.originalUrl)
-        this.originalUrl = URL.createObjectURL(file)
-        this.ready = true
-        await this.$nextTick()
-        this.draw()
+        this.replaceUrl('originalUrl', URL.createObjectURL(file))
+        this.replaceUrl('markedUrl', '')  // 換了圖，上一次印的就不算數了
+        await this.show(imageData)
       } catch (e) {
         showToast(e.message || '這張圖讀不出來', 'error')
       } finally {
         this.busy = false
       }
+    },
+    async applySignature() {
+      if (this.busy || !this.signature.trim() || !this.sourceData) return
+      this.busy = true
+      try {
+        const blob = await markImage(this.sourceData, this.signature)
+        // 從編碼後的檔案讀回來，而不是直接用記憶體裡那份：真正會被傳出去的是
+        // 壓縮過的版本，右邊那張要照實反映壓縮吃掉多少訊號
+        const { imageData } = await imageDataFrom(blob)
+        this.markedExt = blob.type === 'image/png' ? 'png' : 'jpg'
+        this.replaceUrl('markedUrl', URL.createObjectURL(blob))
+        await this.show(imageData)
+      } catch (e) {
+        showToast(e.message || '印不上去', 'error')
+      } finally {
+        this.busy = false
+      }
+    },
+    async show(imageData) {
+      this.residual = chromaResidual(imageData)
+      this.ready = true
+      await this.$nextTick()
+      this.draw()
     },
     draw() {
       const canvas = this.$refs.canvas
@@ -123,14 +185,21 @@ export default {
       canvas.getContext('2d').putImageData(
         residualToImageData(this.residual, this.width, this.height, this.gain), 0, 0)
     },
-    download() {
+    replaceUrl(key, url) {
+      if (this[key]) URL.revokeObjectURL(this[key])
+      this[key] = url
+    },
+    download(url, name, ext) {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${name}.${ext}`
+      link.click()
+    },
+    downloadCanvas() {
       this.$refs.canvas?.toBlob(blob => {
         if (!blob) return
         const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = 'watermark-check.png'
-        link.click()
+        this.download(url, 'watermark-check', 'png')
         URL.revokeObjectURL(url)
       }, 'image/png')
     }
@@ -155,7 +224,8 @@ export default {
   },
   unmounted() {
     window.removeEventListener('paste', this.onPaste)
-    if (this.originalUrl) URL.revokeObjectURL(this.originalUrl)
+    this.replaceUrl('originalUrl', '')
+    this.replaceUrl('markedUrl', '')
   }
 }
 </script>
@@ -196,7 +266,7 @@ export default {
 }
 
 .hint {
-  margin: 0;
+  margin: 0 auto;
   max-width: 640px;
   text-align: center;
   font-size: 13px;
@@ -205,11 +275,33 @@ export default {
   white-space: pre-line;
 }
 
+.sign {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.sign-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.sign-row .input {
+  width: 220px;
+}
+
 .result {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
-  margin-top: 28px;
+  margin-top: 24px;
+}
+.result.is-three {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .result figure {
@@ -252,7 +344,8 @@ export default {
 }
 
 @media (max-width: 700px) {
-  .result {
+  .result,
+  .result.is-three {
     grid-template-columns: 1fr;
   }
 }

@@ -69,8 +69,18 @@ export const PAGE_META_DEFS = [
         default: '也可以把圖直接拖進這個框，或按 Ctrl/⌘ + V 貼上。圖片不會上傳，全部在你自己的瀏覽器裡處理。',
         multiline: true
       },
-      { name: 'original_label', label: '左邊那張圖的說明', default: '原圖' },
-      { name: 'result_label', label: '右邊那張圖的說明', default: '放大色度差之後' },
+      { name: 'sign_label', label: '「自己印一個」的標題', default: '也可以自己印一個看看' },
+      { name: 'sign_placeholder', label: '簽名輸入框的提示字', default: '打上你的簽名' },
+      {
+        name: 'sign_hint',
+        label: '「自己印一個」的說明',
+        default: '簽名會被畫成粗塊狀圖樣鋪滿整張圖，2〜4 個字最清楚，中文也可以。'
+          + '印好的圖看起來跟原圖沒兩樣，但右邊放大色度差就讀得出來——這就是這個站保護作品的方式。',
+        multiline: true
+      },
+      { name: 'original_label', label: '原圖那張的說明', default: '原圖' },
+      { name: 'marked_label', label: '印好那張的說明', default: '印上簽名之後' },
+      { name: 'result_label', label: '放大那張的說明', default: '放大色度差之後' },
       {
         name: 'result_hint',
         label: '結果下方的說明',
