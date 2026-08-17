@@ -946,7 +946,11 @@ def _run_watermark_job(list_targets, run_one):
     except ValueError as e:
         return jsonify({"result": "failure", "message": str(e)}), 400
     except Exception as e:
-        return jsonify({"result": "failure", "message": str(e)}), 500
+        # 印出來，否則失敗的細節只留在瀏覽器那端，伺服器日誌上一片空白
+        import traceback
+        print(f"watermark job failed at {path!r} offset={offset}: {e}")
+        traceback.print_exc()
+        return jsonify({"result": "failure", "message": f"{type(e).__name__}: {e}"}), 500
 
 
 @admin_bp.route("/admin/creator-links", methods=["GET", "POST"])

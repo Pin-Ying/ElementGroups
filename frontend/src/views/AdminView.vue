@@ -1468,6 +1468,9 @@
           <p v-if="watermarkJob" class="desc">
             {{ watermarkJob.done }} / {{ watermarkJob.total }} 個位置，已處理 {{ watermarkJob.images }} 張
           </p>
+          <ul v-if="watermarkFailures.length" class="desc">
+            <li v-for="f in watermarkFailures" :key="f.path">失敗：{{ f.path }}－{{ f.reason }}</li>
+          </ul>
 
           <p v-if="adminMsg" class="msg" :class="adminMsgType">{{ adminMsg }}</p>
         </div>
@@ -1583,6 +1586,7 @@ export default {
       msg: '',
       adminMsg: '',
       watermarkJob: null,
+      watermarkFailures: [],
       adminMsgType: '',
       elements: [],
       storyDatas: {},
@@ -2762,12 +2766,14 @@ export default {
      */
     async handleApplyWatermark() {
       this.adminMsg = ''
+      this.watermarkFailures = []
       try {
         const result = await runWatermarkJob('backfill', progress => {
           this.watermarkJob = { ...progress }
         })
         this.adminMsg = result.text
         this.adminMsgType = result.failed ? 'error-msg' : 'success-msg'
+        this.watermarkFailures = result.failures
         showToast(result.text, result.failed ? 'error' : 'success')
       } catch (e) {
         this.adminMsg = e.response?.data?.message || 'Error!'

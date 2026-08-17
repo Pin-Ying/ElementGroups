@@ -19,6 +19,9 @@
       正在{{ job.label }}…{{ job.done }} / {{ job.total }} 個位置，已處理 {{ job.images }} 張
     </p>
     <p v-else-if="jobResult" class="hint">{{ jobResult }}</p>
+    <ul v-if="jobFailures.length" class="failures">
+      <li v-for="f in jobFailures" :key="f.path">{{ f.path }}：{{ f.reason }}</li>
+    </ul>
 
     <div class="field">
       <label class="checkbox">
@@ -157,6 +160,7 @@ export default {
       preview: { original: '', marked: '', recovered: '' },
       job: null,
       jobResult: '',
+      jobFailures: [],
       saving: false,
       msg: '',
       msgType: ''
@@ -234,9 +238,11 @@ export default {
     },
     async runJob(kind) {
       this.jobResult = ''
+      this.jobFailures = []
       try {
         const result = await runWatermarkJob(kind, progress => { this.job = { ...progress } })
         this.jobResult = result.text
+        this.jobFailures = result.failures
         showToast(result.text, result.failed ? 'error' : 'success')
       } catch (e) {
         this.fail(e)
@@ -302,6 +308,14 @@ export default {
   margin-top: 6px;
   font-size: 0.82rem;
   opacity: 0.7;
+}
+
+.failures {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: #ffaaaa;
 }
 
 hr {
