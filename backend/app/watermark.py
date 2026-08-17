@@ -505,7 +505,13 @@ def keep_original(origin_path, img_data):
     fdb.child(ORIGINALS_NODE).child(origin_path).set(img_data)
 
 
-def repaint(origin_path, settings=None):
+# 一次請求最多處理幾張圖。一張 2048×2048 的圖套用加上傳大約兩三秒，
+# 而 gunicorn 的上限是 30 秒——圖庫那種一個對象十幾張的就會逾時。
+# 沒做完會回報 more=True，由前端再叫一次同一個位置。
+BATCH_SIZE = 4
+
+
+def repaint(origin_path, settings=None, offset=0, limit=BATCH_SIZE):
     """把 `_originals/{origin_path}` 底下的原圖用目前的設定重新套一次，寫回原位。
 
     換過簽名或強度之後用這個——直接拿已經套過的圖再套一次只會疊上去，
@@ -513,32 +519,102 @@ def repaint(origin_path, settings=None):
 
     一張圖一個路徑地寫（`fdb.child(...).set(...)`），不整包覆寫：整包寫回去
     會把這中間站長在後台改過的文字欄位一起蓋掉。
+
+    `offset` 是已經處理過幾張，由前端一輪一輪帶回來。用序號而不是「比對現況
+    決定要不要重做」，是因為後者每一輪都得把圖再讀一次才能比對，一張就是好
+    幾百 KB。
+
+    回傳 (這一輪處理了幾張, 還有沒有剩)。
     """
     settings = load_settings() if settings is None else settings
     from app.firebase import fdb
 
-    originals = load_originals(origin_path)
-    if not originals:
-        return 0
+    leaves = list(_leaves(load_originals(origin_path)))
+    chunk = leaves[offset:offset + limit]
+    if not chunk:
+        return 0, False
 
     mask = tile_mask(settings) if settings["enabled"] else None
-    done = 0
-    for path, original in _leaves(originals):
+    for path, original in chunk:
         image = decode_data_url(original)
         if image is None:
             continue
-        target = fdb.child(origin_path).child("/".join(path))
-        if not settings["enabled"]:
-            # 關掉浮水印就把原圖放回去，站上的圖回到沒有浮水印的樣子
-            target.set(original)
-            done += 1
-            continue
+        location = "/".join(path)
         try:
-            target.set(encode_data_url(embed(image, settings, mask), "A" in image.getbands()))
-            done += 1
+            # 關掉浮水印就把原圖放回去，站上的圖回到沒有浮水印的樣子
+            value = original if not settings["enabled"] else encode_data_url(
+                embed(image, settings, mask), "A" in image.getbands())
+            fdb.child(origin_path).child(location).set(value)
         except Exception as e:  # noqa: BLE001
-            print(f"watermark: {origin_path}/{'/'.join(path)} 重印失敗，維持原樣", e)
-    return done
+            print(f"watermark: {origin_path}/{location} 重印失敗，維持原樣", e)
+    return len(chunk), offset + len(chunk) < len(leaves)
+
+
+# 會存圖片的節點。元素代表圖散在根節點底下（一個元素符號一個），另外處理。
+BACKFILL_NODES = (
+    "_default", "_libraries", "_gallery", "_particles", "_molecules",
+    "_element_groups", "_electron_styles", "_layers", "_pages", "_site_settings",
+)
+
+
+def backfill(path, settings=None, offset=0, limit=BATCH_SIZE):
+    """把某個位置「原本就在資料庫裡」的圖片套上浮水印，同時備份原圖。
+
+    開啟浮水印只影響之後上傳的圖，既有的圖要靠這個補。補的時候順便把原圖存
+    進 `_originals`，之後換簽名才有東西可以重印——沒補過的圖等於沒有原圖，
+    換簽名時只能維持原樣。
+
+    已經套過的圖會被 `already_marked` 擋下來，不會疊第二層。
+
+    回傳 (這一輪處理了幾張, 還有沒有剩)。
+    """
+    settings = load_settings() if settings is None else settings
+    if not settings["enabled"]:
+        return 0, False
+
+    from app.firebase import fdb, show_fdb
+
+    record = show_fdb(path)
+    if record is None:
+        return 0, False
+
+    images = [(leaf, value) for leaf, value in _leaves(record)
+              if isinstance(value, str) and value.startswith("data:image/")]
+    chunk = images[offset:offset + limit]
+    if not chunk:
+        return 0, False
+
+    mask = tile_mask(settings)
+    for leaf, img_data in chunk:
+        location = "/".join(leaf)
+        marked = mark_data_url(img_data, settings, mask, origin_path=f"{path}/{location}")
+        if marked != img_data:
+            fdb.child(path).child(location).set(marked)
+    return len(chunk), offset + len(chunk) < len(images)
+
+
+def backfill_targets():
+    """列出所有可能有圖的位置，一個位置一次工作。
+
+    元素代表圖用完成度摘要（`_completion`）挑出有圖的那些，不必把 118 個
+    元素一個一個讀過來看有沒有圖。
+    """
+    from app.firebase import shallow_fdb, show_fdb
+
+    targets = [symbol for symbol, info in (show_fdb("_completion") or {}).items()
+               if isinstance(info, dict) and info.get("image")]
+
+    for node in BACKFILL_NODES:
+        children = shallow_fdb(node)
+        if not children:
+            continue
+        # 同 repaint_targets：底下每個都還有東西 → 一個子項一份工作；
+        # 出現純量 → 這層就是欄位，整個節點一份
+        if all(value is True for value in children.values()):
+            targets.extend(f"{node}/{child}" for child in children)
+        else:
+            targets.append(node)
+    return targets
 
 
 def repaint_targets():

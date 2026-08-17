@@ -1444,11 +1444,30 @@
 
           <div class="maintenance-item">
             <div class="maintenance-info">
-              <p class="maintenance-title">重建完成度摘要</p>
+              <p class="maintenance-title">Rebuild Completion</p>
               <p class="desc">重新掃描所有元素，更新首頁用來標示「已上傳圖片／已寫故事」的摘要資料。<br>正常情況下儲存故事時已自動同步，只有直接從 Firebase 後台改過資料才需要執行。</p>
             </div>
             <button class="button" @click="handleRebuildCompletion">執行</button>
           </div>
+
+          <div class="maintenance-item">
+            <div class="maintenance-info">
+              <p class="maintenance-title">Apply Watermark</p>
+              <p class="desc">
+                把資料庫裡既有的圖片全部套上浮水印，同時備份原圖。<br>
+                開啟浮水印只影響之後上傳的圖片，原本就在的要靠這個補；同一張不會被套第二次。
+                補過之後，往後在「浮水印」分頁改簽名或強度，儲存時就會自動用原圖重印。
+                <br>簽名與強度在「◈ 浮水印」分頁設定。
+              </p>
+            </div>
+            <button class="button" :disabled="!!watermarkJob" @click="handleApplyWatermark">
+              {{ watermarkJob ? '執行中…' : '執行' }}
+            </button>
+          </div>
+
+          <p v-if="watermarkJob" class="desc">
+            {{ watermarkJob.done }} / {{ watermarkJob.total }} 個位置，已處理 {{ watermarkJob.images }} 張
+          </p>
 
           <p v-if="adminMsg" class="msg" :class="adminMsgType">{{ adminMsg }}</p>
         </div>
@@ -1483,6 +1502,7 @@ import AiField from '../components/AiField.vue'
 import { refreshPageMeta } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
+import { runWatermarkJob } from '../utils/watermarkJobs'
 
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
@@ -1562,6 +1582,7 @@ export default {
       password: '',
       msg: '',
       adminMsg: '',
+      watermarkJob: null,
       adminMsgType: '',
       elements: [],
       storyDatas: {},
@@ -2734,6 +2755,26 @@ export default {
       const formData = this.buildSiteFormData()
       formData.append('clear_bg_image', '1')
       await this.saveSiteSettings(formData)
+    },
+    /**
+     * 把既有的圖片全部套上浮水印。實際的分批邏輯在 utils/watermarkJobs.js，
+     * 與「浮水印」分頁那顆按鈕同一份——這裡只負責顯示進度。
+     */
+    async handleApplyWatermark() {
+      this.adminMsg = ''
+      try {
+        const result = await runWatermarkJob('backfill', progress => {
+          this.watermarkJob = { ...progress }
+        })
+        this.adminMsg = result.text
+        this.adminMsgType = result.failed ? 'error-msg' : 'success-msg'
+        showToast(result.text, result.failed ? 'error' : 'success')
+      } catch (e) {
+        this.adminMsg = e.response?.data?.message || 'Error!'
+        this.adminMsgType = 'error-msg'
+      } finally {
+        this.watermarkJob = null
+      }
     },
     async handleRebuildCompletion() {
       this.loading = true

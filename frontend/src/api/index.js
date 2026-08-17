@@ -308,14 +308,26 @@ export function previewWatermark(data) {
   return api.post('/admin/watermark/preview', data)
 }
 
-// 換過簽名之後，從備份的原圖把站上的圖重印一次。
-// 一次做完會超過後端的 30 秒上限，所以先問有哪些位置，再一個一個叫
+// 浮水印的兩個批次作業。都是先問有哪些位置，再一個一個叫；一個位置的圖太多時
+// 後端會回 more=true，帶著 offset 再叫一次同一個位置。
+// 一次做完會超過後端的 30 秒上限（issue #28）。
+
+// 換過簽名之後，從備份的原圖把站上的圖重印一次
 export function getRepaintTargets() {
   return api.get('/admin/watermark/repaint')
 }
 
-export function repaintWatermark(path) {
-  return api.post('/admin/watermark/repaint', { path })
+export function repaintWatermark(path, offset = 0) {
+  return api.post('/admin/watermark/repaint', { path, offset })
+}
+
+// 把資料庫裡原本就在的圖補上浮水印，同時備份原圖
+export function getBackfillTargets() {
+  return api.get('/admin/watermark/backfill')
+}
+
+export function backfillWatermark(path, offset = 0) {
+  return api.post('/admin/watermark/backfill', { path, offset })
 }
 
 export default api

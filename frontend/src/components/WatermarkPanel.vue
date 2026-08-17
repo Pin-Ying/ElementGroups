@@ -12,14 +12,13 @@
       備份起來（存在單獨的節點，前台讀不到）。
       <br>
       之後<strong>改了簽名、強度或開關，按下儲存就會用原圖把既有的圖重印一遍</strong>——
-      不重印的話站上會同時存在新舊兩種簽名。在啟用浮水印之前就上傳的舊圖沒有原圖備份，
-      那些要請工程師跑一次回填腳本。
+      不重印的話站上會同時存在新舊兩種簽名。
     </p>
 
-    <p v-if="repainting" class="hint">
-      正在用新設定重印既有的圖片…{{ repainting.done }} / {{ repainting.total }}
-      （已重印 {{ repainting.images }} 張）
+    <p v-if="job" class="hint">
+      正在{{ job.label }}…{{ job.done }} / {{ job.total }} 個位置，已處理 {{ job.images }} 張
     </p>
+    <p v-else-if="jobResult" class="hint">{{ jobResult }}</p>
 
     <div class="field">
       <label class="checkbox">
@@ -96,6 +95,23 @@
 
     <hr>
 
+    <!-- 既有圖片：開啟浮水印只影響之後上傳的，原本就在資料庫裡的要用這個補 -->
+    <div class="field">
+      <label class="label">套用到既有的所有圖片</label>
+      <button class="button" type="button" :disabled="!!job || !form.enabled" @click="backfill">
+        {{ job ? '處理中…' : '開始套用' }}
+      </button>
+      <p class="hint">
+        開啟浮水印只影響<strong>之後上傳</strong>的圖片。資料庫裡原本就在的圖要按這裡補上——
+        同一張圖不會被套第二次，補的時候也會把原圖備份起來，之後改簽名才有東西可以重印。
+        <br>
+        圖片多的話會跑一陣子（一個位置一個位置做，才不會把後端卡住）。
+        <template v-if="!form.enabled">先把上面的開關打開並儲存，這個按鈕才能用。</template>
+      </p>
+    </div>
+
+    <hr>
+
     <p class="desc">
       要查一張在別處看到的圖是不是從這裡拿走的，用前台的
       <router-link to="/watermark">浮水印檢視</router-link>頁——那頁在瀏覽器裡把色度差放大給人看，
@@ -113,10 +129,8 @@
 // 拆成獨立元件而不是塞進 AdminView：那支已經 4860 行、十個分頁擠在一起
 // （issue #29），沒必要再往裡面堆。這裡自己打自己的四支端點。
 import AdminBar from './AdminBar.vue'
-import {
-  getWatermarkSettings, saveWatermarkSettings, previewWatermark,
-  getRepaintTargets, repaintWatermark
-} from '../api'
+import { getWatermarkSettings, saveWatermarkSettings, previewWatermark } from '../api'
+import { runWatermarkJob } from '../utils/watermarkJobs'
 import { showToast } from '../store/toast'
 import { compressImage } from '../utils/imageCompress'
 
@@ -141,7 +155,8 @@ export default {
       MODES,
       form: { enabled: false, mode: 'text', text: '', pattern: '', strength: 3 },
       preview: { original: '', marked: '', recovered: '' },
-      repainting: null,
+      job: null,
+      jobResult: '',
       saving: false,
       msg: '',
       msgType: ''
@@ -202,42 +217,31 @@ export default {
       }
     },
     /**
-     * 用新設定把既有的圖重印一遍。
+     * 用新設定把既有的圖重印一遍。改了簽名卻不重印，站上會同時存在新舊兩種
+     * 簽名。重印一定是從備份的原圖重來——拿已經套過的圖再套一次只會疊上去。
      *
-     * 改了簽名卻不重印，站上的舊圖還是舊簽名，兩種簽名混在一起之後就分不出
-     * 哪張是什麼時候的了。重印一定是從備份的原圖重來——拿已經套過的圖再套
-     * 一次只會疊上去。
-     *
-     * 一個位置一次請求：全部一起做會超過後端的 30 秒上限，而且只有一個
-     * worker（issue #28），整站會在那段時間沒反應。
+     * 只涵蓋有原圖備份的圖：備份是在「上傳」或「套用到既有圖片」時留下的。
      */
-    async repaint() {
-      this.repainting = { total: 0, done: 0, images: 0 }
+    repaint() {
+      return this.runJob('repaint')
+    },
+    /**
+     * 把資料庫裡原本就在的圖補上浮水印，同時備份原圖。
+     * 補過之後那些圖才進得了重印的範圍。
+     */
+    backfill() {
+      return this.runJob('backfill')
+    },
+    async runJob(kind) {
+      this.jobResult = ''
       try {
-        const { data } = await getRepaintTargets()
-        const targets = data.targets || []
-        this.repainting.total = targets.length
-        if (!targets.length) return
-        for (const path of targets) {
-          try {
-            const { data: one } = await repaintWatermark(path)
-            this.repainting.images += one.count || 0
-          } catch (e) {
-            // 單一位置失敗不該中斷整批：其餘照樣重印，最後一次報告
-            console.error('重印失敗:', path, e)
-            this.repainting.failed = (this.repainting.failed || 0) + 1
-          }
-          this.repainting.done++
-        }
-        const failed = this.repainting.failed
-        showToast(
-          `既有圖片已用新設定重印 ${this.repainting.images} 張`
-            + (failed ? `，有 ${failed} 個位置失敗（見主控台）` : ''),
-          failed ? 'error' : 'success')
+        const result = await runWatermarkJob(kind, progress => { this.job = { ...progress } })
+        this.jobResult = result.text
+        showToast(result.text, result.failed ? 'error' : 'success')
       } catch (e) {
         this.fail(e)
       } finally {
-        this.repainting = null
+        this.job = null
       }
     }
   }

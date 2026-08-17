@@ -901,19 +901,48 @@ def repaint_watermark():
     的 30 秒上限，而且只有一個 worker（issue #28），整站會在那段時間沒反應；
     交給前端一個一個叫，順便還能顯示進度。
     """
+    return _run_watermark_job(watermark.repaint_targets, watermark.repaint)
+
+
+@admin_bp.route("/admin/watermark/backfill", methods=["GET", "POST"])
+@login_required
+def backfill_watermark():
+    """把資料庫裡「原本就在」的圖片補上浮水印，順便備份原圖。
+
+    開啟浮水印只影響之後上傳的圖。補過之後這些圖才有原圖備份，往後改簽名
+    才能自動重印。
+
+    與重印同一套分批做法（見 `_run_watermark_job`）。
+    """
+    return _run_watermark_job(watermark.backfill_targets, watermark.backfill)
+
+
+def _run_watermark_job(list_targets, run_one):
+    """浮水印的批次作業：GET 拿位置清單，POST 做其中一個位置的一批。
+
+    做不完會回 more=True，前端帶著 offset 再叫一次同一個位置。一次做完會撞上
+    gunicorn 的 30 秒上限，而且只有一個 worker（issue #28），整站會在那段時間
+    沒反應。
+    """
     if request.method == "GET":
         try:
-            return jsonify({"targets": watermark.repaint_targets()})
+            return jsonify({"targets": list_targets()})
         except Exception as e:
             return jsonify({"result": "failure", "message": str(e)}), 500
 
     try:
-        path = ((request.get_json() or {}).get("path") or "").strip()
+        data = request.get_json() or {}
+        path = (data.get("path") or "").strip()
         # 只認清單裡的位置。這個值會被拿去組資料庫路徑，不驗的話等於開放
         # 「指定任意節點寫入」
-        if path not in watermark.repaint_targets():
+        if path not in list_targets():
             return jsonify({"result": "failure", "message": "不認得這個位置"}), 400
-        return jsonify({"result": "success", "path": path, "count": watermark.repaint(path)})
+        try:
+            offset = max(0, int(data.get("offset") or 0))
+        except (TypeError, ValueError):
+            offset = 0
+        count, more = run_one(path, offset=offset)
+        return jsonify({"result": "success", "path": path, "count": count, "more": more})
     except ValueError as e:
         return jsonify({"result": "failure", "message": str(e)}), 400
     except Exception as e:
