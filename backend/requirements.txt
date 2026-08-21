@@ -10,3 +10,4 @@ python-dotenv
 Pyrebase4
 Requests
 gunicorn
+gevent
