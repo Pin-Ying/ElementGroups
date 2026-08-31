@@ -28,6 +28,23 @@ class Settings(BaseSettings):
     # 用 `python scripts/list_auth_users.py` 可以查出自己的 UID。
     ADMIN_ACCOUNTS: str = ""
 
+    # 後台是否顯示「用 Google 帳號登入」。
+    #
+    # 預設關閉，因為程式這邊無法得知你有沒有在 Firebase 主控台啟用 Google
+    # 供應商——沒啟用就開這個開關，前台會出現一顆按下去只會噴錯的按鈕。
+    #
+    # 開啟前要做完三件事（見 issue #32）：
+    #   1. Authentication → Sign-in method 啟用 Google 供應商
+    #   2. Authentication → Settings → 授權網域加入 Render 的前端網域，
+    #      漏掉的話線上按下去會被擋，而且錯誤訊息不會說是這個原因
+    #   3. 確認 ADMIN_ACCOUNTS 已經設定 ← 最重要
+    #
+    # 第 3 點沒做的話，開這個功能會讓後台比現在更不安全：任何 Google 帳號
+    # 都能完成 Firebase 的登入流程，Google 只證明「這個人是這個 email 的
+    # 擁有者」，不判斷「這個人能不能進你的後台」。擋下來的是 ADMIN_ACCOUNTS，
+    # 不是 Google。
+    GOOGLE_LOGIN_ENABLED: bool = False
+
     # Firebase Client (Pyrebase)
     FIREBASE_API_KEY: str
     FIREBASE_AUTH_DOMAIN: str

@@ -59,6 +59,43 @@ def auth_status():
     return jsonify({"loggedIn": current_user.is_authenticated})
 
 
+@admin_bp.route("/auth/google", methods=["POST"])
+def login_google():
+    data = request.get_json() or {}
+    token, message = auth_module.login_with_google(data.get("idToken"))
+
+    if token:
+        return jsonify({"result": "success", "message": message, "token": token})
+    return jsonify({"result": "failure", "message": message}), 401
+
+
+@admin_bp.route("/auth/firebase-config", methods=["GET"])
+def firebase_config():
+    """前端初始化 Firebase SDK 需要的設定。
+
+    公開端點，理由和 /api/ai/status 一樣：這些值依設計就不是機密（它們會
+    出現在任何用 Firebase 的網站的前端程式碼裡），擋住 Firebase 的是安全
+    規則與 ADMIN_ACCOUNTS，不是把 apiKey 藏起來。做成端點而不是 build 時
+    注入，是因為後端已經有這些值了，站長不必再去 Render 的前端服務設一次
+    VITE_ 變數——設定只有一處，換 Firebase 專案時也只改一個地方。
+
+    沒啟用就只回 enabled: false，前端據此不顯示按鈕，也不會下載 SDK。
+    """
+    if not settings.GOOGLE_LOGIN_ENABLED:
+        return jsonify({"enabled": False})
+
+    return jsonify({
+        "enabled": True,
+        "config": {
+            "apiKey": settings.FIREBASE_API_KEY,
+            "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+            "projectId": settings.FIREBASE_PROJECT_ID,
+            "appId": settings.FIREBASE_APP_ID,
+            "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+        }
+    })
+
+
 @admin_bp.route("/admin/create-db", methods=["POST"])
 @login_required
 def create_db():

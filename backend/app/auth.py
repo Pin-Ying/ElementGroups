@@ -77,6 +77,58 @@ def is_allowed(uid, email):
     return uid.lower() in allowed or (email or "").lower() in allowed
 
 
+def _issue_token(uid, email):
+    """發一張後台用的 session token。帳密登入與 Google 登入共用同一種憑證，
+    後續的 request_loader 因此不必分辨使用者當初是怎麼進來的。"""
+    if uid not in users:
+        users[uid] = User(uid, email)
+
+    token = secrets.token_urlsafe(32)
+    tokens[token] = uid
+    return token
+
+
+def login_with_google(id_token):
+    """用 Firebase 的 Google 供應商登入。
+
+    前端跑完 signInWithPopup 之後會拿到一張 ID token，這裡只負責驗證它是
+    真的、而且屬於這個 Firebase 專案，接著一樣走 is_allowed() 的白名單。
+
+    要清楚一件事：**通過 Google 驗證不代表可以進後台。** Google 只證明
+    「這個人是這個 email 的擁有者」，任何人用自己的 Google 帳號都能走完
+    這段流程。真正擋下來的是 ADMIN_ACCOUNTS，沒設定的話這條路等於大門
+    敞開——比帳密登入更糟，因為連註冊那一步都省了。
+    """
+    if not settings.GOOGLE_LOGIN_ENABLED:
+        return None, "Google 登入未啟用"
+    if not id_token:
+        return None, "Missing token"
+
+    try:
+        decoded = auth.verify_id_token(id_token)
+    except Exception as e:
+        # 這裡刻意不把原始錯誤丟回前端：verify_id_token 的訊息會夾帶專案
+        # ID 與憑證細節。log 留完整內容給站長查。
+        print(f"[auth] Google ID token 驗證失敗：{e}")
+        message = str(e)
+        if "expired" in message.lower():
+            return None, "登入逾時，請再登入一次"
+        return None, "登入失敗，請再試一次"
+
+    uid = decoded.get("uid") or decoded.get("sub") or ""
+    email = decoded.get("email", "")
+
+    # 和帳密登入不同，這裡給的是明確訊息。帳密登入之所以含糊其辭，是為了
+    # 不讓人試出「這個 email 有註冊」；但走到這一步的人已經證明自己擁有
+    # 這個 Google 帳號，講清楚不會洩漏任何東西，反而是站長自己 ADMIN_ACCOUNTS
+    # 填錯時唯一能看出問題的線索。
+    if not is_allowed(uid, email):
+        print(f"[auth] 拒絕非管理員的 Google 登入：{email or uid}")
+        return None, "這個 Google 帳號沒有後台權限"
+
+    return _issue_token(uid, email), "Login successful"
+
+
 def login(email, password):
     if not email or not password:
         return None, "Missing email or password"
@@ -98,12 +150,7 @@ def login(email, password):
             print(f"[auth] 拒絕非管理員登入：{email}")
             return None, "Incorrect email or password"
 
-        if uid not in users:
-            users[uid] = User(uid, email)
-
-        token = secrets.token_urlsafe(32)
-        tokens[token] = uid
-        return token, "Login successful"
+        return _issue_token(uid, email), "Login successful"
 
     except Exception as e:
         error_message = str(e)
