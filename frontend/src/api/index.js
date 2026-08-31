@@ -44,6 +44,16 @@ export function getAuthStatus() {
   return api.get('/auth/status')
 }
 
+// Google 登入拿到的 ID token 換成後台的 session token
+export function googleLogin(idToken) {
+  return api.post('/auth/google', { idToken })
+}
+
+// 前端初始化 Firebase SDK 需要的設定，順便告訴前端這個功能有沒有開
+export function getFirebaseConfig() {
+  return api.get('/auth/firebase-config')
+}
+
 export function createDb() {
   return api.post('/admin/create-db')
 }
