@@ -2,7 +2,11 @@ services:
   - type: web
     name: elementgroups-frontend
     env: static
-    buildCommand: npm --prefix frontend install && npm --prefix frontend run build
+    # npm ci 而不是 npm install：照 package-lock.json 安裝，讓 Render 上 build
+    # 出來的東西和本機一致。用 cd 而不是 --prefix，是因為 npm ci 對 --prefix
+    # 的處理在不同 npm 版本間不一致，cd 沒有這個疑慮。
+    # staticPublishPath 由 Render 自己解析，不受這裡的 cd 影響。
+    buildCommand: cd frontend && npm ci && npm run build
     staticPublishPath: ./frontend/dist
     routes:
       - type: rewrite

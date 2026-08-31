@@ -1,0 +1,30 @@
+# 行尾一律 LF，包含 working tree。
+#
+# 為什麼：本機 checkout 曾經是 CRLF、repo 內是 LF，沒有這個檔案的時候，
+# 每次 commit 都得先手動把改動過的檔案轉回 LF，忘記就會讓 diff 夾帶
+# 整份檔案的行尾變更，把一行的修改看成全檔重寫。
+#
+# 用 eol=lf 而不是只寫 text=auto：後者只保證進 repo 的是 LF，working tree
+# 在 Windows 上仍會被轉成 CRLF，於是編輯器存檔後又變回 CRLF，問題沒解決。
+# 這個專案的容器與 Render 都跑 Linux，working tree 直接統一 LF 沒有壞處。
+* text=auto eol=lf
+
+# 二進位檔：明確標出來，不讓 Git 對它們做任何行尾轉換。
+# text=auto 的自動偵測多數時候會判斷正確，但圖片內容剛好沒有 NUL byte 時
+# 會被誤判成文字檔而遭到改寫，那是不可逆的損壞。
+*.jpg binary
+*.JPG binary
+*.jpeg binary
+*.png binary
+*.ico binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+
+# 產生出來的鎖檔：統一 LF（受上面的規則涵蓋），但在 diff 檢視時摺疊起來，
+# 避免 1600 行的變更淹沒 code review。
+package-lock.json linguist-generated=true
