@@ -382,8 +382,11 @@ def get_molecules():
         total = len(items)
         if limit:
             items = items[:max(0, int(limit))]
-        # 清單不需要故事與圖片，省下傳輸量
-        slim = [{k: m[k] for k in ("slug", "name", "formula", "elements", "published", "updated_at")}
+        # 清單不需要故事與圖片，省下傳輸量。
+        # category 要帶上：前台會依分類分組，沒填的話它自己從 elements 推斷
+        # （utils/moleculeCategory.js），這個欄位是給後台手動覆寫用的。
+        slim = [{k: m[k] for k in ("slug", "name", "formula", "elements",
+                                   "category", "published", "updated_at")}
                 for m in items]
         return jsonify({"molecules": slim, "total": total})
     except Exception as e:

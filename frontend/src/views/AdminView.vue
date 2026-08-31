@@ -470,7 +470,12 @@
               <span class="page-item-title" v-html="subscript(m.formula)"></span>
               <span class="page-item-meta">
                 {{ m.name }}
-                <span v-if="m.category" class="mol-category-tag">{{ m.category }}</span>
+                <span
+                  v-if="moleculeCategory(m)"
+                  class="mol-category-tag"
+                  :class="{ 'mol-category-tag--auto': !m.category }"
+                  :title="m.category ? '手動指定的分類' : '依組成元素自動判斷'"
+                >{{ moleculeCategory(m) }}</span>
                 <span v-if="!m.published" class="draft-tag">草稿</span>
               </span>
             </button>
@@ -545,7 +550,17 @@
             <datalist id="mol-category-presets">
               <option v-for="c in CATEGORY_PRESETS" :key="c" :value="c" />
             </datalist>
-            <p class="field-hint">可從常用分類挑選或自行輸入，後台清單可依分類篩選</p>
+            <p class="field-hint">
+              <template v-if="moleculeForm.category">
+                手動指定的分類。清空這欄會改用自動判斷{{ moleculeAutoCategory ? `：${moleculeAutoCategory}` : '' }}
+              </template>
+              <template v-else-if="moleculeAutoCategory">
+                留空就好，會依組成元素自動歸為「{{ moleculeAutoCategory }}」。要覆寫才需要填
+              </template>
+              <template v-else>
+                填好分子式後會依組成元素自動判斷分類，也可以在這裡自行指定
+              </template>
+            </p>
 
             <label class="label">SMILES</label>
             <input class="input" type="text" v-model="moleculeForm.smiles" aria-label="SMILES" />
@@ -1495,8 +1510,9 @@ import MarkdownContent from '../components/MarkdownContent.vue'
 import FormulaBuilder from '../components/FormulaBuilder.vue'
 import { BUILTIN_PAGES } from '../utils/builtinPages'
 import { outerElectronCount } from '../utils/valence'
-import { parseFormula } from '../utils/formula'
+import { parseFormula, usedElements } from '../utils/formula'
 import { GROUP_SECTIONS } from '../utils/elementGroups'
+import { MOLECULE_CATEGORIES, autoCategory, moleculeCategory } from '../utils/moleculeCategory'
 import { metaDef as pageMetaDef, fieldDefault as pageMetaDefault, NAV_POSITIONS } from '../utils/pageMeta'
 import { PAGE_BLOCKS, blockType, emptyBlock, emptyItem, blocksFrom, blocksToText } from '../utils/blockTypes'
 import PageBlocks from '../components/PageBlocks.vue'
@@ -1530,7 +1546,14 @@ const SYSTEM_PAGES = [
 ]
 
 // 常用化合物分類，datalist 建議用；可自由輸入其他分類
-const CATEGORY_PRESETS = ['有機', '無機', '酸', '鹼', '鹽', '氧化物', '生物分子', '氣體', '溶劑', '高分子']
+// 分類留空時前台會自己從組成元素判斷（utils/moleculeCategory.js），
+// 所以這份清單的角色是「覆寫」而不是「必填」。四個主分類排在前面，
+// 是為了讓手動指定時仍然落在同一套語彙裡；後面幾個是正交的性質標籤，
+// 需要按用途歸類時才用得上。
+const CATEGORY_PRESETS = [
+  ...MOLECULE_CATEGORIES,
+  '生物分子', '溶劑', '高分子', '氣體'
+]
 
 const EMPTY_PARTICLE = () => ({
   original_slug: '', slug: '', name: '', title: '', description: '',
@@ -1697,8 +1720,10 @@ export default {
     metaDef() {
       return pageMetaDef(this.metaKey)
     },
+    // 用實際會顯示的分類（含自動判斷的），後台的篩選才會跟前台看到的一致。
+    // 只收手動填的話，這個下拉在沒人填 category 的情況下永遠是空的
     moleculeCategories() {
-      return [...new Set(this.moleculeList.map(m => m.category).filter(Boolean))].sort()
+      return [...new Set(this.moleculeList.map(m => moleculeCategory(m)).filter(Boolean))].sort()
     },
     moleculeElements() {
       return [...new Set(this.moleculeList.flatMap(m => m.elements || []))].sort()
@@ -1707,8 +1732,11 @@ export default {
       const q = this.moleculeFilter.trim().toLowerCase()
       return this.moleculeList.filter(m => {
         if (q && !(m.name?.toLowerCase().includes(q) || m.formula?.toLowerCase().includes(q) || m.slug?.includes(q))) return false
-        if (this.moleculeCategoryFilter === '__none__') { if (m.category) return false }
-        else if (this.moleculeCategoryFilter && m.category !== this.moleculeCategoryFilter) return false
+        // 這裡比對的是顯示用的分類，所以「未分類」現在的意思是
+        // 「手動沒填，而且組成元素也認不出來」——通常是分子式還沒填
+        const category = moleculeCategory(m)
+        if (this.moleculeCategoryFilter === '__none__') { if (category) return false }
+        else if (this.moleculeCategoryFilter && category !== this.moleculeCategoryFilter) return false
         if (this.moleculeElementFilter && !(m.elements || []).includes(this.moleculeElementFilter)) return false
         return true
       })
@@ -1768,6 +1796,13 @@ export default {
         title: this.particleForm.title,
         description: this.particleForm.description
       }
+    },
+    // 分類欄位留空時前台會判成什麼。優先用建構器的節點，還沒動過建構器
+    // 就從分子式字串解析——手動貼上分子式的情況下 nodes 是空的
+    moleculeAutoCategory() {
+      const f = this.moleculeForm
+      const nodes = f.nodes?.length ? f.nodes : parseFormula(f.formula)
+      return autoCategory(usedElements(nodes))
     },
     // 表單上填了什麼就帶什麼，空欄位由後端濾掉
     moleculeAiContext() {
@@ -1948,6 +1983,8 @@ export default {
     this.revokeDefaultImgPreview()
   },
   methods: {
+    // 清單與篩選都要用，掛上來讓 template 直接呼叫
+    moleculeCategory,
     async bootstrap() {
       if (this.bootstrapped) return
       this.bootstrapped = true
@@ -4585,6 +4622,13 @@ button.button:disabled {
   border-radius: 999px;
   border: 1px solid rgba(157, 140, 255, 0.4);
   color: rgba(200, 190, 255, 0.85);
+}
+
+/* 自動判斷的分類用虛線框，一眼看出哪些是手動指定過的 */
+.mol-category-tag--auto {
+  border-style: dashed;
+  border-color: rgba(157, 140, 255, 0.28);
+  color: rgba(200, 190, 255, 0.55);
 }
 
 .mol-lookup {

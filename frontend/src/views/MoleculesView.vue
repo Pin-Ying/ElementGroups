@@ -18,25 +18,60 @@
       <router-link to="/molecules">查看全部</router-link>
     </p>
 
+    <!-- 只有一種分類時不顯示篩選列，那時候按鈕沒有作用 -->
+    <div v-if="!loading && categoryChips.length > 1" class="cat-filter">
+      <button
+        class="cat-chip"
+        :class="{ active: !activeCategory }"
+        type="button"
+        @click="activeCategory = ''"
+      >全部<i class="cat-num">{{ filtered.length }}</i></button>
+      <button
+        v-for="c in categoryChips"
+        :key="c.category"
+        class="cat-chip"
+        :class="{ active: activeCategory === c.category }"
+        type="button"
+        :title="categoryHint(c.category)"
+        @click="activeCategory = activeCategory === c.category ? '' : c.category"
+      >{{ c.category }}<i class="cat-num">{{ c.count }}</i></button>
+    </div>
+
     <div v-if="!loading && !filtered.length" class="no-results">
       {{ molecules.length ? `沒有符合「${query}」的分子` : metaText('molecules', 'empty_text') }}
     </div>
 
-    <div v-else class="molecule-grid">
-      <router-link
-        v-for="m in filtered"
-        :key="m.slug"
-        class="molecule-card"
-        :to="'/molecule/' + m.slug"
-      >
-        <span class="mc-formula" v-html="subscript(m.formula)"></span>
-        <span class="mc-name">{{ m.name }}</span>
-        <span v-if="!m.published" class="mc-draft">草稿</span>
-        <span class="mc-elements">
-          <i v-for="sym in m.elements" :key="sym" class="mc-element">{{ sym }}</i>
-        </span>
-      </router-link>
-    </div>
+    <template v-else>
+      <section v-for="g in groups" :key="g.category" class="cat-section">
+        <!-- 已經用篩選鎖定單一分類時，標題是多餘的重複 -->
+        <h2 v-if="!activeCategory" class="cat-heading">
+          {{ g.category }}
+          <span class="cat-count">{{ g.molecules.length }}</span>
+          <span v-if="categoryHint(g.category)" class="cat-hint">{{ categoryHint(g.category) }}</span>
+        </h2>
+
+        <div class="molecule-grid">
+          <router-link
+            v-for="m in g.molecules"
+            :key="m.slug"
+            class="molecule-card"
+            :to="'/molecule/' + m.slug"
+          >
+            <span class="mc-formula" v-html="subscript(m.formula)"></span>
+            <span class="mc-name">{{ m.name }}</span>
+            <span v-if="!m.published" class="mc-draft">草稿</span>
+            <span class="mc-elements">
+              <i
+                v-for="sym in m.elements"
+                :key="sym"
+                class="mc-element"
+                :class="'mc-element--' + (metallicity(sym) || 'unknown')"
+              >{{ sym }}</i>
+            </span>
+          </router-link>
+        </div>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -45,6 +80,7 @@ import { getMolecules } from '../api'
 import { ensurePageMeta, metaText } from '../store/pageMeta'
 import { siteSettingsState } from '../store/siteSettings'
 import { setPageSeo } from '../utils/seo'
+import { groupByCategory, metallicity, CATEGORY_HINTS } from '../utils/moleculeCategory'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 const SUBSCRIPTS = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉']
@@ -56,7 +92,7 @@ export default {
     element: { type: String, default: '' }
   },
   data() {
-    return { molecules: [], query: '', loading: false }
+    return { molecules: [], query: '', loading: false, activeCategory: '' }
   },
   computed: {
     filterNote() {
@@ -70,10 +106,29 @@ export default {
         m.formula?.toLowerCase().includes(q) ||
         m.slug?.includes(q)
       )
+    },
+    // 搜尋之後、套用分類篩選之前的分組。篩選列的數字要以它為準，
+    // 不然點了某一類之後其他類的數字全部歸零，看起來像資料不見了
+    allGroups() {
+      return groupByCategory(this.filtered)
+    },
+    categoryChips() {
+      return this.allGroups.map(g => ({ category: g.category, count: g.molecules.length }))
+    },
+    groups() {
+      if (!this.activeCategory) return this.allGroups
+      return this.allGroups.filter(g => g.category === this.activeCategory)
     }
   },
   watch: {
-    element: { immediate: true, handler: 'load' }
+    element: { immediate: true, handler: 'load' },
+    // 搜尋把目前選中的分類整個濾掉時，畫面會變成一片空白但篩選列上
+    // 那一類已經不見了，使用者沒有東西可以點回來。這裡自動退回「全部」
+    categoryChips(chips) {
+      if (this.activeCategory && !chips.some(c => c.category === this.activeCategory)) {
+        this.activeCategory = ''
+      }
+    }
   },
   async created() {
     await ensurePageMeta()
@@ -88,6 +143,11 @@ export default {
   },
   methods: {
     metaText,
+    metallicity,
+    // 自訂分類（後台手填的）不會有說明，回空字串讓 v-if 收掉
+    categoryHint(category) {
+      return CATEGORY_HINTS[category] || ''
+    },
     async load() {
       this.loading = true
       try {
@@ -205,5 +265,100 @@ export default {
   border-radius: 999px;
   background: rgba(228, 251, 255, 0.1);
   color: rgba(228, 251, 255, 0.6);
+}
+
+/* 元素標籤依金屬性上色，讓卡片自己說明它為什麼被分到這一類。
+   色相刻意壓得很淡：這是輔助資訊，不該比分子式還搶眼 */
+.mc-element--metal {
+  background: rgba(255, 196, 107, 0.14);
+  color: rgba(255, 214, 150, 0.85);
+}
+
+.mc-element--metalloid {
+  background: rgba(201, 163, 255, 0.16);
+  color: rgba(214, 186, 255, 0.85);
+}
+
+.mc-element--nonmetal {
+  background: rgba(127, 227, 255, 0.13);
+  color: rgba(160, 235, 255, 0.8);
+}
+
+/* 分類篩選列 */
+.cat-filter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px 0 4px;
+}
+
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  font-size: 13px;
+  font-family: inherit;
+  color: rgba(228, 251, 255, 0.6);
+  background: rgba(20, 5, 35, 0.5);
+  border: 1px solid rgba(228, 251, 255, 0.14);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.cat-chip:hover {
+  color: rgba(228, 251, 255, 0.85);
+  border-color: rgba(228, 251, 255, 0.35);
+}
+
+.cat-chip.active {
+  color: #e4fbff;
+  border-color: rgba(228, 251, 255, 0.55);
+  background: rgba(60, 40, 75, 0.55);
+}
+
+.cat-num {
+  font-size: 11px;
+  font-style: normal;
+  opacity: 0.65;
+}
+
+/* 分類分組 */
+.cat-section + .cat-section {
+  margin-top: 26px;
+}
+
+.cat-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(228, 251, 255, 0.12);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(228, 251, 255, 0.9);
+}
+
+.cat-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(228, 251, 255, 0.45);
+}
+
+.cat-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(228, 251, 255, 0.4);
+}
+
+/* 手機上說明文字換行會把標題撐得很高，收起來讓分類名稱自己講 */
+@media (max-width: 600px) {
+  .cat-hint {
+    display: none;
+  }
 }
 </style>
