@@ -375,3 +375,14 @@ a {
 .title {
   color: #e4fbff;
 }
+
+/* Bulma 對 <strong> 設了自己的顏色（#363636），會蓋掉從父層繼承的淺色。
+ * 實際踩到：維護工具裡「沒有 password 就代表那個帳號不能用帳密登入」這句
+ * 特意用 <strong> 標出來，結果它是全頁最暗的文字（1.64:1）——該被看見的
+ * 警告反而最看不見。
+ *
+ * 改成 inherit，粗體仍由 font-weight 提供，顏色跟著上下文走。
+ */
+strong {
+  color: inherit;
+}

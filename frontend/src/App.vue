@@ -111,7 +111,8 @@ export default {
 
 .header-sub {
   font-size: 12px;
-  color: rgba(228, 251, 255, 0.45);
+  /* 0.45 只有 4.2:1，差一點過不了 4.5 */
+  color: rgba(228, 251, 255, 0.6);
   margin: 0;
   font-weight: 400;
   letter-spacing: 0.02em;

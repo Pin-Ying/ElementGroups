@@ -3144,7 +3144,8 @@ export default {
   border: none;
   border-radius: 7px;
   background: transparent;
-  color: rgba(228, 251, 255, 0.62);
+  /* 0.62 在側欄背景上只有 3.5:1，未選中的項目幾乎讀不出來 */
+  color: rgba(228, 251, 255, 0.8);
   font-family: inherit;
   font-size: 14px;
   text-align: left;
@@ -3166,7 +3167,8 @@ export default {
 .nav-icon {
   width: 16px;
   text-align: center;
-  opacity: 0.8;
+  /* 疊在 .nav-item 的 alpha 上，0.8 會再打一次折 */
+  opacity: 0.9;
   flex-shrink: 0;
 }
 

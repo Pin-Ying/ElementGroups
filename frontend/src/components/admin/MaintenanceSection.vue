@@ -262,6 +262,9 @@ export default {
 .maintenance-title {
   font-weight: 600;
   font-size: 15px;
+  /* 原本沒有 color，繼承到 Bulma 的深灰，量到只有 2.19:1——
+     比它底下的說明文字還暗。搬元件時照原樣帶過來，問題也跟著搬 */
+  color: rgba(228, 251, 255, 0.9);
   margin-bottom: 4px;
 }
 
