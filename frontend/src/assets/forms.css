@@ -74,6 +74,106 @@
   color: #fff;
 }
 
+/* ── 後台的容器與原語（原本在 AdminView 的 scoped 區塊）──
+ *
+ * 收上來的原因跟上面那批一樣：這些是跨元件共用的東西，留在 AdminView 的
+ * scoped 裡，任何拆出去的子元件都吃不到。WatermarkPanel 已經踩到了——它
+ * 的 .box 目前只有 Bulma 的淺色底，深色覆寫拿不到。
+ *
+ * .box、.label 這類名字很通用，但前台會用到的元件（LinksView 的 .box、
+ * WatermarkView 的 .label／.input）都在自己的 scoped 區塊有定義，特異性
+ * 比這裡高，不會被蓋掉。
+ */
+
+.box {
+  background: rgba(20, 5, 35, 0.5);
+  border: 1px solid rgba(228, 251, 255, 0.1);
+  border-radius: 8px;
+  padding: 24px 28px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+/* 後台內容區裡的 box 由外層負責間距，自己不再留下緣 */
+.admin-content .box {
+  margin-bottom: 0;
+}
+
+.label {
+  color: rgba(228, 251, 255, 0.82);
+}
+
+.desc {
+  font-size: 13px;
+  opacity: 0.62;
+  margin: 2px 0 14px;
+  line-height: 1.5;
+}
+
+.msg {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.placeholder-text {
+  font-size: 13px;
+  opacity: 0.4;
+  margin: 8px 0;
+}
+
+/* 方形小圖示按鈕：上移、下移、刪除這類 */
+.icon-button {
+  width: 28px;
+  height: 30px;
+  border: 1px solid rgba(228, 251, 255, 0.2);
+  border-radius: 5px;
+  background: rgba(228, 251, 255, 0.05);
+  color: rgba(228, 251, 255, 0.7);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: rgba(228, 251, 255, 0.15);
+  border-color: rgba(228, 251, 255, 0.45);
+  color: #e4fbff;
+}
+
+.icon-button:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+/* 刪除鍵按第一下時展開成「確定？」，避免誤觸 */
+.icon-button.confirming {
+  width: auto;
+  padding: 0 8px;
+  font-size: 11px;
+  background: rgba(255, 107, 107, 0.25);
+  border-color: rgba(255, 107, 107, 0.7);
+  color: #ff6b6b;
+}
+
+.icon-button.danger:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.18);
+  border-color: rgba(255, 107, 107, 0.6);
+  color: #ff6b6b;
+}
+
+/* 表單底部的按鈕列。
+ *
+ * 名字取自「社群連結」——那是第一個用到它的畫面——但實際上分子、主族、
+ * 粒子、網站設定、電子樣式、圖庫、元素故事都在用，共八處。名字已經對不上
+ * 用途了，只是要改動八個地方，留待之後順手處理。 */
+.link-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+
 @media (max-width: 760px) {
   /* 16px 以下的表單元件在 iOS 聚焦時會把整頁放大 */
   .textarea,
