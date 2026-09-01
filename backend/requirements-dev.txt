@@ -1,0 +1,7 @@
+# 只在 CI 與本機測試用，不進 production image。
+#
+# backend/Dockerfile 只裝 requirements.txt，所以這裡的東西不會被打包進去。
+# 版本同樣釘死，理由見 requirements.txt 開頭。
+-r requirements.txt
+
+pytest==8.4.2
