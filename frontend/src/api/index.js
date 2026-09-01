@@ -282,6 +282,16 @@ export function getElementsCompletion() {
   return api.get('/elements/completion')
 }
 
+// 列出 Firebase Auth 的所有帳號（含 providers 與 email 驗證狀態）
+export function getAuthUsers() {
+  return api.get('/admin/auth-users')
+}
+
+// 把帳號的 email 標記為已驗證，避免 Google 登入時密碼憑證被移除
+export function verifyAuthUserEmail(uid) {
+  return api.post('/admin/auth-users/verify-email', { uid })
+}
+
 export function rebuildCompletion() {
   return api.post('/admin/rebuild-completion')
 }

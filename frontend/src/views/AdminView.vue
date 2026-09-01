@@ -1466,6 +1466,46 @@
         <div v-if="section === 'maintenance'" class="box maintenance-box">
           <div class="maintenance-item">
             <div class="maintenance-info">
+              <p class="maintenance-title">登入帳號</p>
+              <p class="desc">
+                列出這個 Firebase 專案裡所有能登入的帳號。看得到每個帳號有哪些登入方式
+                （providers）與 email 是否已驗證。<br>
+                <strong>沒有 password 就代表那個帳號不能用帳密登入</strong>——Firebase 會在
+                同一個 email 的 Google 帳號登入時，移除未驗證的密碼憑證。把 email 標記為
+                已驗證之後就不會再發生。
+              </p>
+            </div>
+            <button class="button" :disabled="authUsersLoading" @click="loadAuthUsers">
+              {{ authUsersLoading ? '載入中…' : '載入' }}
+            </button>
+          </div>
+
+          <div v-if="authUsers.length" class="auth-users">
+            <p v-if="!authAllowlistConfigured" class="msg error-msg">
+              尚未設定 ADMIN_ACCOUNTS，目前每一個帳號都能進後台。
+            </p>
+            <div v-for="u in authUsers" :key="u.uid" class="auth-user">
+              <div class="auth-user-main">
+                <span class="auth-user-email">{{ u.email || '（無 email）' }}</span>
+                <span class="auth-user-tags">
+                  <i v-for="p in u.providers" :key="p" class="auth-tag">{{ providerLabel(p) }}</i>
+                  <i v-if="!u.emailVerified" class="auth-tag auth-tag--warn">email 未驗證</i>
+                  <i v-if="u.disabled" class="auth-tag auth-tag--warn">已停用</i>
+                  <i v-if="!u.allowed" class="auth-tag auth-tag--warn">不可進後台</i>
+                </span>
+                <span class="auth-user-uid">{{ u.uid }}</span>
+              </div>
+              <button
+                v-if="!u.emailVerified && u.allowed"
+                class="button secondary btn-sm"
+                :disabled="verifyingUid === u.uid"
+                @click="handleVerifyEmail(u)"
+              >{{ verifyingUid === u.uid ? '處理中…' : '標記 email 已驗證' }}</button>
+            </div>
+          </div>
+
+          <div class="maintenance-item">
+            <div class="maintenance-info">
               <p class="maintenance-title">Create DB</p>
               <p class="desc">確認 Firestore 資料表是否存在（Firebase 模式下無實際作用，可忽略）</p>
             </div>
@@ -1526,7 +1566,7 @@
 </template>
 
 <script>
-import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, migrateGalleries, migrateIntoLibraries, getElectronMotion, setElectronMotion, apiBase } from '../api'
+import { getAuthUsers, verifyAuthUserEmail, getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, getAdminCreatorLinks, updateCreatorLinks, rebuildCompletion, getAiStatus, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, migrateGalleries, migrateIntoLibraries, getElectronMotion, setElectronMotion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setCreatorLinks } from '../store/creatorLinks'
@@ -1635,6 +1675,8 @@ export default {
       loginMethodsLoaded: false, googleLoginEnabled: false, passwordLoginEnabled: true,
       // 「使用其他方式登入」按下去之後才展開帳密表單
       showPasswordForm: false,
+      // 維護工具的登入帳號清單，按了「載入」才查
+      authUsers: [], authUsersLoading: false, authAllowlistConfigured: true, verifyingUid: '',
       SECTIONS,
       section: SECTIONS.some(s => s.key === localStorage.getItem('adminSection'))
         ? localStorage.getItem('adminSection')
@@ -2026,6 +2068,34 @@ export default {
   methods: {
     // 清單與篩選都要用，掛上來讓 template 直接呼叫
     moleculeCategory,
+    providerLabel(id) {
+      return { 'password': '密碼', 'google.com': 'Google' }[id] || id
+    },
+    async loadAuthUsers() {
+      this.authUsersLoading = true
+      try {
+        const res = await getAuthUsers()
+        this.authUsers = res.data.users || []
+        this.authAllowlistConfigured = res.data.allowlistConfigured !== false
+      } catch (e) {
+        showToast(e.response?.data?.message || '載入帳號失敗', 'error')
+      } finally {
+        this.authUsersLoading = false
+      }
+    },
+    async handleVerifyEmail(user) {
+      this.verifyingUid = user.uid
+      try {
+        const res = await verifyAuthUserEmail(user.uid)
+        showToast(res.data.message || '已標記', res.data.result === 'success' ? 'success' : 'error')
+        // 重新載入而不是就地改狀態：providers 也可能一起變了
+        await this.loadAuthUsers()
+      } catch (e) {
+        showToast(e.response?.data?.message || '操作失敗', 'error')
+      } finally {
+        this.verifyingUid = ''
+      }
+    },
     async loadLoginMethods() {
       const cfg = await fetchGoogleLoginConfig()
       this.googleLoginEnabled = !!cfg.enabled
@@ -3393,6 +3463,64 @@ export default {
 .login-google-row + .alt-login-toggle,
 .login-google-row + form {
   margin-top: 14px;
+}
+
+.auth-users {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 18px;
+  padding: 12px;
+  border: 1px solid rgba(228, 251, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(20, 5, 35, 0.4);
+}
+
+.auth-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.auth-user-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.auth-user-email {
+  font-size: 13px;
+  color: rgba(228, 251, 255, 0.9);
+}
+
+.auth-user-uid {
+  font-size: 11px;
+  color: rgba(228, 251, 255, 0.35);
+  word-break: break-all;
+}
+
+.auth-user-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.auth-tag {
+  font-size: 10px;
+  font-style: normal;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(228, 251, 255, 0.25);
+  color: rgba(228, 251, 255, 0.6);
+}
+
+.auth-tag--warn {
+  border-color: rgba(255, 196, 107, 0.45);
+  color: #ffc46b;
 }
 
 /* 次要入口做成文字連結的樣子，不要跟主要的 Google 按鈕搶視覺重量 */
