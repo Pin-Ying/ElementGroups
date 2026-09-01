@@ -1,27 +1,40 @@
 <template>
   <!-- 管理員登入入口。刻意低調：平時只是頁尾一個淡淡的小字，點了才展開表單 -->
   <div class="admin-login">
+    <!-- 要點兩下才展開。單擊太容易誤觸——這顆點就在頁尾，滑鼠隨手一按
+         就跳出登入框。touch-action: manipulation 讓手機的連點兩下不會被
+         瀏覽器解讀成放大手勢 -->
     <button
       v-if="!open"
       class="admin-trigger"
       type="button"
-      title="管理員登入"
-      @click="open = true"
+      title="管理員登入（點兩下）"
+      @dblclick="open = true"
     >·</button>
 
     <div v-else class="login-panel">
-      <form class="login-form" @submit.prevent="handleLogin">
-        <input class="input" type="email" v-model="email" aria-label="Email" required />
-        <input class="input" type="password" v-model="password" aria-label="Password" required />
-        <button class="button btn-sm" type="submit" :disabled="busy">
-          {{ loggingIn ? '...' : 'Login' }}
-        </button>
-        <button class="button btn-sm" type="button" @click="close">✕</button>
-      </form>
+      <p v-if="!methodsLoaded" class="login-hint">…</p>
 
-      <!-- 後端沒開 GOOGLE_LOGIN_ENABLED 就不會出現，也不會下載 Firebase SDK -->
-      <div v-if="googleEnabled" class="login-alt">
+      <template v-else>
+        <!-- 後端關掉帳密登入時連表單都不畫。真正擋下來的是 auth.login()，
+             這裡只是不要畫一組送出去必定被拒的輸入框 -->
+        <form v-if="passwordEnabled" class="login-form" @submit.prevent="handleLogin">
+          <input class="input" type="email" v-model="email" aria-label="Email" required />
+          <input class="input" type="password" v-model="password" aria-label="Password" required />
+          <button class="button btn-sm" type="submit" :disabled="busy">
+            {{ loggingIn ? '...' : 'Login' }}
+          </button>
+        </form>
+
+        <p v-if="!passwordEnabled && !googleEnabled" class="login-hint">
+          目前沒有可用的登入方式
+        </p>
+      </template>
+
+      <div class="login-actions">
+        <!-- 後端沒開 GOOGLE_LOGIN_ENABLED 就不會出現，也不會下載 Firebase SDK -->
         <button
+          v-if="methodsLoaded && googleEnabled"
           class="google-btn"
           type="button"
           :disabled="busy"
@@ -35,6 +48,10 @@
           </svg>
           {{ googleLoading ? '登入中…' : '用 Google 登入' }}
         </button>
+
+        <!-- 關閉鍵獨立在這裡，不放進表單。帳密登入被關掉時表單整個不存在，
+             擺在裡面會連帶消失，就沒有東西可以收起這個面板了 -->
+        <button class="button btn-sm" type="button" @click="close">✕</button>
       </div>
     </div>
   </div>
@@ -60,7 +77,9 @@ export default {
   data() {
     return {
       open: false, email: '', password: '',
-      loggingIn: false, googleLoading: false, googleEnabled: false
+      loggingIn: false, googleLoading: false,
+      // 查到結果之前兩個都不畫，避免表單先出現再被收掉的閃爍
+      methodsLoaded: false, googleEnabled: false, passwordEnabled: true
     }
   },
   computed: {
@@ -73,13 +92,17 @@ export default {
     // 展開表單時才去問。這個元件在每一頁的頁尾都有，掛載就查的話
     // 等於每個訪客都多打一支 API，而會用到的只有站長
     open(isOpen) {
-      if (isOpen) this.checkGoogleLogin()
+      if (isOpen) this.loadLoginMethods()
     }
   },
   methods: {
-    async checkGoogleLogin() {
-      const { enabled } = await fetchGoogleLoginConfig()
-      this.googleEnabled = enabled
+    async loadLoginMethods() {
+      const cfg = await fetchGoogleLoginConfig()
+      this.googleEnabled = !!cfg.enabled
+      // 舊版後端不會回這個欄位，那時候帳密登入本來就是開的，
+      // 只有明確收到 false 才關掉
+      this.passwordEnabled = cfg.passwordLogin !== false
+      this.methodsLoaded = true
     },
     async handleGoogleLogin() {
       this.googleLoading = true
@@ -136,6 +159,11 @@ export default {
   padding: 4px 12px;
   cursor: pointer;
   transition: color 0.2s;
+  /* 手機上連點兩下預設是放大手勢，會把 dblclick 吃掉。
+     manipulation 停用雙擊縮放，但保留捲動與雙指縮放 */
+  touch-action: manipulation;
+  /* 連點時不要把那個「·」反白選起來 */
+  user-select: none;
 }
 
 .admin-trigger:hover {
@@ -181,9 +209,18 @@ export default {
   gap: 8px;
 }
 
-.login-alt {
+.login-actions {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.login-hint {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(228, 251, 255, 0.5);
 }
 
 /* Google 的品牌指南要求 logo 維持原本的四色，所以按鈕本身走深色、

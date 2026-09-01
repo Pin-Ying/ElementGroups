@@ -15,15 +15,19 @@ let configPromise = null
 let appPromise = null
 
 /**
- * 這個站有沒有開 Google 登入。回傳 { enabled, config }。
- * 後端沒開就只會回 { enabled: false }，前端據此不顯示按鈕，也不下載 SDK。
- * 查詢失敗一律當成沒開——與其顯示一顆按不動的按鈕，不如不要出現。
+ * 目前可用的登入方式。回傳 { enabled, passwordLogin, config }。
+ * 後端沒開 Google 就不會有 config，前端據此不顯示按鈕，也不下載 SDK。
+ *
+ * 查詢失敗時的 fallback 要小心：Google 當成沒開是對的（與其顯示一顆按不動
+ * 的按鈕，不如不要出現），但帳密必須當成「開著」。兩個都當成關閉的話，一次
+ * 網路抖動就會讓登入介面整個消失，站長會以為後台壞了。寧可畫出一組可能被
+ * 後端拒絕的表單，也不要留一片空白。
  */
 export function fetchGoogleLoginConfig() {
   if (!configPromise) {
     configPromise = getFirebaseConfig()
-      .then(res => res.data || { enabled: false })
-      .catch(() => ({ enabled: false }))
+      .then(res => res.data || { enabled: false, passwordLogin: true })
+      .catch(() => ({ enabled: false, passwordLogin: true }))
   }
   return configPromise
 }
