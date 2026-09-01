@@ -25,6 +25,7 @@ frontend/dist/
 # Python
 *.pyc
 __pycache__/
+.pytest_cache/
 *.egg-info/
 
 # 資料庫規則的備份（ensure_db_index.py 產生），含安全規則不進版控
