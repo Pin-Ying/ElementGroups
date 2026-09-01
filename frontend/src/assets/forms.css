@@ -25,7 +25,9 @@
 
 .field-hint {
   font-size: 12px;
-  opacity: 0.58;
+  /* 用 color 的 alpha 而不是 opacity：opacity 會連同繼承來的顏色一起變淡，
+     而繼承來的是 Bulma 的深灰，再淡也只會更看不見。量過對比 1.49:1 */
+  color: rgba(228, 251, 255, 0.58);
   margin: 0 0 6px;
   line-height: 1.5;
 }
@@ -105,7 +107,9 @@
 
 .desc {
   font-size: 13px;
-  opacity: 0.62;
+  /* 同 .field-hint：改用 color 的 alpha，基準色才是對的。
+     0.62 在後台背景上約 6.9:1，維持原本「次要文字」的視覺層級 */
+  color: rgba(228, 251, 255, 0.62);
   margin: 2px 0 14px;
   line-height: 1.5;
 }
@@ -115,9 +119,14 @@
   font-size: 13px;
 }
 
+/* 操作結果的兩種語氣。跟 .msg 一起搭配使用：<p class="msg" :class="msgType"> */
+.success-msg { color: #6ee76e; }
+.error-msg { color: #ff6b6b; }
+
 .placeholder-text {
   font-size: 13px;
-  opacity: 0.4;
+  /* 0.4 的話對比只有 3.8:1，提到 0.5 才過 4.5 的門檻 */
+  color: rgba(228, 251, 255, 0.5);
   margin: 8px 0;
 }
 

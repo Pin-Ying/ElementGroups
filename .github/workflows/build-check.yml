@@ -52,6 +52,20 @@ jobs:
         # 明確檢查一次比只看 exit code 可靠。
         run: test -f dist/index.html
 
+      - name: CSS 不得有語法錯誤
+        working-directory: frontend
+        # build 遇到壞掉的 CSS 只會印 warning、exit code 仍是 0。實際踩過：
+        # 拆分頁時把一個 @media 區塊清空只剩註解，Vue 的 scoped 編譯器產出
+        # `@media[data-v-xxx] (...)` 這種無效語法，而 build 照樣「成功」。
+        run: |
+          npm run build 2>&1 | tee /tmp/build.log
+          if grep -q 'css-syntax-error' /tmp/build.log; then
+            echo "::error::建置產出的 CSS 有語法錯誤"
+            grep -A 5 'css-syntax-error' /tmp/build.log
+            exit 1
+          fi
+          echo "CSS 無語法錯誤"
+
   backend:
     name: 後端檢查
     runs-on: ubuntu-latest

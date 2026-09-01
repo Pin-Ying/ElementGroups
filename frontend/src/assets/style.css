@@ -361,3 +361,17 @@ a {
     -webkit-user-drag: none;
     user-select: none;
 }
+
+/* Bulma 的 .title 是淺色主題的深灰字，在這個站的深色背景上幾乎看不見。
+ * 量過：對比只有 1.57:1（WCAG 對大字的最低要求是 3:1）。
+ *
+ * 後台的 AdminView 自己覆寫過，但那是 scoped，傳不到 AdminBar 子元件，
+ * 所以各分頁的大標題還是暗的；前台的 /molecules、/watermark、/particles、
+ * /links 也都沒有自己的定義。統一放這裡一次解決。
+ *
+ * 已經自己定義過的（GuideView 的 .guide .title、PageView 的 .page .title）
+ * 特異性比較高，不受影響。
+ */
+.title {
+  color: #e4fbff;
+}
