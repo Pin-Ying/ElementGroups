@@ -18,24 +18,37 @@
         <p v-if="!loginMethodsLoaded" class="field-hint">載入中…</p>
 
         <template v-else>
-          <!-- 後端關掉帳密登入時連表單都不畫。真正擋下來的是 auth.login()，
-               這裡只是不要留一組送出去必定被拒的輸入框 -->
-          <form v-if="passwordLoginEnabled" @submit.prevent="handleLogin">
-            <label class="label">Email</label>
-            <input class="input" type="text" v-model="email" required />
-            <label class="label">Password</label>
-            <input class="input" type="password" v-model="password" required />
-            <div class="form-actions">
-              <button class="button" type="submit">Login</button>
-              <button class="button secondary" type="button" @click="email = ''; password = ''">Reset</button>
-            </div>
-          </form>
-
-          <!-- 登入成功後 authState.loggedIn 會變 true，watch 會接手跑 bootstrap()，
-               這裡不需要自己處理後續 -->
+          <!-- Google 是主要方式，放最上面。登入成功後 authState.loggedIn 會變
+               true，watch 會接手跑 bootstrap()，這裡不需要自己處理後續 -->
           <div v-if="googleLoginEnabled" class="login-google-row">
             <GoogleLoginButton />
           </div>
+
+          <!-- 帳密登入。兩種方式都能用時收在「使用其他方式登入」後面——這頁是
+               站長自己的登入頁，Google 出狀況時要有後路，但平常不該跟主要方式
+               並排。只剩帳密可用時直接展開，不必多按一次。
+
+               後端關掉帳密登入時整塊都不畫：真正擋下來的是 auth.login()，這裡
+               只是不要留一組送出去必定被拒的輸入框。 -->
+          <template v-if="passwordLoginEnabled">
+            <button
+              v-if="googleLoginEnabled && !showPasswordForm"
+              class="alt-login-toggle"
+              type="button"
+              @click="showPasswordForm = true"
+            >使用其他方式登入</button>
+
+            <form v-if="!googleLoginEnabled || showPasswordForm" @submit.prevent="handleLogin">
+              <label class="label">Email</label>
+              <input class="input" type="text" v-model="email" required />
+              <label class="label">Password</label>
+              <input class="input" type="password" v-model="password" required />
+              <div class="form-actions">
+                <button class="button" type="submit">Login</button>
+                <button class="button secondary" type="button" @click="email = ''; password = ''">Reset</button>
+              </div>
+            </form>
+          </template>
 
           <p v-if="!passwordLoginEnabled && !googleLoginEnabled" class="field-hint">
             目前沒有可用的登入方式。請確認後端的 GOOGLE_LOGIN_ENABLED
@@ -1620,6 +1633,8 @@ export default {
       authState,
       // 可用的登入方式，查到之前兩個都不畫（避免表單閃一下又消失）
       loginMethodsLoaded: false, googleLoginEnabled: false, passwordLoginEnabled: true,
+      // 「使用其他方式登入」按下去之後才展開帳密表單
+      showPasswordForm: false,
       SECTIONS,
       section: SECTIONS.some(s => s.key === localStorage.getItem('adminSection'))
         ? localStorage.getItem('adminSection')
@@ -3374,9 +3389,29 @@ export default {
   justify-content: center;
 }
 
-/* 只有帳密表單也在的時候才需要隔開；只剩 Google 一顆按鈕時不留多餘空隙 */
-form + .login-google-row {
+/* Google 按鈕在上、帳密在下，兩者之間留白 */
+.login-google-row + .alt-login-toggle,
+.login-google-row + form {
   margin-top: 14px;
+}
+
+/* 次要入口做成文字連結的樣子，不要跟主要的 Google 按鈕搶視覺重量 */
+.alt-login-toggle {
+  display: inline-block;
+  border: none;
+  background: none;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: 'Space Grotesk', sans-serif;
+  color: rgba(228, 251, 255, 0.5);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.alt-login-toggle:hover {
+  color: rgba(228, 251, 255, 0.85);
 }
 
 /* ── 後台版面：側邊導覽 + 內容區 ── */

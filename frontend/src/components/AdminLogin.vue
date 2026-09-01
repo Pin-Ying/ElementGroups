@@ -20,9 +20,14 @@
       <p v-if="!methodsLoaded" class="login-hint">…</p>
 
       <template v-else>
-        <!-- 後端關掉帳密登入時連表單都不畫。真正擋下來的是 auth.login()，
-             這裡只是不要畫一組送出去必定被拒的輸入框 -->
-        <form v-if="passwordEnabled" class="login-form" @submit.prevent="handleLogin">
+        <!-- Google 可用時這裡就只給 Google，不論後端有沒有同時開著帳密登入。
+             這個入口在每一頁的頁尾、面向的是一般訪客，要維持單純；帳密那條
+             後路收在 /admin 的「使用其他方式登入」裡，那才是站長自己的頁面。
+
+             Google 沒開時才退回帳密表單，否則頁尾會變成完全沒有登入方式。
+             真正擋下帳密登入的是後端 auth.login()，這裡只是不要畫一組送出去
+             必定被拒的輸入框。 -->
+        <form v-if="!googleEnabled && passwordEnabled" class="login-form" @submit.prevent="handleLogin">
           <input class="input" type="email" v-model="email" aria-label="Email" required />
           <input class="input" type="password" v-model="password" aria-label="Password" required />
           <button class="button btn-sm" type="submit" :disabled="busy">
