@@ -6,6 +6,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
+# app.auth 也叫 auth，這裡取別名避免撞名
+from firebase_admin import auth as fb_auth
 
 from app import auth as auth_module
 from app.config import settings
@@ -100,6 +102,101 @@ def firebase_config():
         }
 
     return jsonify(payload)
+
+
+def _auth_user_row(user):
+    """把 Firebase 的使用者物件整理成後台清單要的欄位。"""
+    allowed_set = auth_module._allowed_accounts()
+    in_allowlist = (
+        not allowed_set
+        or user.uid.lower() in allowed_set
+        or (user.email or "").lower() in allowed_set
+    )
+    return {
+        "uid": user.uid,
+        "email": user.email or "",
+        "disabled": bool(user.disabled),
+        "emailVerified": bool(user.email_verified),
+        # provider_id 是 'password'、'google.com' 這種字串。沒有 password
+        # 就代表這個帳號不能用帳密登入——Firebase 會在同 email 的 Google
+        # 帳號登入時移除未驗證的密碼憑證，這個欄位是唯一看得出來的地方
+        "providers": [p.provider_id for p in (user.provider_data or [])],
+        "allowed": in_allowlist,
+    }
+
+
+@admin_bp.route("/admin/auth-users", methods=["GET"])
+@login_required
+def list_auth_users():
+    """列出這個 Firebase 專案裡所有能登入的帳號。
+
+    scripts/list_auth_users.py 做的是同一件事，但那支腳本要有 Firebase 憑證
+    才能跑，而免費方案的 Render 沒有 Shell，等於用不到。這裡搬進後台。
+
+    看得到 providers 與 emailVerified 之後，「帳密突然登不進去」這類問題
+    可以一眼看出原因，不必去猜。
+    """
+    try:
+        users = []
+        page = fb_auth.list_users()
+        while page:
+            users.extend(_auth_user_row(u) for u in page.users)
+            page = page.get_next_page()
+
+        return jsonify({
+            "users": users,
+            # 白名單是空的時候每個帳號都能進後台，前端要能提醒
+            "allowlistConfigured": bool(auth_module._allowed_accounts()),
+        })
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
+
+
+@admin_bp.route("/admin/auth-users/verify-email", methods=["POST"])
+@login_required
+def verify_auth_user_email():
+    """把帳號的 email 標記為已驗證。
+
+    為什麼需要：Firebase 會在「同一個 email 的 Google 帳號登入」時，移除
+    那個 email 底下**未驗證**的密碼憑證（防帳號劫持）。結果是每次用 Google
+    登入都可能把帳密這條後路消滅掉。email 一旦驗證過就不會再被移除。
+
+    正常的驗證途徑是密碼重設信或驗證信，但企業信箱常把 Firebase 的信擋掉，
+    收不到就完全沒有辦法。這支端點用 Admin SDK 直接設定，不經過 email。
+
+    只能對 ADMIN_ACCOUNTS 名單內的帳號操作。白名單沒設定時一律拒絕——那種
+    狀態下誰都能進後台，不該再讓這支端點去動別人的帳號。
+    """
+    allowed_set = auth_module._allowed_accounts()
+    if not allowed_set:
+        return jsonify({
+            "result": "failure",
+            "message": "尚未設定 ADMIN_ACCOUNTS，為安全起見不開放這個操作"
+        }), 400
+
+    uid = ((request.get_json() or {}).get("uid") or "").strip()
+    if not uid:
+        return jsonify({"result": "failure", "message": "缺少 uid"}), 400
+
+    try:
+        user = fb_auth.get_user(uid)
+    except Exception:
+        return jsonify({"result": "failure", "message": "找不到這個帳號"}), 404
+
+    if uid.lower() not in allowed_set and (user.email or "").lower() not in allowed_set:
+        return jsonify({
+            "result": "failure",
+            "message": "這個帳號不在 ADMIN_ACCOUNTS 名單內"
+        }), 403
+
+    if user.email_verified:
+        return jsonify({"result": "success", "message": "這個帳號的 email 本來就已驗證"})
+
+    try:
+        fb_auth.update_user(uid, email_verified=True)
+        return jsonify({"result": "success", "message": f"{user.email or uid} 的 email 已標記為已驗證"})
+    except Exception as e:
+        return jsonify({"result": "failure", "message": str(e)}), 500
 
 
 @admin_bp.route("/admin/create-db", methods=["POST"])
