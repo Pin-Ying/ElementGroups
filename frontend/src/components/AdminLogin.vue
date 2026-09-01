@@ -2,14 +2,18 @@
   <!-- 管理員登入入口。刻意低調：平時只是頁尾一個淡淡的小字，點了才展開表單 -->
   <div class="admin-login">
     <!-- 要點兩下才展開。單擊太容易誤觸——這顆點就在頁尾，滑鼠隨手一按
-         就跳出登入框。touch-action: manipulation 讓手機的連點兩下不會被
-         瀏覽器解讀成放大手勢 -->
+         就跳出登入框。
+
+         用 click 自己算間隔，不用 @dblclick：iOS Safari 對非輸入元素的
+         dblclick 本來就不可靠（實測 iPad 上完全打不開），touch-action
+         只能擋掉縮放手勢搶事件，並不保證 Safari 會派發 dblclick。
+         自己數兩次 click 在所有平台上行為一致。 -->
     <button
       v-if="!open"
       class="admin-trigger"
       type="button"
       title="管理員登入（點兩下）"
-      @dblclick="open = true"
+      @click="handleTrigger"
     >·</button>
 
     <div v-else class="login-panel">
@@ -53,6 +57,11 @@ import { fetchGoogleLoginConfig } from '../utils/googleAuth'
 import { showToast } from '../store/toast'
 import GoogleLoginButton from './GoogleLoginButton.vue'
 
+// 兩次點擊要多接近才算「點兩下」。系統預設的雙擊判定約 500ms，這裡取
+// 稍寬的 450ms——太短在觸控裝置上很難達成，太長則會把「先點一下、想想、
+// 再點一下」也算進去，失去防誤觸的意義
+const DOUBLE_TAP_MS = 450
+
 function parseLoginError(raw) {
   if (!raw) return 'Login failed'
   if (raw.includes('INVALID_LOGIN_CREDENTIALS') || raw.includes('EMAIL_NOT_FOUND') || raw.includes('INVALID_PASSWORD'))
@@ -69,6 +78,8 @@ export default {
   data() {
     return {
       open: false, email: '', password: '', loggingIn: false,
+      // 上一次點擊的時間戳，用來判斷有沒有構成「點兩下」
+      lastTap: 0,
       // 查到結果之前兩個都不畫，避免表單先出現再被收掉的閃爍
       methodsLoaded: false, googleEnabled: false, passwordEnabled: true
     }
@@ -87,6 +98,17 @@ export default {
     }
   },
   methods: {
+    // 兩次點擊間隔在 DOUBLE_TAP_MS 內才算數。第二次點完就把時間戳歸零，
+    // 否則連點三下會被算成兩組，第三下又觸發一次
+    handleTrigger() {
+      const now = Date.now()
+      if (now - this.lastTap < DOUBLE_TAP_MS) {
+        this.lastTap = 0
+        this.open = true
+      } else {
+        this.lastTap = now
+      }
+    },
     async loadLoginMethods() {
       const cfg = await fetchGoogleLoginConfig()
       this.googleEnabled = !!cfg.enabled
@@ -135,8 +157,9 @@ export default {
   padding: 4px 12px;
   cursor: pointer;
   transition: color 0.2s;
-  /* 手機上連點兩下預設是放大手勢，會把 dblclick 吃掉。
-     manipulation 停用雙擊縮放，但保留捲動與雙指縮放 */
+  /* 兩個作用：停用雙擊縮放（否則連點兩下會把畫面放大），以及去掉 iOS 為了
+     等待雙擊而加的約 300ms click 延遲——那個延遲會讓兩次 click 的間隔被
+     拉長，剛好落在雙擊判定之外。捲動與雙指縮放不受影響 */
   touch-action: manipulation;
   /* 連點時不要把那個「·」反白選起來 */
   user-select: none;

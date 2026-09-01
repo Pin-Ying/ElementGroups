@@ -71,7 +71,7 @@ export const PAGE_META_DEFS = [
         name: 'sign_hint',
         label: '「自己印一個」的說明',
         default: '簽名會被畫成粗塊狀圖樣鋪滿整張圖，英數 2〜4 個字最清楚。'
-          + '印好的圖看起來跟原圖沒兩樣，但右邊顯影就讀得出來——這就是這個站保護作品的方式。',
+          + '印好的圖看起來跟原圖沒兩樣，但右邊顯影就讀得出來——這裡的圖也是這樣印的。',
         multiline: true
       },
       { name: 'original_label', label: '原圖那張的說明', default: '原圖' },
@@ -83,7 +83,7 @@ export const PAGE_META_DEFS = [
       {
         name: 'result_hint',
         label: '結果下方的說明',
-        default: '看到重複鋪滿整張的簽名，就是從這個站拿走的。壓過、縮過、裁過的圖會比較模糊，'
+        default: '看到重複鋪滿整張的簽名，就是從這裡拿走的。壓過、縮過、裁過的圖會比較模糊，'
           + '調整顯影強度再看一次；整張都是雜訊看不出圖樣，那就不是這裡的圖。',
         multiline: true
       },
