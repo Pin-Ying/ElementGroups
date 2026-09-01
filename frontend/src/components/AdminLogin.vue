@@ -33,21 +33,11 @@
 
       <div class="login-actions">
         <!-- 後端沒開 GOOGLE_LOGIN_ENABLED 就不會出現，也不會下載 Firebase SDK -->
-        <button
+        <GoogleLoginButton
           v-if="methodsLoaded && googleEnabled"
-          class="google-btn"
-          type="button"
-          :disabled="busy"
-          @click="handleGoogleLogin"
-        >
-          <svg class="google-mark" viewBox="0 0 48 48" aria-hidden="true">
-            <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
-            <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
-            <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/>
-            <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
-          </svg>
-          {{ googleLoading ? '登入中…' : '用 Google 登入' }}
-        </button>
+          :disabled="loggingIn"
+          @success="close"
+        />
 
         <!-- 關閉鍵獨立在這裡，不放進表單。帳密登入被關掉時表單整個不存在，
              擺在裡面會連帶消失，就沒有東西可以收起這個面板了 -->
@@ -58,9 +48,10 @@
 </template>
 
 <script>
-import { login, loginWithGoogle } from '../store/auth'
+import { login } from '../store/auth'
 import { fetchGoogleLoginConfig } from '../utils/googleAuth'
 import { showToast } from '../store/toast'
+import GoogleLoginButton from './GoogleLoginButton.vue'
 
 function parseLoginError(raw) {
   if (!raw) return 'Login failed'
@@ -74,18 +65,18 @@ function parseLoginError(raw) {
 }
 
 export default {
+  components: { GoogleLoginButton },
   data() {
     return {
-      open: false, email: '', password: '',
-      loggingIn: false, googleLoading: false,
+      open: false, email: '', password: '', loggingIn: false,
       // 查到結果之前兩個都不畫，避免表單先出現再被收掉的閃爍
       methodsLoaded: false, googleEnabled: false, passwordEnabled: true
     }
   },
   computed: {
-    // 兩種登入共用一組禁用狀態，避免使用者在等待時按下另一個
+    // Google 按鈕自己管它的 loading，這裡只要顧帳密送出中的狀態
     busy() {
-      return this.loggingIn || this.googleLoading
+      return this.loggingIn
     }
   },
   watch: {
@@ -103,21 +94,6 @@ export default {
       // 只有明確收到 false 才關掉
       this.passwordEnabled = cfg.passwordLogin !== false
       this.methodsLoaded = true
-    },
-    async handleGoogleLogin() {
-      this.googleLoading = true
-      try {
-        const result = await loginWithGoogle()
-        if (result.ok) {
-          this.close()
-          showToast('Logged in successfully', 'success')
-        } else if (!result.cancelled) {
-          // cancelled 是使用者自己關掉 Google 的視窗，不是錯誤
-          showToast(result.message || 'Google 登入失敗', 'error')
-        }
-      } finally {
-        this.googleLoading = false
-      }
     },
     close() {
       this.open = false
@@ -223,38 +199,7 @@ export default {
   color: rgba(228, 251, 255, 0.5);
 }
 
-/* Google 的品牌指南要求 logo 維持原本的四色，所以按鈕本身走深色、
-   只讓標誌保持彩色，這樣在這個站的深色背景上也不會突兀 */
-.google-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 14px;
-  font-size: 13px;
-  font-family: 'Space Grotesk', sans-serif;
-  color: rgba(228, 251, 255, 0.85);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(228, 251, 255, 0.35);
-  border-radius: 5px;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.google-btn:hover:not(:disabled) {
-  border-color: rgba(228, 251, 255, 0.6);
-  background: rgba(255, 255, 255, 0.13);
-}
-
-.google-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.google-mark {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
+/* Google 按鈕的樣式在 GoogleLoginButton.vue 裡（scoped，不會被這裡影響） */
 
 @media (max-width: 760px) {
   /* 避免 iPhone 聚焦自動放大 (issue #15) */

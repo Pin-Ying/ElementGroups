@@ -23,7 +23,8 @@
     <SiteNav />
 
     <router-view />
-    <SiteFooter />
+    <!-- 後台用 meta.hideFooter 關掉頁尾，見 router/index.js -->
+    <SiteFooter v-if="!$route.meta.hideFooter" />
     <ToastContainer />
   </div>
 </template>
