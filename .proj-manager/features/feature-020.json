@@ -1,0 +1,32 @@
+{
+ "feature_id": "feature-020",
+ "name": "後台登入帳號管理與 email 驗證",
+ "description": "後台維護工具可列出 Firebase Auth 所有帳號，顯示 providers 與 email 驗證狀態，並能用 Admin SDK 直接把 ADMIN_ACCOUNTS 名單內帳號的 email 標記為已驗證。起因是 Firebase 會在同 email 的 Google 帳號登入時移除未驗證的密碼憑證，而驗證信在企業信箱常被擋掉、主控台也沒有標記已驗證的按鈕。",
+ "status": "completed",
+ "created_at": "2026-09-01T00:00:00Z",
+ "files": [
+  "backend/app/routes/admin.py",
+  "frontend/src/views/AdminView.vue",
+  "frontend/src/api/index.js"
+ ],
+ "dependencies": [],
+ "api_endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/admin/auth-users",
+   "description": "列出所有帳號（uid、email、disabled、emailVerified、providers、是否在白名單）"
+  },
+  {
+   "method": "POST",
+   "path": "/api/admin/auth-users/verify-email",
+   "description": "把指定帳號的 email 標記為已驗證，限 ADMIN_ACCOUNTS 名單內；白名單未設定時一律拒絕"
+  }
+ ],
+ "env_variables": [
+  "ADMIN_ACCOUNTS"
+ ],
+ "notes": {
+  "supersedes": "補上 issue #31 提過但未做的「把帳號清單搬進後台」。scripts/list_auth_users.py 需要 Firebase 憑證才能跑，而免費方案的 Render 沒有 Shell，該腳本實際用不到",
+  "key_field": "providers 是唯一能看出密碼憑證被移除的地方——沒有 password 就代表該帳號不能用帳密登入"
+ }
+}

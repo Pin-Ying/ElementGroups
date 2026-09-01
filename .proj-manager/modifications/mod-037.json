@@ -1,0 +1,28 @@
+{
+ "modification_id": "mod-037",
+ "feature_id": "feature-019",
+ "type": "enhancement",
+ "status": "applied",
+ "description": "/admin 加入「使用其他方式登入」摺疊入口（Google 為主、帳密為備援）；頁尾改為 Google 可用時只給 Google，不再受 PASSWORD_LOGIN_ENABLED 影響。",
+ "created_at": "2026-09-01T00:00:00Z",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "Google 按鈕移到最上面；帳密收進「使用其他方式登入」後面，按了才展開；只剩帳密可用時直接展開"
+   },
+   {
+    "path": "frontend/src/components/AdminLogin.vue",
+    "change_type": "modified",
+    "diff_summary": "表單條件從 passwordEnabled 改為 !googleEnabled && passwordEnabled，讓頁尾不受帳密開關影響"
+   }
+  ]
+ },
+ "notes": "頁尾也改了看似與「頁尾不要動」矛盾，實則相反：原本條件是「後端允許帳密就畫表單」，一旦打開 PASSWORD_LOGIN_ENABLED，頁尾會自己冒出帳密表單。要維持頁尾現狀就必須讓它不看那個開關。兩處從此分工：頁尾面向訪客保持單純，/admin 是站長自己的頁面、保留後路。"
+}

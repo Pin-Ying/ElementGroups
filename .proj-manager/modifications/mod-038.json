@@ -1,0 +1,23 @@
+{
+ "modification_id": "mod-038",
+ "feature_id": "feature-016",
+ "type": "enhancement",
+ "status": "applied",
+ "description": "浮水印頁文案不再自稱「這個站」，並統一同一段內混用的「這個站」與「這裡」。",
+ "created_at": "2026-09-01T00:00:00Z",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/utils/pageMeta.js",
+    "change_type": "modified",
+    "diff_summary": "sign_hint 結尾「這就是這個站保護作品的方式」改為「這裡的圖也是這樣印的」；result_hint 開頭「就是從這個站拿走的」改為「就是從這裡拿走的」"
+   }
+  ]
+ },
+ "notes": "站方對讀者自稱「這個站」語氣像外人指涉，與該頁其餘文案（「打上你的簽名」「全部在你自己的瀏覽器裡處理」）口吻不一致。sign_hint 的結尾還有第二個問題：那段是「自己印一個看看」的玩具功能說明，結尾卻拉高到正式的保護機制。這兩個欄位在 _page_meta 沒有覆寫（只存 nav_position 與 nav_order），所以改預設值直接生效。"
+}

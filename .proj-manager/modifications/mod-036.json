@@ -1,0 +1,24 @@
+{
+ "modification_id": "mod-036",
+ "feature_id": "feature-019",
+ "type": "bugfix",
+ "status": "applied",
+ "description": "登入入口在 iPad 上完全打不開。改用 click 自行判斷雙擊間隔（450ms），不依賴 dblclick 事件。",
+ "created_at": "2026-09-01T00:00:00Z",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": false,
+  "risk_level": "low"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "frontend/src/components/AdminLogin.vue",
+    "change_type": "modified",
+    "diff_summary": "@dblclick 改為 @click + handleTrigger()，用 Date.now() 比對 lastTap；第二次觸發後把時間戳歸零避免連點三下算成兩組"
+   }
+  ]
+ },
+ "root_cause": "iOS Safari 對非輸入元素的 dblclick 不可靠。原本加的 touch-action: manipulation 方向沒錯，但它只能避免縮放手勢搶走事件，並不保證 Safari 會派發 dblclick——這兩件事被混為一談。touch-action 保留，因為它還能去掉 iOS 約 300ms 的 click 延遲，那個延遲反而會把兩次 click 的間隔拉長到雙擊判定之外。",
+ "notes": "當初只在桌面驗證就送出，是這個 bug 的直接成因。"
+}

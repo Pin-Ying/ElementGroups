@@ -1,8 +1,8 @@
 {
  "project_name": "ElementGroups",
- "version": "1.4.0",
+ "version": "1.5.0",
  "created_at": "2026-02-23T00:00:00Z",
- "last_updated": "2026-08-11T01:30:00Z",
+ "last_updated": "2026-09-01T00:00:00Z",
  "agent_version": "1.0.0",
  "project_type": "fullstack",
  "framework": {
@@ -31,7 +31,9 @@
   "frontend/vite-plugin-sitemap.js",
   "frontend/vite-plugin-prerender.js",
   "docker-compose.yml",
-  ".gitignore"
+  ".gitignore",
+  ".gitattributes",
+  ".github/workflows/build-check.yml"
  ],
  "git_initialized": true,
  "team_size": 1,
@@ -43,8 +45,8 @@
    "frontend": {
     "type": "static site",
     "url": "https://elementgroups-frontend.onrender.com",
-    "build": "npm --prefix frontend install && npm --prefix frontend run build",
-    "note": "VITE_API_URL 由 Render 環境變數注入，覆蓋 repo 內的 .env.production"
+    "build": "cd frontend && npm ci && npm run build",
+    "note": "VITE_API_URL 由 Render 環境變數注入，覆蓋 repo 內的 .env.production。build 改用 npm ci 照 package-lock.json 安裝，產物可重現（已驗證 CSS hash 與本機一致）"
    },
    "backend": {
     "type": "web service",
@@ -58,13 +60,14 @@
    "removed": "SQLite / SQLAlchemy"
   },
   "gunicorn_workers": 1,
-  "notes": "workers=1 因 Flask-Login 使用 in-memory users dict，多 worker 導致 session 401",
+  "notes": "workers=1 因 Flask-Login 使用 in-memory users dict，多 worker 導致 session 401；已改用 gevent worker（issue #28）讓等待 Firebase 的請求讓出控制權",
   "env_variables": {
    "required": [
     "SECRET_KEY",
     "FIREBASE_*"
    ],
    "optional": [
+    "ADMIN_ACCOUNTS",
     "FIREBASE_STORAGE_ENABLED",
     "AI_PROVIDER",
     "AI_API_KEY",
@@ -73,8 +76,21 @@
     "AI_MAX_OUTPUT_TOKENS",
     "VITE_SITE_URL",
     "FRONTEND_PORT",
-    "BACKEND_PORT"
-   ]
+    "BACKEND_PORT",
+    "GOOGLE_LOGIN_ENABLED",
+    "PASSWORD_LOGIN_ENABLED"
+   ],
+   "notes": "ADMIN_ACCOUNTS 技術上有預設值（空字串＝放行所有人）所以列在 optional，但開啟 GOOGLE_LOGIN_ENABLED 之後它是唯一的授權關卡，實務上必填。PASSWORD_LOGIN_ENABLED 留空＝與 GOOGLE_LOGIN_ENABLED 連動（開 Google 就關帳密），明確設 true 是 Google 出狀況時的逃生門。"
+  },
+  "ci": {
+   "provider": "GitHub Actions",
+   "workflow": ".github/workflows/build-check.yml",
+   "jobs": [
+    "前端建置",
+    "後端檢查",
+    "防退化檢查"
+   ],
+   "note": "只驗證建置，不部署。後端僅做編譯與依賴檢查——app/firebase.py 在 import 階段就初始化 SDK，CI 沒有憑證起不來"
   }
  }
 }

@@ -1,0 +1,75 @@
+{
+ "modification_id": "mod-035",
+ "feature_id": "feature-019",
+ "type": "enhancement",
+ "status": "applied",
+ "description": "開了 Google 登入就關掉帳密登入（PASSWORD_LOGIN_ENABLED 未設時與 GOOGLE_LOGIN_ENABLED 連動），頁尾登入入口改為點兩下才展開，/admin 不再顯示頁尾。",
+ "created_at": "2026-09-01T00:00:00Z",
+ "impact_analysis": {
+  "breaking_change": false,
+  "affects_api": true,
+  "risk_level": "medium"
+ },
+ "changes": {
+  "files": [
+   {
+    "path": "backend/app/config.py",
+    "change_type": "modified",
+    "diff_summary": "新增 PASSWORD_LOGIN_ENABLED（Optional[bool]）與 password_login_enabled 計算屬性，未設定時回傳 not GOOGLE_LOGIN_ENABLED"
+   },
+   {
+    "path": "backend/app/auth.py",
+    "change_type": "modified",
+    "diff_summary": "login() 開頭檢查 password_login_enabled，關閉時回「此站已改用 Google 帳號登入」"
+   },
+   {
+    "path": "backend/app/routes/admin.py",
+    "change_type": "modified",
+    "diff_summary": "firebase-config 加回傳 passwordLogin 欄位"
+   },
+   {
+    "path": "frontend/src/components/AdminLogin.vue",
+    "change_type": "modified",
+    "diff_summary": "依後端回報決定畫哪種登入方式；觸發改 dblclick 並加 touch-action: manipulation；關閉鍵移出表單"
+   },
+   {
+    "path": "frontend/src/views/AdminView.vue",
+    "change_type": "modified",
+    "diff_summary": "/admin 登入頁同步套用登入方式判斷"
+   },
+   {
+    "path": "frontend/src/components/GoogleLoginButton.vue",
+    "change_type": "added",
+    "diff_summary": "抽出共用的 Google 登入按鈕，兩處登入介面共用"
+   },
+   {
+    "path": "frontend/src/router/index.js",
+    "change_type": "modified",
+    "diff_summary": "/admin 加 meta.hideFooter"
+   },
+   {
+    "path": "frontend/src/App.vue",
+    "change_type": "modified",
+    "diff_summary": "SiteFooter 依 meta.hideFooter 決定是否渲染"
+   },
+   {
+    "path": "backend/.env.example",
+    "change_type": "modified",
+    "diff_summary": "新增 PASSWORD_LOGIN_ENABLED 說明與逃生門用法"
+   }
+  ]
+ },
+ "api_changes": [
+  {
+   "endpoint": "GET /api/auth/firebase-config",
+   "change_type": "modified",
+   "backward_compatible": true
+  },
+  {
+   "endpoint": "POST /api/auth/login",
+   "change_type": "modified",
+   "backward_compatible": false
+  }
+ ],
+ "notes": "擋在後端而不是只藏前端表單——/api/auth/login 是公開端點，繞過畫面直接打就行。逃生門：PASSWORD_LOGIN_ENABLED 明確設 true 可立刻恢復帳密登入，不必改程式或重新部署。"
+}

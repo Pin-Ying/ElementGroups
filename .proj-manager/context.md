@@ -250,3 +250,60 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 
 ### 憑證
 - 對話／部署流程中出現過 GitHub token 與 Gemini API key 明碼，開發告一段落時提醒使用者輪替
+
+---
+
+## 開發注意事項（2026-09-01 補充）
+
+### 登入機制（feature-019、feature-020）
+
+後台有兩條登入路徑，由兩個環境變數控制：
+
+| `GOOGLE_LOGIN_ENABLED` | `PASSWORD_LOGIN_ENABLED` | 頁尾（訪客） | `/admin`（站長） |
+|---|---|---|---|
+| false | 留空 | 帳密表單 | 帳密表單 |
+| **true** | **留空** | **只有 Google** | **只有 Google** |
+| true | true | 只有 Google | Google ＋「使用其他方式登入」→ 帳密 |
+| false | false | 沒有可用的登入方式 | 沒有可用的登入方式 |
+
+- `PASSWORD_LOGIN_ENABLED` 留空＝與 Google 連動（開 Google 就關帳密）；**明確設 `true` 是逃生門**，Google 出狀況時不必改程式或重新部署
+- **擋在後端 `auth.login()`，不是只藏前端表單**。`/api/auth/login` 是公開端點，繞過畫面直接打就行
+- 頁尾與 `/admin` 分工不同：頁尾面向一般訪客保持單純，`/admin` 是站長自己的頁面、保留後路。改其中一處時記得另一處
+- **`ADMIN_ACCOUNTS` 是唯一的授權關卡**。通過 Google 驗證不等於能進後台——Google 只證明 email 擁有權。沒設定的話，Google 登入比帳密登入更糟（連註冊那一步都省了）
+
+### Firebase 的兩個坑（都實際踩過）
+
+**1. Google 登入會移除同 email 底下「未驗證」的密碼憑證。**
+
+Firebase 的防帳號劫持機制：聯合登入的 email 已驗證，而密碼是誰設的無從證明，所以連結帳號時會把密碼憑證拿掉。實際後果是**每次用 Google 登入都可能把帳密這條後路消滅掉**，而且沒有任何通知，等真的需要備援時才發現。
+
+- 症狀：帳密登入回 401「Incorrect email or password」，但密碼並沒有記錯
+- 診斷：後台維護工具 →「登入帳號」→ 看 `providers`。**沒有 `密碼` 就是被移除了**，這是唯一看得出來的地方
+- 根治：把該帳號的 email 標記為已驗證（同一個工具就有按鈕）。已驗證的 email 不會再被移除
+- 為什麼不用驗證信：企業信箱常整封擋掉，而 Firebase 主控台**沒有**「標記為已驗證」或「發送驗證信」的按鈕（只有重設密碼、停用、刪除）。所以改用 Admin SDK 直接設定
+
+**2. 授權網域要填「前端」網域。**
+
+Authentication → Settings → 授權網域要加的是 `elementgroups-frontend.onrender.com`，不是後端的 `elementtable.onrender.com`。Google 登入的彈出視窗由瀏覽器上的頁面發起，Firebase 檢查的是網址列的網域；後端只收前端拿到的 ID token，全程不經手。填錯會得到 `auth/unauthorized-domain`，前端已把它翻成看得懂的訊息。
+
+> 順帶一提，自訂寄件網域（Templates 的 From）需要該網域的 DNS 權限，而 `onrender.com` 的 DNS 不在我們手上——與 mod-022 的 GSC 網域驗證是同一個障礙。寄件者名稱與回覆地址則可自由設定。
+
+### 建置可重現性（feature-017）
+
+- `backend/requirements.txt` **連間接依賴一起釘死**（67 筆）。更新方式寫在檔案開頭：用 `python:3.11-slim`（與 Dockerfile 同一個 base image）跑 `pip freeze`
+- 前端一律 `npm ci`（Dockerfile 與 `render.yaml` 都是），不要改回 `npm install`——那會讓 `package-lock.json` 形同虛設
+- CI 有兩個防退化檢查會擋：**requirements 出現沒有 `==` 的行**、**CRLF 進版控**
+- 已驗證：Render 部署後的 CSS hash 與本機 `npm ci` 產物一致；pandas 2.x→3.0.5 後 `/api/groups` 與 `/api/elements/:symbol/ability` 的回應與升級前逐位元組相同
+
+### 觸控裝置
+
+- **iOS Safari 對非輸入元素的 `dblclick` 不可靠**，iPad 上實測完全不觸發。要「點兩下」就自己用 `click` 記時間戳比對（見 `AdminLogin.vue` 的 `handleTrigger`，450ms）
+- `touch-action: manipulation` 仍要留，但它的作用是「停用雙擊縮放」與「去掉 iOS 約 300ms 的 click 延遲」——**不是**讓 `dblclick` 能運作。當初混為一談才寫出那個 bug
+- 教訓：只在桌面驗證就送出的 UI 改動，觸控裝置要另外確認
+
+### 分子分類（feature-018）
+
+- 分類軸是**組成元素的金屬性**，不是有機／無機。後者的邊界是慣例問題（CO₂ 含碳卻歸無機、碳酸鹽也是），要人工維護例外表；金屬性查表就有答案
+- 對照表在 `frontend/src/utils/moleculeCategory.js`，取自週期表 `GroupBlock`，照 `data/elementSymbols.js` 的做法寫成靜態表——**不要改成打 API**，前台分類是即時算的
+- **後台手填的 `category` 永遠優先**，沒填才自動判斷。所以既有資料不必回填，規則改進會立刻全站生效
+- 公開的 `/api/molecules` slim 投影必須帶 `category`，否則前台拿不到手動覆寫

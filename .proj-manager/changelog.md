@@ -4,6 +4,98 @@
 
 ---
 
+## [建置可重現性、分子分類、Google 登入] - 2026-09-01 | PR #33〜#39
+
+### 變更類型
+
+新增功能 ＋ 優化 ＋ 修復（feature-017〜020、mod-035〜038）
+
+### 背景
+
+這輪起於一次橫向比對：拿本專案跟同一台機器上的其他專案（km-util、heyids200、
+TPEX、CSPTC、NCDR）對照工程配置，發現 ElementGroups 是**唯一**同時沒有測試、
+沒有 CI、沒有 lint、依賴也完全沒釘版本的專案。對一個 push 就自動部署的站來說，
+最後一項風險最大：同一份程式碼今天和下個月 build 出來是不同的東西，網站可能在
+沒動程式的情況下壞掉，而且回不到昨天能跑的組合。
+
+修完基礎建設後，接著做了分子分類與 issue #32 的 Google 登入，過程中連帶踩到
+兩個 Firebase 的坑（見下方）。
+
+### 做法
+
+**建置可重現性與 CI（feature-017 / PR #33）**
+
+- `requirements.txt` 從 13 個裸套件改為 67 筆全釘死（含間接依賴）。版本在
+  `python:3.11-slim`（Dockerfile 同一個 base image）實際解出來，非估計
+- 順手移除 `Flask-Cors`——CORS 是 `app/__init__.py` 手寫的，該套件從未被 import
+- 前端 Dockerfile 與 `render.yaml` 改用 `npm ci`；原本有 `package-lock.json`
+  卻用 `npm install`，等於 lock 檔形同虛設
+- 新增 `.gitattributes`（`eol=lf`）。過去每次 commit 都要手動轉行尾，且已經有
+  三個檔案帶著 CRLF 進了版控，一併正規化
+- 新增 GitHub Actions build check：前端建置、後端檢查、防退化檢查（requirements
+  必須全釘死、CRLF 不得進版控）
+
+**分子依金屬性自動分類（feature-018 / PR #34）**
+
+分子頁原本只有搜尋加一片平鋪卡片。查下去發現 `category` 欄位早就存在、後台也能
+填，卡在三件事疊在一起：公開 API 的 slim 投影漏了這個欄位、PubChem 帶入資料時
+不推斷分類（4 筆全空）、預設分類裡沒有「單質」而現有 3/4 正是單質。
+
+分類軸選**組成元素的金屬性**而非有機／無機——後者邊界是慣例問題，要人工維護
+例外表；金屬性查表就有答案。對照表取自週期表 `GroupBlock`，寫成靜態表，前台
+即時算，不多打 API。後台手填的 `category` 永遠優先，既有資料不必回填。
+
+**Google 帳號登入（feature-019 / PR #35、#36、#38）**
+
+- 後端多一支端點收 ID token，驗完一樣走 `ADMIN_ACCOUNTS`，發相同的 session token
+- Firebase SDK 用 `await import()` 動態載入：主 bundle 只增加 4.6 KB，firebase
+  切成獨立 chunk 245 KB（gzip 51 KB），按下按鈕才下載
+- 開啟 Google 後帳密登入預設連動關閉（擋在後端，不是只藏前端表單），
+  `PASSWORD_LOGIN_ENABLED=true` 是逃生門
+- 頁尾入口改為點兩下才展開；`/admin` 保留「使用其他方式登入」作為備援，且不再
+  顯示頁尾
+
+**後台登入帳號管理（feature-020 / PR #39）**
+
+維護工具可列出所有 Firebase Auth 帳號（含 `providers` 與 email 驗證狀態），並用
+Admin SDK 直接把白名單內帳號的 email 標記為已驗證。補上 issue #31 提過但未做的
+項目——原本的 `scripts/list_auth_users.py` 需要 Firebase 憑證，而免費方案的
+Render 沒有 Shell，那支腳本實際用不到。
+
+### 踩到的坑
+
+**Firebase 會移除同 email 底下「未驗證」的密碼憑證。** 用 Google 登入之後帳密就
+再也進不去，而密碼並沒有記錯。這是防帳號劫持的既定行為，症狀是 401「Incorrect
+email or password」，唯一看得出來的地方是 `providers` 少了 `密碼`。根治方式是把
+email 標記為已驗證——但驗證信被企業信箱擋掉，且主控台沒有對應按鈕，所以才做了
+feature-020。
+
+**授權網域要填前端網域**（`elementgroups-frontend`），不是後端（`elementtable`）。
+填錯會得到 `auth/unauthorized-domain`，而錯誤訊息不會說是這個原因。
+
+**iOS Safari 的 `dblclick` 對非輸入元素不可靠**，iPad 實測完全打不開（mod-036）。
+`touch-action: manipulation` 只能避免縮放手勢搶事件，不保證 Safari 會派發
+`dblclick`——當初把這兩件事混為一談。改成自己用 `click` 記時間戳比對。
+
+### 部署後驗證
+
+- pandas 2.x→3.0.5：`/api/groups`（vs／cp）與 `/api/elements/:symbol/ability`
+  的回應與升級前**逐位元組相同**
+- 後端確實換版（`/api/molecules` 出現 `category`、`/api/auth/firebase-config`
+  從 404 變 200），排除了「部署失敗、舊版還在跑」的可能
+- Render 的 CSS hash 與本機 `npm ci` 產物一致，建置可重現性得到實證
+- 繞過前端直接打 `/api/auth/login`，確認帳密登入是被後端擋下而非只有前端隱藏
+- 新端點未登入回 401（非 404 也非 200），授權正確
+
+### 影響評估
+
+- 風險等級: Medium（依賴大版本升級 ＋ 登入方式變更，皆已部署驗證）
+- 受影響功能: feature-016（浮水印頁文案）、feature-017〜020
+- 破壞性變更: Yes — 開啟 `GOOGLE_LOGIN_ENABLED` 後帳密登入預設關閉，
+  且 `POST /api/auth/login` 在該狀態下一律回 401
+
+---
+
 ## [功能] - 2026-08-14 | feature/watermark
 
 ### 變更類型

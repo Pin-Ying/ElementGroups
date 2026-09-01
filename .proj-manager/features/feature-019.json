@@ -1,0 +1,46 @@
+{
+ "feature_id": "feature-019",
+ "name": "後台 Google 帳號登入",
+ "description": "後台改用 Firebase 內建的 Google 供應商登入（issue #32）。後端收前端 signInWithPopup 拿到的 ID token，驗證後一樣走 ADMIN_ACCOUNTS 白名單，發的是與帳密登入相同的 session token。開啟 Google 後帳密登入預設連動關閉，/admin 保留「使用其他方式登入」作為備援。",
+ "status": "completed",
+ "created_at": "2026-09-01T00:00:00Z",
+ "files": [
+  "backend/app/auth.py",
+  "backend/app/config.py",
+  "backend/app/routes/admin.py",
+  "backend/.env.example",
+  "frontend/src/utils/googleAuth.js",
+  "frontend/src/components/GoogleLoginButton.vue",
+  "frontend/src/components/AdminLogin.vue",
+  "frontend/src/views/AdminView.vue",
+  "frontend/src/store/auth.js",
+  "frontend/src/api/index.js",
+  "frontend/src/router/index.js",
+  "frontend/src/App.vue"
+ ],
+ "dependencies": [
+  "firebase"
+ ],
+ "api_endpoints": [
+  {
+   "method": "POST",
+   "path": "/api/auth/google",
+   "description": "收 Google ID token，verify_id_token 後比對 ADMIN_ACCOUNTS，發 session token"
+  },
+  {
+   "method": "GET",
+   "path": "/api/auth/firebase-config",
+   "description": "前端 SDK 需要的設定，並回報 google / passwordLogin 兩種方式是否啟用（公開端點）"
+  }
+ ],
+ "env_variables": [
+  "GOOGLE_LOGIN_ENABLED",
+  "PASSWORD_LOGIN_ENABLED",
+  "ADMIN_ACCOUNTS"
+ ],
+ "notes": {
+  "security": "通過 Google 驗證不等於能進後台。Google 只證明 email 擁有權，真正擋下來的是 ADMIN_ACCOUNTS；沒設定的話這條路比帳密登入更糟，連註冊那一步都省了",
+  "bundle": "Firebase SDK 用 await import() 動態載入，主 bundle 只增加約 4.6 KB，firebase 切成獨立 chunk 245 KB（gzip 51 KB），按下按鈕才下載",
+  "config_delivery": "前端設定走 API 而非 build 時注入的 VITE_ 變數，後端已有這些值，換 Firebase 專案只改一處"
+ }
+}

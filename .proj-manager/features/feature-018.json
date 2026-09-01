@@ -1,0 +1,26 @@
+{
+ "feature_id": "feature-018",
+ "name": "分子依金屬性自動分類",
+ "description": "分子列表改為依組成元素的金屬性分組：單質、含金屬化合物、含類金屬、非金屬化合物。選金屬性而非有機／無機，是因為後者的邊界是慣例問題（CO2 含碳卻習慣歸無機），要靠人工維護例外表；金屬性查表就有答案，118 個元素每個都確定。",
+ "status": "completed",
+ "created_at": "2026-09-01T00:00:00Z",
+ "files": [
+  "frontend/src/utils/moleculeCategory.js",
+  "frontend/src/views/MoleculesView.vue",
+  "frontend/src/views/AdminView.vue",
+  "backend/app/routes/public.py"
+ ],
+ "dependencies": [],
+ "api_endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/molecules",
+   "description": "slim 投影加入 category 欄位，前台才拿得到後台手動指定的分類"
+  }
+ ],
+ "notes": {
+  "data_source": "金屬性對照表取自週期表 GroupBlock（PubChem 判定，與元素頁一致）：金屬 91、類金屬 7、非金屬 20。照 data/elementSymbols.js 的做法寫成靜態表，前台分類不必多打一次 API",
+  "override": "後台手填的 category 永遠優先，沒填才自動判斷。因此既有資料不必回填，規則改進也會立刻全站生效",
+  "known_limitation": "有機金屬化合物（二茂鐵、四乙基鉛）含金屬卻是共價鍵，會被歸進含金屬化合物；PubChem 把 Po 判為類金屬、At 判為鹵素，與部分教科書不同"
+ }
+}

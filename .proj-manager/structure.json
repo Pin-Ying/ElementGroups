@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-08-10T05:40:00Z",
+ "generated_at": "2026-09-01T00:00:00Z",
  "root_path": ".",
  "directories": {
   "backend": {
@@ -67,6 +67,16 @@
     "HomeView.vue",
     "StoryView.vue"
    ]
+  },
+  ".github/workflows": {
+   "type": "config",
+   "description": "GitHub Actions。目前只有 build-check.yml，驗證建置但不部署",
+   "subdirectories": []
+  },
+  "frontend/src/utils": {
+   "type": "source",
+   "description": "無狀態的工具模組，可被元件與 Node 端的 vite plugin 共用",
+   "subdirectories": []
   }
  },
  "key_files": {
@@ -82,7 +92,7 @@
   },
   "backend/app/config.py": {
    "type": "config",
-   "role": "settings_management",
+   "role": "pydantic-settings 設定。GOOGLE_LOGIN_ENABLED / PASSWORD_LOGIN_ENABLED 的連動邏輯在 password_login_enabled 屬性",
    "importance": "critical"
   },
   "backend/app/models.py": {
@@ -97,12 +107,12 @@
   },
   "backend/app/auth.py": {
    "type": "source",
-   "role": "authentication",
-   "importance": "high"
+   "role": "登入與授權。帳密與 Google 兩條路徑共用 _issue_token() 與 is_allowed() 白名單；帳密登入受 password_login_enabled 控制",
+   "importance": "critical"
   },
   "backend/requirements.txt": {
    "type": "config",
-   "role": "dependency_management",
+   "role": "後端依賴，連間接依賴一起釘死（67 筆）。更新方式寫在檔案開頭註解",
    "importance": "critical"
   },
   "backend/.env.example": {
@@ -295,24 +305,58 @@
    "type": "source",
    "role": "基本粒子頁",
    "importance": "normal"
+  },
+  ".gitattributes": {
+   "type": "config",
+   "role": "行尾一律 LF（含 working tree）。沒有它時本機 CRLF 與 repo LF 不一致，每次 commit 都要手動轉，忘記就讓 diff 夾帶整份檔案的行尾變更",
+   "importance": "high"
+  },
+  ".github/workflows/build-check.yml": {
+   "type": "config",
+   "role": "CI：前端 npm ci + build、後端 pip install + pip check + compileall、防退化檢查（requirements 全釘死、無 CRLF）。不部署",
+   "importance": "high"
+  },
+  "frontend/src/utils/moleculeCategory.js": {
+   "type": "source",
+   "role": "分子分類：金屬性靜態對照表（取自週期表 GroupBlock）與 autoCategory / moleculeCategory / groupByCategory",
+   "importance": "normal"
+  },
+  "frontend/src/utils/googleAuth.js": {
+   "type": "source",
+   "role": "Google 登入流程。Firebase SDK 以 await import() 動態載入，不進主 bundle；含 Firebase 錯誤碼的中文翻譯",
+   "importance": "high"
+  },
+  "frontend/src/components/GoogleLoginButton.vue": {
+   "type": "source",
+   "role": "共用的 Google 登入按鈕。頁尾入口與 /admin 登入頁共用，版面差異由外層決定",
+   "importance": "normal"
   }
  },
  "file_count": {
-  "total": 84,
+  "total": 166,
+  "note": "受版控檔案，不含 .proj-manager/",
   "by_extension": {
-   ".vue": 22,
-   ".py": 16,
-   ".json": 15,
-   ".js": 13,
-   ".jpg": 8,
-   ".md": 3,
-   ".yml": 1,
-   ".yaml": 1,
-   ".txt": 1,
-   ".html": 1,
+   ".vue": 41,
+   ".jpg": 34,
+   ".py": 33,
+   ".js": 33,
+   ".png": 3,
+   ".yml": 2,
+   ".dockerignore": 2,
+   "Dockerfile": 2,
+   ".txt": 2,
+   ".json": 2,
+   ".css": 2,
+   ".gitattributes": 1,
+   ".gitignore": 1,
+   ".md": 1,
    ".example": 1,
-   ".css": 1,
-   ".conf": 1
+   "Procfile": 1,
+   ".production": 1,
+   ".html": 1,
+   ".conf": 1,
+   "_redirects": 1,
+   ".yaml": 1
   }
  },
  "ignored_patterns": [

@@ -1,0 +1,25 @@
+{
+ "feature_id": "feature-017",
+ "name": "建置可重現性與 CI",
+ "description": "依賴全部釘死版本（含間接依賴）、前端改用 npm ci 照 lock 檔安裝、行尾統一 LF，並加上 GitHub Actions build check。解決「同一份程式碼今天和下個月 build 出來是不同的東西」——這個專案 push 就自動部署，網站可能在完全沒動程式的情況下壞掉且回不去。",
+ "status": "completed",
+ "created_at": "2026-09-01T00:00:00Z",
+ "files": [
+  "backend/requirements.txt",
+  "frontend/Dockerfile",
+  "frontend/package-lock.json",
+  "render.yaml",
+  ".gitattributes",
+  ".github/workflows/build-check.yml"
+ ],
+ "dependencies": [],
+ "notes": {
+  "ci_jobs": [
+   "前端建置（npm ci + build + 確認 dist/index.html 存在）",
+   "後端檢查（pip install + pip check + compileall）",
+   "防退化檢查（requirements 必須全釘死、不得有 CRLF 進版控）"
+  ],
+  "verified": "Render 部署後的 CSS hash 與本機 npm ci 產物一致；pandas 2.x→3.0.5 後 /api/groups 與 /api/elements/:symbol/ability 回應與升級前逐位元組相同",
+  "removed_package": "Flask-Cors（CORS 是 app/__init__.py 手寫的，該套件從未被 import）"
+ }
+}
