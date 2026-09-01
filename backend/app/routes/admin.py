@@ -79,21 +79,27 @@ def firebase_config():
     注入，是因為後端已經有這些值了，站長不必再去 Render 的前端服務設一次
     VITE_ 變數——設定只有一處，換 Firebase 專案時也只改一個地方。
 
-    沒啟用就只回 enabled: false，前端據此不顯示按鈕，也不會下載 SDK。
-    """
-    if not settings.GOOGLE_LOGIN_ENABLED:
-        return jsonify({"enabled": False})
+    沒啟用就不回 config，前端據此不顯示按鈕，也不會下載 SDK。
 
-    return jsonify({
-        "enabled": True,
-        "config": {
+    順便回報帳密登入開著沒（passwordLogin），前端用它決定要不要畫出那組
+    輸入框。真正擋住帳密登入的是 auth.login()，這個欄位只是讓畫面跟後端
+    的實際狀態一致，不要畫一組送出去必定被拒的表單。
+    """
+    payload = {
+        "enabled": settings.GOOGLE_LOGIN_ENABLED,
+        "passwordLogin": settings.password_login_enabled,
+    }
+
+    if settings.GOOGLE_LOGIN_ENABLED:
+        payload["config"] = {
             "apiKey": settings.FIREBASE_API_KEY,
             "authDomain": settings.FIREBASE_AUTH_DOMAIN,
             "projectId": settings.FIREBASE_PROJECT_ID,
             "appId": settings.FIREBASE_APP_ID,
             "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
         }
-    })
+
+    return jsonify(payload)
 
 
 @admin_bp.route("/admin/create-db", methods=["POST"])

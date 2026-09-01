@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic_settings import BaseSettings
 
 
@@ -44,6 +46,28 @@ class Settings(BaseSettings):
     # 擁有者」，不判斷「這個人能不能進你的後台」。擋下來的是 ADMIN_ACCOUNTS，
     # 不是 Google。
     GOOGLE_LOGIN_ENABLED: bool = False
+
+    # 帳號密碼登入。不填的話跟著 Google 登入連動：開了 Google 就關掉帳密。
+    #
+    # 為什麼要關：Firebase Auth 的 email／密碼註冊是打 Google 的公開端點，
+    # 只要有 FIREBASE_API_KEY（依設計就不是機密）任何人都能建帳號。留著這
+    # 條路，ADMIN_ACCOUNTS 就得一直當唯一那道鎖；關掉之後連「能不能通過
+    # 第一關」都不成立了。
+    #
+    # 只把前端表單藏起來是不夠的——/api/auth/login 這支端點還在，繞過畫面
+    # 直接打就行。所以這個開關是在後端擋，前端只是照著它決定要不要畫。
+    #
+    # **逃生門**：Google 那邊出狀況（供應商被停用、授權網域被改掉、帳號
+    # 被鎖）時，把這個明確設成 true 就能立刻恢復帳密登入，不必改程式或
+    # 重新部署前端。設成 false 則是強制關閉，連 Google 都沒開也一樣。
+    PASSWORD_LOGIN_ENABLED: Optional[bool] = None
+
+    @property
+    def password_login_enabled(self) -> bool:
+        """帳密登入現在到底開著沒。明確設定優先，否則與 Google 登入互斥。"""
+        if self.PASSWORD_LOGIN_ENABLED is not None:
+            return self.PASSWORD_LOGIN_ENABLED
+        return not self.GOOGLE_LOGIN_ENABLED
 
     # Firebase Client (Pyrebase)
     FIREBASE_API_KEY: str

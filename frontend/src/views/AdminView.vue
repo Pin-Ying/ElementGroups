@@ -15,16 +15,34 @@
     <div v-if="!authState.loggedIn" class="admin-box">
       <p class="title">LOGIN</p>
       <div class="box" id="login-box">
-        <form @submit.prevent="handleLogin">
-          <label class="label">Email</label>
-          <input class="input" type="text" v-model="email" required />
-          <label class="label">Password</label>
-          <input class="input" type="password" v-model="password" required />
-          <div class="form-actions">
-            <button class="button" type="submit">Login</button>
-            <button class="button secondary" type="button" @click="email = ''; password = ''">Reset</button>
+        <p v-if="!loginMethodsLoaded" class="field-hint">載入中…</p>
+
+        <template v-else>
+          <!-- 後端關掉帳密登入時連表單都不畫。真正擋下來的是 auth.login()，
+               這裡只是不要留一組送出去必定被拒的輸入框 -->
+          <form v-if="passwordLoginEnabled" @submit.prevent="handleLogin">
+            <label class="label">Email</label>
+            <input class="input" type="text" v-model="email" required />
+            <label class="label">Password</label>
+            <input class="input" type="password" v-model="password" required />
+            <div class="form-actions">
+              <button class="button" type="submit">Login</button>
+              <button class="button secondary" type="button" @click="email = ''; password = ''">Reset</button>
+            </div>
+          </form>
+
+          <!-- 登入成功後 authState.loggedIn 會變 true，watch 會接手跑 bootstrap()，
+               這裡不需要自己處理後續 -->
+          <div v-if="googleLoginEnabled" class="login-google-row">
+            <GoogleLoginButton />
           </div>
-        </form>
+
+          <p v-if="!passwordLoginEnabled && !googleLoginEnabled" class="field-hint">
+            目前沒有可用的登入方式。請確認後端的 GOOGLE_LOGIN_ENABLED
+            與 PASSWORD_LOGIN_ENABLED 設定。
+          </p>
+        </template>
+
         <p v-if="msg" class="msg error-msg">{{ msg }}</p>
       </div>
     </div>
@@ -1518,6 +1536,8 @@ import { PAGE_BLOCKS, blockType, emptyBlock, emptyItem, blocksFrom, blocksToText
 import PageBlocks from '../components/PageBlocks.vue'
 import AdminBar from '../components/AdminBar.vue'
 import AiField from '../components/AiField.vue'
+import GoogleLoginButton from '../components/GoogleLoginButton.vue'
+import { fetchGoogleLoginConfig } from '../utils/googleAuth'
 import { refreshPageMeta } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
@@ -1594,10 +1614,12 @@ import LoadingSpinner from '../components/LoadingSpinner.vue'
 import WatermarkPanel from '../components/WatermarkPanel.vue'
 
 export default {
-  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, AiField, FormulaBuilder, WatermarkPanel },
+  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, AiField, FormulaBuilder, WatermarkPanel, GoogleLoginButton },
   data() {
     return {
       authState,
+      // 可用的登入方式，查到之前兩個都不畫（避免表單閃一下又消失）
+      loginMethodsLoaded: false, googleLoginEnabled: false, passwordLoginEnabled: true,
       SECTIONS,
       section: SECTIONS.some(s => s.key === localStorage.getItem('adminSection'))
         ? localStorage.getItem('adminSection')
@@ -1974,6 +1996,10 @@ export default {
     // 後台不該被收錄。robots.txt 已經擋掉，這裡再補一層：已經被收錄的
     // 網址只有 noindex 能讓它從索引移除
     setPageSeo({ title: `管理後台｜${siteSettingsState.title}`, noindex: true })
+    // 不管登入與否都先問一次可用的登入方式：這頁的用途就是登入，跟頁尾那個
+    // 低調入口不一樣，沒有「不要打擾一般訪客」的顧慮。結果在 utils/googleAuth
+    // 有快取，兩處共用同一次請求
+    this.loadLoginMethods()
     if (this.authState.loggedIn) {
       await this.bootstrap()
     }
@@ -1985,6 +2011,14 @@ export default {
   methods: {
     // 清單與篩選都要用，掛上來讓 template 直接呼叫
     moleculeCategory,
+    async loadLoginMethods() {
+      const cfg = await fetchGoogleLoginConfig()
+      this.googleLoginEnabled = !!cfg.enabled
+      // 舊版後端不會回這個欄位，那時候帳密登入本來就是開的，
+      // 只有明確收到 false 才關掉
+      this.passwordLoginEnabled = cfg.passwordLogin !== false
+      this.loginMethodsLoaded = true
+    },
     async bootstrap() {
       if (this.bootstrapped) return
       this.bootstrapped = true
@@ -3333,6 +3367,16 @@ export default {
   padding: 20px;
   max-width: 720px;
   margin: 0 auto;
+}
+
+.login-google-row {
+  display: flex;
+  justify-content: center;
+}
+
+/* 只有帳密表單也在的時候才需要隔開；只剩 Google 一顆按鈕時不留多餘空隙 */
+form + .login-google-row {
+  margin-top: 14px;
 }
 
 /* ── 後台版面：側邊導覽 + 內容區 ── */

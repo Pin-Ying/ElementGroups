@@ -130,6 +130,11 @@ def login_with_google(id_token):
 
 
 def login(email, password):
+    # 擋在後端而不是只把前端表單藏起來——這支端點是公開的，繞過畫面直接
+    # 打就行，前端隱藏只是視覺效果，沒有任何安全意義
+    if not settings.password_login_enabled:
+        return None, "此站已改用 Google 帳號登入"
+
     if not email or not password:
         return None, "Missing email or password"
 

@@ -13,7 +13,9 @@ import WatermarkView from '../views/WatermarkView.vue'
 const routes = [
   { path: '/', name: 'Home', component: HomeView },
   { path: '/stroy/:symbol', name: 'Story', component: StoryView, props: true },
-  { path: '/admin', name: 'Admin', component: AdminView },
+  // 後台不掛頁尾：頁尾是給前台訪客看的（社群連結、版權），而且它自己就帶著
+  // 一個登入入口，在登入頁上會變成同一件事有兩個進入點
+  { path: '/admin', name: 'Admin', component: AdminView, meta: { hideFooter: true } },
   { path: '/links', name: 'Links', component: LinksView },
   { path: '/guide', name: 'Guide', component: GuideView },
   { path: '/p/:slug', name: 'Page', component: PageView, props: true },
