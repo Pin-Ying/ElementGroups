@@ -174,6 +174,46 @@
   margin-top: 14px;
 }
 
+/* ── 輸入框與下拉選單的深色化 ──
+ *
+ * Bulma 給的是淺色主題的底，所以後台的輸入框一直是白的，和同一個表單裡
+ * 深色的 .textarea 深淺不一（浮水印的「簽名文字」、社群連結的網址欄、
+ * /admin 的登入表單都是）。
+ *
+ * 全站只有 AdminLogin 自己做過深色化，那份用的是 .login-form .input，
+ * 特異性比這裡高，維持原樣不受影響；StoryEditor 的 scoped .input 同理。
+ * 也就是說這組只會補到「本來沒人管」的地方。
+ */
+.input,
+.select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(228, 251, 255, 0.15);
+  border-radius: 6px;
+  color: rgba(228, 251, 255, 0.9);
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  box-shadow: none;
+  box-sizing: border-box;
+}
+
+.input:focus,
+.select:focus {
+  border-color: rgba(228, 251, 255, 0.45);
+  outline: none;
+}
+
+.input::placeholder {
+  color: rgba(228, 251, 255, 0.35);
+}
+
+/* 展開後的選項清單是作業系統畫的，不會繼承上面那組。不指定的話，
+   深色文字配系統的深色底會變成看不見 */
+.select option {
+  background: #1a0a2e;
+  color: rgba(228, 251, 255, 0.9);
+}
+
 @media (max-width: 760px) {
   /* 16px 以下的表單元件在 iOS 聚焦時會把整頁放大 */
   .textarea,
