@@ -1369,110 +1369,18 @@
         <WatermarkPanel v-if="section === 'watermark'" />
 
         <!-- 維護工具 -->
-        <div v-if="section === 'maintenance'" class="box maintenance-box">
-          <div class="maintenance-item">
-            <div class="maintenance-info">
-              <p class="maintenance-title">登入帳號</p>
-              <p class="desc">
-                列出這個 Firebase 專案裡所有能登入的帳號。看得到每個帳號有哪些登入方式
-                （providers）與 email 是否已驗證。<br>
-                <strong>沒有 password 就代表那個帳號不能用帳密登入</strong>——Firebase 會在
-                同一個 email 的 Google 帳號登入時，移除未驗證的密碼憑證。把 email 標記為
-                已驗證之後就不會再發生。
-              </p>
-            </div>
-            <button class="button" :disabled="authUsersLoading" @click="loadAuthUsers">
-              {{ authUsersLoading ? '載入中…' : '載入' }}
-            </button>
-          </div>
-
-          <div v-if="authUsers.length" class="auth-users">
-            <p v-if="!authAllowlistConfigured" class="msg error-msg">
-              尚未設定 ADMIN_ACCOUNTS，目前每一個帳號都能進後台。
-            </p>
-            <div v-for="u in authUsers" :key="u.uid" class="auth-user">
-              <div class="auth-user-main">
-                <span class="auth-user-email">{{ u.email || '（無 email）' }}</span>
-                <span class="auth-user-tags">
-                  <i v-for="p in u.providers" :key="p" class="auth-tag">{{ providerLabel(p) }}</i>
-                  <i v-if="!u.emailVerified" class="auth-tag auth-tag--warn">email 未驗證</i>
-                  <i v-if="u.disabled" class="auth-tag auth-tag--warn">已停用</i>
-                  <i v-if="!u.allowed" class="auth-tag auth-tag--warn">不可進後台</i>
-                </span>
-                <span class="auth-user-uid">{{ u.uid }}</span>
-              </div>
-              <button
-                v-if="!u.emailVerified && u.allowed"
-                class="button secondary btn-sm"
-                :disabled="verifyingUid === u.uid"
-                @click="handleVerifyEmail(u)"
-              >{{ verifyingUid === u.uid ? '處理中…' : '標記 email 已驗證' }}</button>
-            </div>
-          </div>
-
-          <div class="maintenance-item">
-            <div class="maintenance-info">
-              <p class="maintenance-title">Create DB</p>
-              <p class="desc">確認 Firestore 資料表是否存在（Firebase 模式下無實際作用，可忽略）</p>
-            </div>
-            <button class="button" @click="handleCreateDb">執行</button>
-          </div>
-
-          <div class="maintenance-item">
-            <div class="maintenance-info">
-              <p class="maintenance-title">Update DB</p>
-              <p class="desc">將週期表基礎資料（118 個元素屬性）上傳至 Firebase Realtime DB。<br>若資料已存在則略過，初始佈署後執行一次即可。</p>
-            </div>
-            <button class="button" @click="handleUpdateDb">執行</button>
-          </div>
-
-          <div class="maintenance-item">
-            <div class="maintenance-info">
-              <p class="maintenance-title">Backfill img_data</p>
-              <p class="desc">掃描所有元素，將只有 Firebase Storage URL（img）但沒有 base64（img_data）的圖片補齊。<br>用於批次補全舊資料，正常情況下上傳圖片時已自動處理。</p>
-            </div>
-            <button class="button" @click="handleBackfill">執行</button>
-          </div>
-
-          <div class="maintenance-item">
-            <div class="maintenance-info">
-              <p class="maintenance-title">Rebuild Completion</p>
-              <p class="desc">重新掃描所有元素，更新首頁用來標示「已上傳圖片／已寫故事」的摘要資料。<br>正常情況下儲存故事時已自動同步，只有直接從 Firebase 後台改過資料才需要執行。</p>
-            </div>
-            <button class="button" @click="handleRebuildCompletion">執行</button>
-          </div>
-
-          <div class="maintenance-item">
-            <div class="maintenance-info">
-              <p class="maintenance-title">Apply Watermark</p>
-              <p class="desc">
-                把資料庫裡既有的圖片全部套上浮水印，同時備份原圖。<br>
-                開啟浮水印只影響之後上傳的圖片，原本就在的要靠這個補；同一張不會被套第二次。
-                補過之後，往後在「浮水印」分頁改簽名或強度，儲存時就會自動用原圖重印。
-                <br>簽名與強度在「◈ 浮水印」分頁設定。
-              </p>
-            </div>
-            <button class="button" :disabled="!!watermarkJob" @click="handleApplyWatermark">
-              {{ watermarkJob ? '執行中…' : '執行' }}
-            </button>
-          </div>
-
-          <p v-if="watermarkJob" class="desc">
-            {{ watermarkJob.done }} / {{ watermarkJob.total }} 個位置，已處理 {{ watermarkJob.images }} 張
-          </p>
-          <ul v-if="watermarkFailures.length" class="desc">
-            <li v-for="f in watermarkFailures" :key="f.path">失敗：{{ f.path }}－{{ f.reason }}</li>
-          </ul>
-
-          <p v-if="adminMsg" class="msg" :class="adminMsgType">{{ adminMsg }}</p>
-        </div>
+        <MaintenanceSection
+          v-if="section === 'maintenance'"
+          @loading="loading = $event"
+          @db-updated="loadStoryData"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { getAuthUsers, verifyAuthUserEmail, getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, createDb, updateDb, getStoryData, updateStory, backfillImgData, getDefaultImgInfo, updateDefaultImg, rebuildCompletion, getAiStatus, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, migrateGalleries, migrateIntoLibraries, getElectronMotion, setElectronMotion, apiBase } from '../api'
+import { getAdminParticles, saveParticle, deleteParticle, getAdminGroups, saveGroup, getAdminMolecules, saveMolecule, deleteMolecule, lookupMolecule, getStoryData, updateStory, getDefaultImgInfo, updateDefaultImg, getAiStatus, getPageMeta, savePageMeta, getAdminSiteSettings, updateSiteSettings, getAdminGallery, updateGallery, getAdminPages, savePage, deletePage, getAdminLayers, updateLayers, getElectronStyles, saveElectronStyle, deleteElectronStyle, setDefaultElectronStyle, getLibraries, saveLibrary, deleteLibrary, getBindableTargets, migrateElectronStyles, migrateGalleries, migrateIntoLibraries, getElectronMotion, setElectronMotion, apiBase } from '../api'
 import { authState, login, logout } from '../store/auth'
 import { showToast } from '../store/toast'
 import { setSiteSettings, SITE_DEFAULTS, siteSettingsState } from '../store/siteSettings'
@@ -1495,11 +1403,11 @@ import AdminBar from '../components/AdminBar.vue'
 import AiField from '../components/AiField.vue'
 import GoogleLoginButton from '../components/GoogleLoginButton.vue'
 import LinksSection from '../components/admin/LinksSection.vue'
+import MaintenanceSection from '../components/admin/MaintenanceSection.vue'
 import { fetchGoogleLoginConfig } from '../utils/googleAuth'
 import { refreshPageMeta } from '../store/pageMeta'
 import { buildTableGroups } from '../utils/periodicTableGroups'
 import { elementsState, ensureElements } from '../store/elements'
-import { runWatermarkJob } from '../utils/watermarkJobs'
 
 // 與後端 GALLERY_MAX 一致
 const GALLERY_MAX = 6
@@ -1567,7 +1475,7 @@ import LoadingSpinner from '../components/LoadingSpinner.vue'
 import WatermarkPanel from '../components/WatermarkPanel.vue'
 
 export default {
-  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, AiField, FormulaBuilder, WatermarkPanel, GoogleLoginButton, LinksSection },
+  components: { LoadingSpinner, PokedexFrame, ImageCropper, MarkdownContent, PageBlocks, AdminBar, AiField, FormulaBuilder, WatermarkPanel, GoogleLoginButton, LinksSection, MaintenanceSection },
   data() {
     return {
       authState,
@@ -1576,7 +1484,6 @@ export default {
       // 「使用其他方式登入」按下去之後才展開帳密表單
       showPasswordForm: false,
       // 維護工具的登入帳號清單，按了「載入」才查
-      authUsers: [], authUsersLoading: false, authAllowlistConfigured: true, verifyingUid: '',
       SECTIONS,
       section: SECTIONS.some(s => s.key === localStorage.getItem('adminSection'))
         ? localStorage.getItem('adminSection')
@@ -1586,10 +1493,6 @@ export default {
       email: '',
       password: '',
       msg: '',
-      adminMsg: '',
-      watermarkJob: null,
-      watermarkFailures: [],
-      adminMsgType: '',
       elements: [],
       storyDatas: {},
       draftDatas: {},
@@ -1963,34 +1866,6 @@ export default {
   methods: {
     // 清單與篩選都要用，掛上來讓 template 直接呼叫
     moleculeCategory,
-    providerLabel(id) {
-      return { 'password': '密碼', 'google.com': 'Google' }[id] || id
-    },
-    async loadAuthUsers() {
-      this.authUsersLoading = true
-      try {
-        const res = await getAuthUsers()
-        this.authUsers = res.data.users || []
-        this.authAllowlistConfigured = res.data.allowlistConfigured !== false
-      } catch (e) {
-        showToast(e.response?.data?.message || '載入帳號失敗', 'error')
-      } finally {
-        this.authUsersLoading = false
-      }
-    },
-    async handleVerifyEmail(user) {
-      this.verifyingUid = user.uid
-      try {
-        const res = await verifyAuthUserEmail(user.uid)
-        showToast(res.data.message || '已標記', res.data.result === 'success' ? 'success' : 'error')
-        // 重新載入而不是就地改狀態：providers 也可能一起變了
-        await this.loadAuthUsers()
-      } catch (e) {
-        showToast(e.response?.data?.message || '操作失敗', 'error')
-      } finally {
-        this.verifyingUid = ''
-      }
-    },
     async loadLoginMethods() {
       const cfg = await fetchGoogleLoginConfig()
       this.googleLoginEnabled = !!cfg.enabled
@@ -2128,34 +2003,6 @@ export default {
         await logout()
       } catch (e) {
         console.error('Logout failed:', e)
-      } finally {
-        this.loading = false
-      }
-    },
-    async handleCreateDb() {
-      this.loading = true
-      this.adminMsg = ''
-      try {
-        const res = await createDb()
-        this.adminMsg = res.data.message
-        this.adminMsgType = 'success-msg'
-      } catch (e) {
-        this.adminMsg = e.response?.data?.message || 'Error!'
-        this.adminMsgType = 'error-msg'
-      } finally {
-        this.loading = false
-      }
-    },
-    async handleBackfill() {
-      this.loading = true
-      this.adminMsg = ''
-      try {
-        const res = await backfillImgData()
-        this.adminMsg = res.data.message
-        this.adminMsgType = 'success-msg'
-      } catch (e) {
-        this.adminMsg = e.response?.data?.message || 'Error!'
-        this.adminMsgType = 'error-msg'
       } finally {
         this.loading = false
       }
@@ -2811,57 +2658,6 @@ export default {
       formData.append('clear_bg_image', '1')
       await this.saveSiteSettings(formData)
     },
-    /**
-     * 把既有的圖片全部套上浮水印。實際的分批邏輯在 utils/watermarkJobs.js，
-     * 與「浮水印」分頁那顆按鈕同一份——這裡只負責顯示進度。
-     */
-    async handleApplyWatermark() {
-      this.adminMsg = ''
-      this.watermarkFailures = []
-      try {
-        const result = await runWatermarkJob('backfill', progress => {
-          this.watermarkJob = { ...progress }
-        })
-        this.adminMsg = result.text
-        this.adminMsgType = result.failed ? 'error-msg' : 'success-msg'
-        this.watermarkFailures = result.failures
-        showToast(result.text, result.failed ? 'error' : 'success')
-      } catch (e) {
-        this.adminMsg = e.response?.data?.message || 'Error!'
-        this.adminMsgType = 'error-msg'
-      } finally {
-        this.watermarkJob = null
-      }
-    },
-    async handleRebuildCompletion() {
-      this.loading = true
-      this.adminMsg = ''
-      try {
-        const res = await rebuildCompletion()
-        this.adminMsg = res.data.message
-        this.adminMsgType = 'success-msg'
-      } catch (e) {
-        this.adminMsg = e.response?.data?.message || 'Error!'
-        this.adminMsgType = 'error-msg'
-      } finally {
-        this.loading = false
-      }
-    },
-    async handleUpdateDb() {
-      this.loading = true
-      this.adminMsg = ''
-      try {
-        const res = await updateDb()
-        this.adminMsg = res.data.message
-        this.adminMsgType = 'success-msg'
-        await this.loadStoryData()
-      } catch (e) {
-        this.adminMsg = e.response?.data?.message || 'Error!'
-        this.adminMsgType = 'error-msg'
-      } finally {
-        this.loading = false
-      }
-    },
     async loadDefaultImg() {
       try {
         const res = await getDefaultImgInfo()
@@ -2890,7 +2686,6 @@ export default {
     setSection(key) {
       this.section = key
       localStorage.setItem('adminSection', key)
-      this.adminMsg = ''
     },
     async loadStoryData() {
       try {
@@ -3282,64 +3077,6 @@ export default {
   margin-top: 14px;
 }
 
-.auth-users {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 4px 0 18px;
-  padding: 12px;
-  border: 1px solid rgba(228, 251, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(20, 5, 35, 0.4);
-}
-
-.auth-user {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.auth-user-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
-.auth-user-email {
-  font-size: 13px;
-  color: rgba(228, 251, 255, 0.9);
-}
-
-.auth-user-uid {
-  font-size: 11px;
-  color: rgba(228, 251, 255, 0.35);
-  word-break: break-all;
-}
-
-.auth-user-tags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.auth-tag {
-  font-size: 10px;
-  font-style: normal;
-  padding: 1px 7px;
-  border-radius: 999px;
-  border: 1px solid rgba(228, 251, 255, 0.25);
-  color: rgba(228, 251, 255, 0.6);
-}
-
-.auth-tag--warn {
-  border-color: rgba(255, 196, 107, 0.45);
-  color: #ffc46b;
-}
-
 /* 次要入口做成文字連結的樣子，不要跟主要的 Google 按鈕搶視覺重量 */
 .alt-login-toggle {
   display: inline-block;
@@ -3547,10 +3284,6 @@ export default {
 /* 頭像與自訂色：放在該連結底下的第二行 */
 /* 頭像形狀選擇 */
 .link-row-fields .input,
-@media (max-width: 700px) {
-  /* 單欄排列時欄位標題對不上，改在列內用 aria-label 辨識 */
-}
-
 .progress-summary {
   display: flex;
   align-items: center;
@@ -4313,39 +4046,6 @@ export default {
 .preview-new .img-preview {
   border-color: rgba(110, 231, 110, 0.5);
 }
-
-.maintenance-box {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.maintenance-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(228, 251, 255, 0.07);
-}
-
-.maintenance-item:last-of-type {
-  border-bottom: none;
-}
-
-.maintenance-info {
-  flex: 1;
-  text-align: left;
-}
-
-.maintenance-title {
-  font-weight: 600;
-  font-size: 15px;
-  margin-bottom: 4px;
-}
-
-.success-msg { color: #6ee76e; }
-.error-msg { color: #ff6b6b; }
 
 input.input,
 select.select {

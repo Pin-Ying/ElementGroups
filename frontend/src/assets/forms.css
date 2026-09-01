@@ -115,6 +115,10 @@
   font-size: 13px;
 }
 
+/* 操作結果的兩種語氣。跟 .msg 一起搭配使用：<p class="msg" :class="msgType"> */
+.success-msg { color: #6ee76e; }
+.error-msg { color: #ff6b6b; }
+
 .placeholder-text {
   font-size: 13px;
   opacity: 0.4;

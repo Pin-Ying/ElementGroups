@@ -387,6 +387,7 @@ export default {
 .shape-demo--square { border-radius: 4px; }
 
 @media (max-width: 700px) {
+  /* 單欄排列時欄位標題對不上，改在列內用 aria-label 辨識 */
   .link-row-fields {
     grid-template-columns: 1fr;
   }
