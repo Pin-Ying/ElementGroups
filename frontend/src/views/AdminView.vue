@@ -3122,7 +3122,8 @@ export default {
 .nav-title {
   font-size: 12px;
   letter-spacing: 0.2em;
-  color: rgba(228, 251, 255, 0.35);
+  /* 0.35 只有 2.9:1，提到 0.5 才過 4.5 的門檻 */
+  color: rgba(228, 251, 255, 0.5);
   margin: 0 0 10px;
   padding: 0 10px;
   text-align: left;
@@ -3189,7 +3190,8 @@ export default {
 .content-title {
   font-size: 13px;
   letter-spacing: 0.16em;
-  color: rgba(228, 251, 255, 0.4);
+  /* 0.4 只有 3.5:1，提到 0.5 才過 4.5 的門檻 */
+  color: rgba(228, 251, 255, 0.5);
   margin: 0 0 10px;
   text-align: left;
 }
