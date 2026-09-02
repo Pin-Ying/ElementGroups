@@ -8,7 +8,7 @@
 // 代價：後台改完文案要重新部署一次，爬蟲才看得到新的內容（使用者端
 // 仍然是即時生效，因為 JS 會再覆寫一次）。
 
-const FETCH_TIMEOUT = 8000
+import { fetchJson, configProblem, reportMissing, RETRY_ATTEMPTS } from './build-fetch.js'
 
 const FALLBACK = {
   title: 'Element Groups',
@@ -23,23 +23,6 @@ function escapeAttr(value) {
     .replace(/>/g, '&gt;')
 }
 
-async function fetchSettings(apiBase) {
-  if (!apiBase || !/^https?:\/\//.test(apiBase)) return null
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
-  try {
-    const res = await fetch(`${apiBase.replace(/\/$/, '')}/site-settings`, {
-      signal: controller.signal
-    })
-    if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
 export default function seoPlugin() {
   return {
     name: 'inject-seo',
@@ -48,10 +31,15 @@ export default function seoPlugin() {
       const apiBase = process.env.VITE_API_URL
       const siteUrl = (process.env.VITE_SITE_URL || '').replace(/\/$/, '')
 
-      const settings = await fetchSettings(apiBase)
+      const settings = await fetchJson(apiBase, '/site-settings', { label: '網站設定' })
       if (!settings) {
-        // 後端休眠或尚未部署時不要讓 build 失敗，沿用預設文案
-        console.warn('[inject-seo] 取不到網站設定，使用預設文案')
+        const issue = configProblem(apiBase)
+        reportMissing('[inject-seo]', {
+          reason: issue || `${apiBase}/site-settings 重試 ${RETRY_ATTEMPTS} 次都沒有回應`,
+          impact: 'index.html 用的是程式內建預設文案，不是後台設定的內容',
+          fix: '確認後端服務活著；免費方案的休眠請靠 buildCommand 的預熱請求',
+          soft: Boolean(issue)
+        })
       }
 
       const title = (settings?.title || '').trim() || FALLBACK.title

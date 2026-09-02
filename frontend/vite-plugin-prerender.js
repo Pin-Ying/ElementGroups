@@ -18,9 +18,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-// /elements/seo 要並行讀 118 筆，後端冷啟動時會慢；build 只跑一次，
-// 等久一點也比整批預渲染靜悄悄被跳過好
-const FETCH_TIMEOUT = 45000
+import { fetchJson, configProblem, reportMissing, RETRY_ATTEMPTS } from './build-fetch.js'
 
 function escapeAttr(value) {
   return String(value)
@@ -28,20 +26,6 @@ function escapeAttr(value) {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-}
-
-async function fetchJson(apiBase, urlPath) {
-  if (!apiBase || !/^https?:\/\//.test(apiBase)) return null
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
-  try {
-    const res = await fetch(`${apiBase.replace(/\/$/, '')}${urlPath}`, { signal: controller.signal })
-    return res.ok ? await res.json() : null
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
 }
 
 function describe(el) {
@@ -98,21 +82,33 @@ export default function prerenderPlugin() {
       if (!index) return
 
       if (!siteUrl) {
-        console.warn('[prerender] 未設定 VITE_SITE_URL，略過元素頁預渲染')
+        reportMissing('[prerender]', {
+          reason: '未設定 VITE_SITE_URL',
+          impact: '不預渲染元素頁；canonical 與 og:url 需要絕對網址才寫得出來',
+          soft: true
+        })
         return
       }
 
       const [data, settings] = await Promise.all([
-        fetchJson(apiBase, '/elements/seo'),
-        fetchJson(apiBase, '/site-settings')
+        // /elements/seo 要並行讀 118 筆，後端冷啟動時會慢；build 只跑一次，
+        // 等久一點也比整批預渲染靜悄悄被跳過好
+        fetchJson(apiBase, '/elements/seo', { label: '元素 SEO 資料' }),
+        fetchJson(apiBase, '/site-settings', { label: '網站設定' })
       ])
       const siteTitle = (settings?.title || '').trim() || 'Element Groups'
       const elements = data?.elements || []
       if (!elements.length) {
-        console.warn(
-          `[prerender] 取不到元素資料（${apiBase}/elements/seo 無回應或回傳空清單），` +
-          '略過元素頁預渲染。sitemap 仍會產生，但元素頁不會有各自的 meta'
-        )
+        const issue = configProblem(apiBase)
+        reportMissing('[prerender]', {
+          reason: issue || `${apiBase}/elements/seo 重試 ${RETRY_ATTEMPTS} 次` +
+            `都沒有回應，或回傳空清單（實際拿到 ${elements.length} 筆）`,
+          impact: '118 個元素頁對不執行 JS 的爬蟲是同一份空殼——同樣的標題、' +
+            '同樣的描述、沒有結構化資料。Google 會判定內容重複而不建立索引',
+          fix: '確認後端服務活著；免費方案的休眠請靠 buildCommand 的預熱請求。' +
+            '若元素資料是空的，先跑 POST /api/admin/update-db',
+          soft: Boolean(issue)
+        })
         return
       }
 
