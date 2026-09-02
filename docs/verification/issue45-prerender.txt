@@ -1,0 +1,190 @@
+issue #45 — 預渲染在 build 時靜默失敗
+====================================
+
+日期：2026-09-02
+分支：fix/prerender-fail-loud
+
+
+修改前的線上狀態（curl production，確認問題還在）
+------------------------------------------------
+
+  $ curl -s https://elementgroups-frontend.onrender.com/stroy/H | grep -o '<title>[^<]*</title>'
+  <title>Element Groups</title>                 ← 全站預設，不是氫
+
+  $ curl -s https://elementgroups-frontend.onrender.com/stroy/H | wc -c
+  2090                                          ← 空殼 SPA
+
+  $ curl -s .../sitemap.xml | grep -c '<lastmod>'
+  0
+
+  $ curl -s .../sitemap.xml | grep -c '/molecule/'
+  0
+
+issue 開立時的三個驗收條件全部不通過。
+
+
+改了什麼
+--------
+
+frontend/build-fetch.js（新增）
+  三個 plugin 共用的取資料邏輯。原本 seo / sitemap / prerender 各有一份
+  fetchJson，全都是 catch 後 return null，plugin 收到 null 只 console.warn
+  一行然後 return，build 的 exit code 仍是 0。
+
+  - fetchJson：3 次嘗試、逾時 45 秒、間隔 15 秒
+  - requireBuildData()：PRERENDER_REQUIRED 設了就讓 build 失敗
+  - configProblem()：分開「沒設 VITE_API_URL」（本機／CI 的正常路徑）
+    與「設了但打不通」（真正的故障），前者不該把 build log 洗成警告
+  - reportMissing()：required 模式丟例外，否則印醒目區塊
+
+render.yaml
+  - buildCommand 前面加預熱 curl（`|| true`，喚醒失敗不擋 build）
+  - build 帶 PRERENDER_REQUIRED=1
+
+三個 plugin：改用共用模組，失敗處置換成 reportMissing。
+sitemap 的完成訊息加印 lastmod 與分子頁筆數（原本只印總筆數，
+而 issue 的症狀正是「123 筆看起來正常，其實這兩個都是 0」）。
+
+
+驗證一：後端休眠狀態下 build（重試真的救回來了）
+----------------------------------------------
+
+  $ VITE_API_URL=https://elementtable.onrender.com/api \
+    VITE_SITE_URL=https://elementgroups-frontend.onrender.com \
+    PRERENDER_REQUIRED=1 npm run build
+
+  [build-fetch] 元素完成度 第 1/3 次失敗（逾時 45000ms），15 秒後重試
+  [build-fetch] 分子清單 第 1/3 次失敗（逾時 45000ms），15 秒後重試
+  [build-fetch] 附加頁面 第 1/3 次失敗（逾時 45000ms），15 秒後重試
+  [build-fetch] 附加頁面 第 2 次嘗試成功
+  [build-fetch] 元素完成度 第 2 次嘗試成功
+  [build-fetch] 分子清單 第 2 次嘗試成功
+  [emit-sitemap] 已產生 sitemap.xml（130 筆，其中 lastmod 8 個、分子頁 5 個）與 robots.txt
+  [prerender] 已輸出 118 個元素頁（其中 25 個帶有故事開頭）
+  ✓ built in 1m 16s
+
+這一次剛好撞上後端在睡：**三支請求第一次全部逾時，第二次全部成功。**
+修改前的程式在這個情境下就是整批略過、build 照樣成功——也就是線上現在
+這個狀態。第一批請求同時扛下喚醒後端的角色，所以後面的 prerender 打到的
+是已經醒著的後端。
+
+實際的 plugin 執行順序（由 log 順序看出）：
+  sitemap（generateBundle）→ seo（transformIndexHtml）→ prerender（writeBundle）
+
+
+驗證二：產出的內容
+-----------------
+
+  $ ls dist/stroy | wc -l
+  118
+
+  $ grep -o '<title>[^<]*</title>' dist/stroy/{H,Fe,O}/index.html
+  <title>Hydrogen H｜元素圖鑑 Element Groups</title>
+  <title>Iron Fe｜元素圖鑑 Element Groups</title>
+  <title>Oxygen O｜元素圖鑑 Element Groups</title>
+
+每頁的 description 帶該元素的故事開頭、JSON-LD 為 ChemicalSubstance
+（含 identifier、molecularWeight、canonical url、image）。
+
+  $ grep -c 'og:title' dist/stroy/H/index.html      → 1
+  $ grep -c 'name="description"' dist/stroy/H/index.html → 1
+
+沒有重複標籤（withElementMeta 先移除全站那份再寫入元素那份，這裡確認
+移除的正規表示式仍然命中）。
+
+  $ grep -o 'src="[^"]*"' dist/stroy/H/index.html
+  src="/assets/index-Boqq1HqE.js"
+
+資源是絕對路徑，所以 /stroy/H 與 /stroy/H/ 兩種形式都載得到 JS。
+
+
+驗證三：Render 會不會真的送出這些檔案
+------------------------------------
+
+這是整個修法的前提，而且從 #21 到現在從來沒被驗證過（因為預渲染沒跑過）。
+render.yaml 有 `/* → /index.html` 的 rewrite，dist/stroy/H/index.html 會
+不會被它蓋掉？
+
+Render 官方文件（https://render.com/docs/redirects-rewrites）：
+
+  "Render does not apply redirect or rewrite rules to a path if a resource
+   exists at that path. Instead, Render simply serves the resource at that path."
+
+目錄索引的部分，Render 社群討論確認 page1/index.html 同時對應 /page1
+與 /page1/（https://community.render.com/t/static-site-redirecting-non-trailing-slash-urls-to-trailing-slash/3318）。
+
+所以 /stroy/H 會拿到預渲染那份。順帶一提，兩種形式都通會構成重複內容，
+但我們寫出的 canonical 是不帶尾斜線的 /stroy/H，這點已經處理掉。
+
+→ 仍需部署後 curl 實測確認（見下方待辦）。
+
+
+驗證四：CI 路徑沒被改壞
+----------------------
+
+CI 刻意不給 VITE_API_URL 與 VITE_SITE_URL，要走 fallback 路徑。
+
+  $ npm run build          # 無任何環境變數
+  [emit-sitemap] 未設定 VITE_SITE_URL，略過
+  [inject-seo] VITE_API_URL 未設定，略過
+  [prerender] 未設定 VITE_SITE_URL，略過
+  ✓ built in 5.79s
+  exit code: 0，dist/index.html 存在
+
+一行訊息、不印醒目區塊——「沒設定」是本機與 CI 的正常路徑，不是故障。
+
+
+驗證五：required 模式真的會讓 build 失敗
+--------------------------------------
+
+  $ VITE_API_URL=http://127.0.0.1:9/api VITE_SITE_URL=https://example.com \
+    PRERENDER_REQUIRED=1 npm run build
+
+  [build-fetch] 元素完成度 3 次都失敗（fetch failed）
+  ...
+  ============================================================================
+    [emit-sitemap] 取不到 build 需要的資料
+
+    原因：元素完成度、分子清單、附加頁面重試 3 次都沒有回應（http://127.0.0.1:9/api）
+    影響：元素頁全部沒有 lastmod，爬蟲看不出哪些頁面更新過；sitemap 不含任何
+          分子頁，/molecule/:slug 從來沒被提交給 Google；...
+
+    處理：確認後端服務活著；免費方案的休眠請靠 buildCommand 的預熱請求
+
+    已設定 PRERENDER_REQUIRED，中止 build。
+  ============================================================================
+
+  x Build failed in 35.43s
+  exit code: 1
+
+這是 issue 裡「最重要」的那一條：SEO 靜默壞掉變成部署失敗。
+
+
+驗證六：單元測試
+---------------
+
+  $ npm test
+  Test Files  2 passed (2)
+  Tests       32 passed (32)      # 新增 15 個（frontend/build-fetch.test.js）
+
+釘住的是失敗路徑——重試會重試、required 模式會丟、非 required 不會丟、
+「沒設定」與「打不通」走不同處置。這幾條被改壞的話表徵都是「build 成功」，
+一般的建置檢查看不出來。
+
+
+部署後還要做（未完成）
+--------------------
+
+本機 build 產物正確，但 issue 的驗收條件是對 production curl。push 到 main
+之後要跑：
+
+  curl -s https://elementgroups-frontend.onrender.com/stroy/H | grep -o '<title>[^<]*</title>'
+  # 期望：Hydrogen H｜元素圖鑑 Element Groups
+
+  curl -s https://elementgroups-frontend.onrender.com/sitemap.xml | grep -c '<lastmod>'
+  # 期望：> 0
+
+  curl -s https://elementgroups-frontend.onrender.com/sitemap.xml | grep -c '/molecule/'
+  # 期望：> 0
+
+三個都過，再回 Google Search Console 要求重新檢索。

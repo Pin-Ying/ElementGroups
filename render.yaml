@@ -6,7 +6,20 @@ services:
     # 出來的東西和本機一致。用 cd 而不是 --prefix，是因為 npm ci 對 --prefix
     # 的處理在不同 npm 版本間不一致，cd 沒有這個疑慮。
     # staticPublishPath 由 Render 自己解析，不受這裡的 cd 影響。
-    buildCommand: cd frontend && npm ci && npm run build
+    #
+    # 前面那支 curl 是預熱（issue #45）：後端也在 Render 免費方案上、會休眠，
+    # 冷啟動要 30〜60 秒。build 時它若正在睡，三個 vite plugin 取資料就會逾時，
+    # 而預渲染取不到資料就整批略過——118 個元素頁對爬蟲會變成同一份空殼。
+    # `|| true` 是刻意的：喚醒失敗不該讓 build 掛在這裡，plugin 內還有重試。
+    #
+    # PRERENDER_REQUIRED=1 則是讓那個重試也失敗時**部署直接失敗**，而不是把
+    # 一份對爬蟲空白的站台送上線。本機開發與 CI 不設這個變數（CI 刻意走
+    # fallback 路徑，確認退路沒被改壞）。
+    buildCommand: |
+      if [ -n "$VITE_API_URL" ]; then
+        curl -sS -m 120 --retry 2 --retry-delay 15 "$VITE_API_URL/ai/status" >/dev/null || true
+      fi
+      cd frontend && npm ci && PRERENDER_REQUIRED=1 npm run build
     staticPublishPath: ./frontend/dist
     routes:
       - type: rewrite

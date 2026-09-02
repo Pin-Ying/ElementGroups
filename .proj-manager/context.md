@@ -200,6 +200,15 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 - **SEO 靠 build 時注入**：`index.html` 是 build-time 靜態檔，JS 設定的 meta tag 爬蟲讀不到
   （Facebook / LINE / Twitter 完全不執行 JS）。`frontend/vite-plugin-seo.js` 在打包階段向後端
   抓一次設定並注入 title/description/og/twitter。**後台改完文案需重新部署一次爬蟲才看得到**
+- **build 時取不到後端資料一律不可靜默略過**（issue #45，代價是整站三個月沒被索引）：
+  後端也在 Render 免費方案上、會休眠，build 撞上冷啟動時請求就逾時。三個 plugin 原本各自
+  `catch { return null }`＋`console.warn`＋`return`，**exit code 仍是 0**，於是 118 個元素頁
+  的預渲染整批被跳過而沒人知道。現在共用 `frontend/build-fetch.js`：重試 3 次、
+  `buildCommand` 先 curl 預熱後端，且 Render 上帶 `PRERENDER_REQUIRED=1` 讓取不到資料時
+  **部署直接失敗**。CI 刻意不設這個變數——它要走 fallback 路徑確認退路沒被改壞
+- **Render 的 rewrite 不會蓋掉真實存在的檔案**：`/* → /index.html` 只在該路徑沒有資源時生效，
+  且 `stroy/H/index.html` 同時對應 `/stroy/H` 與 `/stroy/H/`，所以預渲染出來的檔案送得出去。
+  也因為兩種形式都通，canonical 一律寫不帶尾斜線的那個
 - **本機無 Firebase 憑證時**：`app/firebase.py` 在 import 階段就初始化 SDK，後端起不來。
   只能驗證編譯（`py_compile` / `vite build`），完整驗證需靠部署或代理到 production 後端
 - **working tree 行尾**：本地 checkout 為 CRLF、repo 內為 LF，且無 `.gitattributes`。
