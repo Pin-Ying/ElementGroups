@@ -22,9 +22,20 @@
 //    ——CI 刻意走 fallback 路徑，確認退路沒被改壞
 //    （見 .github/workflows/build-check.yml）。
 
-const DEFAULT_TIMEOUT = 45000
-const DEFAULT_ATTEMPTS = 3
-const DEFAULT_RETRY_DELAY = 15000
+// 耐心預算要覆蓋實測的冷啟動時間，不是憑感覺給。
+//
+// 實測（2026-09-03，後端休眠狀態下 curl /api/ai/status）：**3 分 21 秒**
+// ——第一次 180 秒逾時，重試才拿到回應。所以原本 3×45＋2×15 ≈ 165 秒的預算
+// 撐不過去，而 required 模式下撐不過去就是**部署失敗**。
+//
+// 5×60＋4×20 = 380 秒（約 6.3 分），對實測值留了近一倍的餘裕。後端醒著時
+// 這些數字完全不產生成本；build 一次只跑一遍，慢一點也遠好過部署掛掉。
+//
+// 為什麼不靠 render.yaml 的預熱 curl：那份檔案在這個服務上沒有被套用（見
+// render.yaml 開頭的註記），所以 Render 上唯一的保護就是這裡的重試。
+const DEFAULT_TIMEOUT = 60000
+const DEFAULT_ATTEMPTS = 5
+const DEFAULT_RETRY_DELAY = 20000
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 

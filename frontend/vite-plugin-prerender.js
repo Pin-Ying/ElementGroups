@@ -2,13 +2,13 @@
 //
 // 問題：這是 SPA，所有網址共用同一份 index.html。Google 會執行 JS 所以
 // 看得到 utils/seo.js 設定的標題與描述，但 Bing、Facebook、LINE 的爬蟲
-// 不執行 JS——它們抓 /stroy/O 和 /stroy/Fe 拿到的是一模一樣的空殼。
+// 不執行 JS——它們抓 /story/O 和 /story/Fe 拿到的是一模一樣的空殼。
 //
-// 做法：把打包好的 index.html 複製 118 份到 stroy/{Symbol}/index.html，
+// 做法：把打包好的 index.html 複製 118 份到 story/{Symbol}/index.html，
 // 每份只換掉 head 裡的 title、description、og/twitter 與 JSON-LD。body
 // 完全不動，載入的還是同一份 JS，所以使用者看到的行為沒有任何差別。
 //
-// 這是安全的加法：如果靜態主機沒有把 /stroy/O 對應到這個檔案，就會落回
+// 這是安全的加法：如果靜態主機沒有把 /story/O 對應到這個檔案，就會落回
 // 原本的 /* → /index.html 重寫，也就是今天的行為，不會壞掉，只是少了
 // 這層 SEO 好處。
 //
@@ -118,7 +118,7 @@ export default function prerenderPlugin() {
       let withStory = 0
 
       await Promise.all(elements.map(async el => {
-        const canonical = `${siteUrl}/stroy/${el.Symbol}`
+        const canonical = `${siteUrl}/story/${el.Symbol}`
         const description = describe(el)
         const image = `${imgBase}/elements/${el.Symbol}/img`
         if (el.excerpt) withStory++
@@ -141,7 +141,7 @@ export default function prerenderPlugin() {
           }
         })
 
-        const dir = path.join(outDir, 'stroy', el.Symbol)
+        const dir = path.join(outDir, 'story', el.Symbol)
         await mkdir(dir, { recursive: true })
         await writeFile(path.join(dir, 'index.html'), page)
       }))

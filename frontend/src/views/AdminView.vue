@@ -1181,7 +1181,7 @@
           </AdminBar>
           <p class="desc">
             編輯單一元素的故事內容與代表圖片。<br>
-            選擇元素後，Story 的文字會顯示在前台該元素的介紹頁（/stroy/{{ selectedSymbol || 'Symbol' }}），
+            選擇元素後，Story 的文字會顯示在前台該元素的介紹頁（/story/{{ selectedSymbol || 'Symbol' }}），
             上傳圖片則會<strong>直接覆蓋</strong>該元素目前的圖片。<br>
             下拉選單的 ✓ 表示已寫故事、▣ 表示已上傳圖片。
           </p>
@@ -1427,7 +1427,7 @@ const SYSTEM_PAGES = [
   { kind: 'meta', key: 'molecule', label: '分子頁', path: '/molecule/…' },
   { kind: 'meta', key: 'particles', label: '基本粒子', path: '/particles' },
   { kind: 'meta', key: 'watermark', label: '浮水印檢視', path: '/watermark' },
-  { kind: 'meta', key: 'story', label: '元素頁區塊標題', path: '/stroy/…' },
+  { kind: 'meta', key: 'story', label: '元素頁區塊標題', path: '/story/…' },
   { kind: 'meta', key: 'footer', label: '頁尾', path: '（全站頁尾）' }
 ]
 

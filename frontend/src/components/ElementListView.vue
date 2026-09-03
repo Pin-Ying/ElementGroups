@@ -13,7 +13,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="elt in elements" :key="elt.Symbol" @click="$router.push('/stroy/' + elt.Symbol)">
+        <tr v-for="elt in elements" :key="elt.Symbol" @click="$router.push('/story/' + elt.Symbol)">
           <td class="col-num">{{ elt.AtomicNumber }}</td>
           <td class="col-sym">
             <span class="sym-badge" :style="{ borderColor: '#' + elt.CPKHexColor, color: '#' + elt.CPKHexColor }">

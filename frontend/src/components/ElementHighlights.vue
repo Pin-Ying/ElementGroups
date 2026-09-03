@@ -16,7 +16,7 @@
         v-for="el in current"
         :key="el.Symbol"
         class="highlight-card"
-        :to="'/stroy/' + el.Symbol"
+        :to="'/story/' + el.Symbol"
         :style="{ borderColor: '#' + el.CPKHexColor }"
       >
         <span class="hc-num">{{ el.AtomicNumber }}</span>
