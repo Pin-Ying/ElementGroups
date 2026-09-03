@@ -193,8 +193,12 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 ## 部署與環境的陷阱（實際踩過）
 
 - **前端不可寫死相對 `/api`**：production 的前端是 Render static site，`/api/*` 會被
-  `frontend/public/_redirects` 的 SPA fallback 吞掉並回傳 index.html。非 axios 場合
+  SPA fallback（`/* → /index.html`）吞掉並回傳 index.html。非 axios 場合
   （`<img src>` 等）一律使用 `api/index.js` 匯出的 `apiBase`
+- **`frontend/public/_redirects` 在 Render 上沒有作用**：那是 Netlify 的格式，Render
+  不支援（官方只有 dashboard 與 `render.yaml` 的 `routes`，社群仍在提功能請求）。
+  線上的 SPA fallback 來自 routes，不是這個檔案——先前的記錄歸因錯了。改路由規則
+  時不要動它，動了也不會生效
 - **必須有 `.dockerignore`**：沒有的話 `COPY . .` 會把本地 `node_modules` 複製進 image，
   覆蓋掉 `npm install` 裝好的依賴；若本地檔案缺少執行位元，build 會以 `Permission denied` 失敗
 - **SEO 靠 build 時注入**：`index.html` 是 build-time 靜態檔，JS 設定的 meta tag 爬蟲讀不到

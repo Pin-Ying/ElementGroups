@@ -17,10 +17,10 @@
 //    成功。第一批請求同時扛下喚醒後端的角色，後面的 plugin 打到的就是已經
 //    醒著的後端——實際順序是 sitemap（generateBundle）先，接著 seo
 //    （transformIndexHtml），最後 prerender（writeBundle）。
-// 2. **requireBuildData()**。設了 PRERENDER_REQUIRED 就讓 build 直接失敗，
-//    「SEO 靜默壞掉」因此變成「部署失敗」，至少會被看見。render.yaml 的
-//    buildCommand 有設，本機開發與 CI 沒設——CI 是刻意不設的，它要走
-//    fallback 路徑確認退路沒被改壞（見 .github/workflows/build-check.yml）。
+// 2. **requireBuildData()**。在 Render 上取不到資料就讓 build 直接失敗，
+//    「SEO 靜默壞掉」因此變成「部署失敗」，至少會被看見。本機與 CI 不受影響
+//    ——CI 刻意走 fallback 路徑，確認退路沒被改壞
+//    （見 .github/workflows/build-check.yml）。
 
 const DEFAULT_TIMEOUT = 45000
 const DEFAULT_ATTEMPTS = 3
@@ -28,11 +28,25 @@ const DEFAULT_RETRY_DELAY = 15000
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-// 設了才算開，`0` 與 `false` 視為關——避免有人填 PRERENDER_REQUIRED=0
-// 以為關掉了，實際上非空字串都是 truthy
+// 在 Render 上一律為開，不必靠任何設定——`RENDER` 是 Render 自己注入的預設
+// 環境變數（值恆為 `true`），build 階段就有。
+//
+// 為什麼不只用 render.yaml 的 buildCommand 帶 PRERENDER_REQUIRED=1：那假設了
+// render.yaml 真的被套用。實測發現不能假設——把 rewrite 規則加進 render.yaml
+// 之後線上完全沒有變化（見 docs/verification/issue45-prerender.txt）。若這個
+// 服務不是由 Blueprint 管理、或 Blueprint 的 Auto Sync 被關掉，render.yaml
+// 就是一份沒人讀的檔案，而防線放在沒人讀的檔案裡等於沒有防線。
+//
+// `PRERENDER_REQUIRED` 保留為明確覆寫，兩個方向都能蓋過自動判斷：
+//   留空       → 跟著 RENDER 走（Render 上開、本機與 CI 關）
+//   1 / true   → 強制開，本機要驗證失敗路徑時用
+//   0 / false  → 強制關，**逃生門**：後端真的掛了又非得先把前端部署出去時
+// 這是專案既有的慣例（見 PASSWORD_LOGIN_ENABLED：留空＝連動，明確設值＝逃生門）。
 export function requireBuildData() {
-  const value = (process.env.PRERENDER_REQUIRED || '').trim().toLowerCase()
-  return value !== '' && value !== '0' && value !== 'false'
+  const explicit = (process.env.PRERENDER_REQUIRED || '').trim().toLowerCase()
+  if (explicit === '0' || explicit === 'false') return false
+  if (explicit !== '') return true
+  return Boolean(process.env.RENDER)
 }
 
 // 「沒設定 API 網址」和「設定了但打不通」是兩件事：前者是本機與 CI 的正常
@@ -106,6 +120,12 @@ export function reportMissing(label, { reason, impact, fix, soft = false } = {})
     return
   }
 
+  // 講清楚是「誰」讓 build 停下來的，否則看 log 的人會去翻沒設過的
+  // PRERENDER_REQUIRED
+  const trigger = process.env.RENDER && !(process.env.PRERENDER_REQUIRED || '').trim()
+    ? '在 Render 上取不到資料一律中止 build（由 RENDER 環境變數判定）'
+    : '已設定 PRERENDER_REQUIRED，中止 build'
+
   const lines = [
     `${label} 取不到 build 需要的資料`,
     '',
@@ -113,8 +133,8 @@ export function reportMissing(label, { reason, impact, fix, soft = false } = {})
     `影響：${impact}`,
     ...(fix ? ['', `處理：${fix}`] : []),
     ...(required
-      ? ['', '已設定 PRERENDER_REQUIRED，中止 build。']
-      : ['', '未設定 PRERENDER_REQUIRED，build 繼續——但上線的產出會缺這部分。'])
+      ? ['', `${trigger}。若非得先部署，設 PRERENDER_REQUIRED=0 可暫時放行。`]
+      : ['', '這不是 Render 環境，build 繼續——但產出會缺這部分。'])
   ]
 
   const border = '='.repeat(76)
@@ -122,7 +142,7 @@ export function reportMissing(label, { reason, impact, fix, soft = false } = {})
 
   if (required) {
     console.error(block)
-    throw new Error(`${label} 取不到資料，且已設定 PRERENDER_REQUIRED——中止 build`)
+    throw new Error(`${label} 取不到 build 需要的資料——${trigger}`)
   }
   console.warn(block)
 }
