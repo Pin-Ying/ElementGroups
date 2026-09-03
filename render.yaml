@@ -12,14 +12,15 @@ services:
     # 而預渲染取不到資料就整批略過——118 個元素頁對爬蟲會變成同一份空殼。
     # `|| true` 是刻意的：喚醒失敗不該讓 build 掛在這裡，plugin 內還有重試。
     #
-    # PRERENDER_REQUIRED=1 則是讓那個重試也失敗時**部署直接失敗**，而不是把
-    # 一份對爬蟲空白的站台送上線。本機開發與 CI 不設這個變數（CI 刻意走
-    # fallback 路徑，確認退路沒被改壞）。
+    # 「取不到資料就讓 build 失敗」那道防線**不在這裡**——它靠 Render 自己注入
+    # 的 RENDER 環境變數，寫在 frontend/build-fetch.js。原因是這份 render.yaml
+    # 是否真的被套用無法保證（實測：加了 rewrite 規則後線上毫無變化），而防線
+    # 放在沒人讀的檔案裡等於沒有防線。
     buildCommand: |
       if [ -n "$VITE_API_URL" ]; then
         curl -sS -m 120 --retry 2 --retry-delay 15 "$VITE_API_URL/ai/status" >/dev/null || true
       fi
-      cd frontend && npm ci && PRERENDER_REQUIRED=1 npm run build
+      cd frontend && npm ci && npm run build
     staticPublishPath: ./frontend/dist
     routes:
       # 這條必須排在 /* 之前（規則依序比對）。

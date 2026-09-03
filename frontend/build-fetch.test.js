@@ -21,40 +21,64 @@ const NO_DELAY = { retryDelay: 0 }
 
 const ok = body => ({ ok: true, json: async () => body })
 
-let originalRequired
+// 兩個都要在測試裡自己控制：requireBuildData 同時看 PRERENDER_REQUIRED 與
+// RENDER，留任何一個給環境決定，測試就會依執行環境給出不同結果
+const ENV_KEYS = ['PRERENDER_REQUIRED', 'RENDER']
+let originalEnv
 
 beforeEach(() => {
-  originalRequired = process.env.PRERENDER_REQUIRED
-  delete process.env.PRERENDER_REQUIRED
+  originalEnv = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]]))
+  for (const key of ENV_KEYS) delete process.env[key]
   vi.spyOn(console, 'warn').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
   vi.spyOn(console, 'log').mockImplementation(() => {})
 })
 
 afterEach(() => {
-  if (originalRequired === undefined) delete process.env.PRERENDER_REQUIRED
-  else process.env.PRERENDER_REQUIRED = originalRequired
+  for (const key of ENV_KEYS) {
+    if (originalEnv[key] === undefined) delete process.env[key]
+    else process.env[key] = originalEnv[key]
+  }
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
 describe('requireBuildData', () => {
-  it('未設定時為關', () => {
+  it('本機與 CI（兩個變數都沒有）為關', () => {
     expect(requireBuildData()).toBe(false)
   })
 
-  it('設了 1 或 true 為開', () => {
+  // 這是防線真正生效的條件。放在 render.yaml 的 buildCommand 裡不算——
+  // 那份檔案不保證被套用
+  it('Render 上自動為開，不必任何設定', () => {
+    process.env.RENDER = 'true'
+    expect(requireBuildData()).toBe(true)
+  })
+
+  it('明確設 1 或 true 為開', () => {
     process.env.PRERENDER_REQUIRED = '1'
     expect(requireBuildData()).toBe(true)
     process.env.PRERENDER_REQUIRED = 'true'
     expect(requireBuildData()).toBe(true)
   })
 
-  // 非空字串都是 truthy，填 0 以為關掉卻其實開著會很難查
-  it('0、false、空白視為關', () => {
-    for (const value of ['0', 'false', 'FALSE', '  ', '']) {
+  // 逃生門：後端真的掛了又非得先把前端部署出去時
+  it('在 Render 上明確設 0 或 false 可以關掉', () => {
+    process.env.RENDER = 'true'
+    for (const value of ['0', 'false', 'FALSE']) {
       process.env.PRERENDER_REQUIRED = value
       expect(requireBuildData(), `PRERENDER_REQUIRED=${JSON.stringify(value)}`).toBe(false)
+    }
+  })
+
+  // 非空字串都是 truthy，填 0 以為關掉卻其實開著會很難查
+  it('空白字串視為沒設定，跟著 RENDER 走', () => {
+    for (const value of ['  ', '']) {
+      process.env.PRERENDER_REQUIRED = value
+      expect(requireBuildData(), `無 RENDER，PRERENDER_REQUIRED=${JSON.stringify(value)}`).toBe(false)
+      process.env.RENDER = 'true'
+      expect(requireBuildData(), `有 RENDER，PRERENDER_REQUIRED=${JSON.stringify(value)}`).toBe(true)
+      delete process.env.RENDER
     }
   })
 })
