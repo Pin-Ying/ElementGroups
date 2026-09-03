@@ -281,3 +281,74 @@ prerender plugin 產出 118 條逐一列名的規則（元素清單它本來就�
 代號就會落回 /* 規則、行為完全不變。
 
 三條驗收都過，再回 Google Search Console 要求重新檢索。
+
+
+================================================================
+驗收通過（2026-09-03，commit c897afa）
+================================================================
+
+三條驗收全過。過關的方式不是設定去配合錯字，而是把路由的拼寫改對（issue #46）
+——dashboard 上很自然填的 /story/:symbol 因此直接對上。
+
+  1. /story/H 的 title    ✅ Hydrogen H｜元素圖鑑 Element Groups
+  2. sitemap 的 <lastmod> ✅ 8 個（原本 0）
+  3. sitemap 的 /molecule/ ✅ 5 個（原本 0）
+
+抽查（裸路徑，也就是爬蟲用的形式）：
+
+  /story/H   200  Hydrogen H｜…      /story/O   200  Oxygen O｜…
+  /story/He  200  Helium He｜…       /story/Au  200  Gold Au｜…
+  /story/Fe  200  Iron Fe｜…         /story/Og  200  Oganesson Og｜…
+
+  每 10 個取 1 的抽驗（H Ne Ca Zn Zr Sn Nd Yb Re Bi Th Cn Og）：13/13 通過
+
+內容完整性（/story/H）：
+
+  HTML 大小       3674 bytes（原本 2090 的空殼）
+  description     Hydrogen（H）：最平凡的元素，最基本的元素，也是…（故事開頭）
+  canonical       https://elementgroups-frontend.onrender.com/story/H
+  JSON-LD         1 個
+  og:title        1 個（沒有與全站那份重複）
+
+sitemap：/story/ 118 筆、/stroy/ 0 筆、總計 130 個 <url>
+
+瀏覽器實測：/story/Fe 完整渲染（元素滾輪、基本資料、圖片、數值都正常）。
+
+
+生效的關鍵：規則在 dashboard，不在 render.yaml
+
+  Source       /story/:symbol
+  Destination  /story/:symbol/index.html
+  Action       Rewrite（排在 /* → /index.html 之前）
+
+這條規則在 Render dashboard 上設定。**render.yaml 的 routes 在這個服務沒有被
+套用**（本檔驗證七），repo 裡那份只是記錄意圖。以後改路由一定要一起改 dashboard。
+
+排查過程中走過的兩條錯路，記著免得重犯：
+  1. 以為「路徑上有資源就不套用規則」包含目錄索引——不包含（驗證三）
+  2. 規則加了沒反應時先懷疑排序與是否需要重新部署，實際上是 Source 填成
+     /story/:symbol 而當時的路由是拼錯的 /stroy/——症狀完全一樣，很難分辨
+
+
+發現一個副作用（未修，影響小）
+
+  /story/Xyz  →  HTTP 200，content-length: 0，空白頁
+
+rewrite 的目標檔案不存在時，Render 回 200 空 body，而不是落回 /* 規則。
+改動前 /stroy/Xyz 會拿到 SPA 空殼、由前端顯示自己的錯誤狀態。
+
+影響範圍：只有手打錯代號才會遇到。站內沒有任何連結指向無效代號，sitemap 也只
+有那 118 個，Google 不會發現這些網址。但空白頁看起來就是壞掉。
+
+若要修，兩個方向：
+  a. dashboard 那條改成 Redirect 到 /story/:symbol/（帶尾斜線）。無效代號會
+     轉到同樣不存在的路徑、落回 /* 拿到 SPA 空殼。代價是每個元素頁多一次
+     301，且 canonical 與 sitemap 要一起改成尾斜線形式，否則自我參照不一致
+  b. 讓 prerender plugin 產出 118 條逐一列名的規則。但 render.yaml 沒被套用，
+     產出來也送不到 Render，除非改成手動貼進 dashboard——不實際
+
+
+還沒做
+
+送 Google Search Console 要求重新檢索。sitemap 現在送出的是 /story/*，而 GSC
+既有的 129 個 /stroy/* 依決定不做 301（見 issue #46），會自然淘汰。
