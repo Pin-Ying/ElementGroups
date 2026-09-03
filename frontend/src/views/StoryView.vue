@@ -38,7 +38,7 @@
           <router-link
             v-for="el in wheelElements"
             :key="el.Symbol"
-            :to="'/stroy/' + el.Symbol"
+            :to="'/story/' + el.Symbol"
             :class="['wheel-chip', { 'wheel-chip--current': el.current }]"
             :style="el.current ? { borderColor: '#' + elInfo.CPKHexColor } : {}"
           >
@@ -372,7 +372,7 @@ export default {
       if (!el) return
 
       const name = el.Name || el.Symbol
-      const path = `/stroy/${el.Symbol}`
+      const path = `/story/${el.Symbol}`
       const url = absoluteUrl(path)
       const image = absoluteUrl(`${apiBase}/elements/${el.Symbol}/img`)
 

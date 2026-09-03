@@ -17,7 +17,7 @@
           borderColor: '#' + elt.CPKHexColor
         }"
       >
-        <router-link :to="'/stroy/' + elt.Symbol">
+        <router-link :to="'/story/' + elt.Symbol">
           <span class="el-num">{{ elt.AtomicNumber }}</span>
           <span class="el-sym">{{ elt.Symbol }}</span>
         </router-link>

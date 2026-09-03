@@ -23,21 +23,24 @@ services:
       cd frontend && npm ci && npm run build
     staticPublishPath: ./frontend/dist
     routes:
+      # 【這份檔案的 routes 在正式站沒有被套用——實測過。真正生效的是 Render
+      #   dashboard 上的規則，改路由時務必一起改那裡。留在這裡是為了記錄意圖。】
+      #
       # 這條必須排在 /* 之前（規則依序比對）。
       #
       # 為什麼需要它：Render「路徑上有資源就不套用規則」的規則**不含目錄索引**。
-      # 實測（2026-09-02 部署後）——
+      # 實測（2026-09-02 部署後，當時路由還是拼錯的 /stroy/）——
       #   /stroy/H/index.html → Hydrogen H｜元素圖鑑…   3674 bytes
       #   /stroy/H/           → Hydrogen H｜元素圖鑑…   3674 bytes
       #   /stroy/H            → 元素圖鑑 Element Groups  2657 bytes  ← 被 /* 攔走
       # 預渲染的檔案確實產出了，但不帶尾斜線的裸路徑落回 index.html 空殼，
       # 而爬蟲與 sitemap 用的正是不帶尾斜線那個形式。
       #
-      # 用 :symbol 而不是 /stroy/*：佔位符只吃單一路徑片段，`/stroy/H/` 這種
-      # 帶尾斜線的不會被它捕捉成 `H/` 而組出 `/stroy/H//index.html`。
+      # 用 :symbol 而不是 /story/*：佔位符只吃單一路徑片段，`/story/H/` 這種
+      # 帶尾斜線的不會被它捕捉成 `H/` 而組出 `/story/H//index.html`。
       - type: rewrite
-        source: /stroy/:symbol
-        destination: /stroy/:symbol/index.html
+        source: /story/:symbol
+        destination: /story/:symbol/index.html
       - type: rewrite
         source: /*
         destination: /index.html

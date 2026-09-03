@@ -101,7 +101,7 @@ export default function sitemapPlugin() {
       for (const el of ELEMENT_SYMBOLS) {
         const info = done[el.Symbol] || {}
         entries.push(urlEntry({
-          loc: `${siteUrl}/stroy/${el.Symbol}`,
+          loc: `${siteUrl}/story/${el.Symbol}`,
           lastmod: toLastmod(info.updated_at),
           changefreq: 'monthly',
           priority: info.story ? '0.8' : '0.5'

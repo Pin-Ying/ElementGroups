@@ -15,7 +15,10 @@ DEFAULT_NAV = "sidebar"
 # 保留給既有路由，避免使用者建出蓋掉功能頁的 slug。
 # guide 與 links 刻意不列入：那兩頁的內容本來就開放後台覆寫，
 # 前端會以資料庫版本優先，沒有才回退到內建內容。
-RESERVED_SLUGS = {"admin", "stroy", "api", "p"}
+#
+# stroy 是元素頁路由的舊拼法（issue #46 改成 story）。兩個都留著：舊網址雖然
+# 不再對應路由，但讓人把附加頁面的 slug 取成 stroy 只會製造混淆。
+RESERVED_SLUGS = {"admin", "story", "stroy", "api", "p"}
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 

@@ -20,7 +20,7 @@
             v-for="sym in molecule.elements"
             :key="sym"
             class="dex-tag"
-            :to="'/stroy/' + sym"
+            :to="'/story/' + sym"
             :style="tagStyle(sym)"
           >{{ sym }}<span class="tag-name">{{ elementName(sym) }}</span></router-link>
         </aside>

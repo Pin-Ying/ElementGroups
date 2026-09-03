@@ -4,7 +4,7 @@
       v-for="elt in elements"
       :key="elt.Symbol"
       class="icon-card"
-      :to="'/stroy/' + elt.Symbol"
+      :to="'/story/' + elt.Symbol"
       :style="{ borderColor: '#' + elt.CPKHexColor }"
     >
       <span class="ic-num">{{ elt.AtomicNumber }}</span>
