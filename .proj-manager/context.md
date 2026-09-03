@@ -207,12 +207,25 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 - **build 時取不到後端資料一律不可靜默略過**（issue #45，代價是整站三個月沒被索引）：
   後端也在 Render 免費方案上、會休眠，build 撞上冷啟動時請求就逾時。三個 plugin 原本各自
   `catch { return null }`＋`console.warn`＋`return`，**exit code 仍是 0**，於是 118 個元素頁
-  的預渲染整批被跳過而沒人知道。現在共用 `frontend/build-fetch.js`：重試 3 次、
-  `buildCommand` 先 curl 預熱後端，且 Render 上帶 `PRERENDER_REQUIRED=1` 讓取不到資料時
-  **部署直接失敗**。CI 刻意不設這個變數——它要走 fallback 路徑確認退路沒被改壞
-- **Render 的 rewrite 不會蓋掉真實存在的檔案**：`/* → /index.html` 只在該路徑沒有資源時生效，
-  且 `stroy/H/index.html` 同時對應 `/stroy/H` 與 `/stroy/H/`，所以預渲染出來的檔案送得出去。
-  也因為兩種形式都通，canonical 一律寫不帶尾斜線的那個
+  的預渲染整批被跳過而沒人知道。現在共用 `frontend/build-fetch.js`
+- **防線不可放在 `render.yaml`**（issue #45 實測）：這個服務的 routes 與 buildCommand
+  **來自 Render dashboard，`render.yaml` 沒有被套用**（可能是服務非 Blueprint 管理，或
+  Auto Sync 被關）。所以「取不到資料就讓 build 失敗」改看 Render 自己注入的 `RENDER`
+  環境變數（值恆為 `true`，build 階段就有），寫在 `build-fetch.js`。`PRERENDER_REQUIRED`
+  是兩向覆寫：`1` 強制開、`0` 強制關（逃生門）、留空跟著 `RENDER`。CI 不設，刻意走
+  fallback 路徑確認退路沒被改壞。**改路由或路由規則時一定要一起改 dashboard**
+- **重試預算要覆蓋實測冷啟動**：實測後端冷啟動 **3 分 21 秒**（`curl /api/ai/status`，
+  第一次 180 秒逾時、重試才成功）。預算不足在 required 模式下就是**部署失敗**，
+  而 `render.yaml` 的預熱 curl 幫不上忙（沒被套用）。現為 5×60＋4×20 = 380 秒
+- **Render 靜態站的路徑解析（issue #45 逐條實測，不要靠文件推論）**：
+  「路徑上有資源就不套用 redirect/rewrite 規則」**對帶尾斜線的路徑成立、對裸路徑不成立**。
+  所以 `/story/H/` 直接拿到 `story/H/index.html`，但 `/story/H` 會被 `/*` 攔走——
+  而爬蟲與 sitemap 用的正是裸路徑。必須在 dashboard 補一條排在 `/*` **之前**的
+  `/story/:symbol → /story/:symbol/index.html`（Rewrite）。
+  兩個連帶事實：① 佔位符**會**匹配帶尾斜線的片段（`/story/Xyz/` 也被規則吃掉），
+  所以不能改成 Redirect 到 `/story/:symbol/`，會無限轉址；
+  ② rewrite 的目標不存在時 Render 回 **200 加空 body**、不會落回 `/*`，
+  所以無效元素代號（`/story/Xyz`）是空白頁而非 SPA 的錯誤狀態（已知，決定不修）
 - **本機無 Firebase 憑證時**：`app/firebase.py` 在 import 階段就初始化 SDK，後端起不來。
   只能驗證編譯（`py_compile` / `vite build`），完整驗證需靠部署或代理到 production 後端
 - **working tree 行尾**：本地 checkout 為 CRLF、repo 內為 LF，且無 `.gitattributes`。
