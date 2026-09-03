@@ -98,25 +98,51 @@ sitemap 的完成訊息加印 lastmod 與分子頁筆數（原本只印總筆數
 資源是絕對路徑，所以 /stroy/H 與 /stroy/H/ 兩種形式都載得到 JS。
 
 
-驗證三：Render 會不會真的送出這些檔案
-------------------------------------
+驗證三：Render 會不會真的送出這些檔案 —— 一開始推論錯了
+------------------------------------------------------
 
 這是整個修法的前提，而且從 #21 到現在從來沒被驗證過（因為預渲染沒跑過）。
 render.yaml 有 `/* → /index.html` 的 rewrite，dist/stroy/H/index.html 會
 不會被它蓋掉？
+
+【當初的推論（錯的）】
 
 Render 官方文件（https://render.com/docs/redirects-rewrites）：
 
   "Render does not apply redirect or rewrite rules to a path if a resource
    exists at that path. Instead, Render simply serves the resource at that path."
 
-目錄索引的部分，Render 社群討論確認 page1/index.html 同時對應 /page1
-與 /page1/（https://community.render.com/t/static-site-redirecting-non-trailing-slash-urls-to-trailing-slash/3318）。
+再加上一則社群討論說 page1/index.html 同時對應 /page1 與 /page1/
+（https://community.render.com/t/static-site-redirecting-non-trailing-slash-urls-to-trailing-slash/3318），
+於是判斷 /stroy/H 會拿到預渲染那份。
 
-所以 /stroy/H 會拿到預渲染那份。順帶一提，兩種形式都通會構成重複內容，
-但我們寫出的 canonical 是不帶尾斜線的 /stroy/H，這點已經處理掉。
+**這個推論是錯的。** 部署後實測（commit ac8cbf6，2026-09-02）：
 
-→ 仍需部署後 curl 實測確認（見下方待辦）。
+  /stroy/H/index.html → <title>Hydrogen H｜元素圖鑑…    3674 bytes  ✅
+  /stroy/H/           → <title>Hydrogen H｜元素圖鑑…    3674 bytes  ✅
+  /stroy/H            → <title>元素圖鑑 Element Groups   2657 bytes  ❌ 空殼
+  /                   → <title>元素圖鑑 Element Groups   2657 bytes
+
+「路徑上有資源就不套用規則」**不包含目錄索引**。不帶尾斜線的裸路徑仍然被
+`/* → /index.html` 攔走，而爬蟲與 sitemap 用的正是不帶尾斜線那個形式，
+所以預渲染的效果等於零——118 份檔案都躺在那裡沒人拿得到。
+
+教訓：靜態主機的路徑解析規則不要靠文件推論，部署一次 curl 就知道了。
+
+【修法（commit 91d40a5）】
+
+render.yaml 補一條排在 /* 之前的 rewrite：
+
+  - type: rewrite
+    source: /stroy/:symbol
+    destination: /stroy/:symbol/index.html
+
+Render 的 rewrite destination 支援 `:name` 佔位符（文件有寫），所以 118 個
+元素不必逐一列出。用佔位符而不是 /stroy/*，是因為佔位符只吃單一路徑片段，
+帶尾斜線的 /stroy/H/ 不會被捕捉成 `H/` 而組出 /stroy/H//index.html。
+
+順帶一提，/stroy/H 與 /stroy/H/ 兩種形式都通會構成重複內容，但我們寫出的
+canonical 是不帶尾斜線的 /stroy/H，這點本來就處理掉了。
 
 
 驗證四：CI 路徑沒被改壞
@@ -172,19 +198,86 @@ CI 刻意不給 VITE_API_URL 與 VITE_SITE_URL，要走 fallback 路徑。
 一般的建置檢查看不出來。
 
 
-部署後還要做（未完成）
---------------------
+驗證七：render.yaml 沒有被套用（決定性的實測）
+--------------------------------------------
 
-本機 build 產物正確，但 issue 的驗收條件是對 production curl。push 到 main
-之後要跑：
+91d40a5 把 rewrite 規則加進 render.yaml，推上去之後線上毫無變化。一開始分不出
+是 build 失敗還是 render.yaml 根本沒被讀，所以又推了一版含程式碼變更的 commit
+（7bdaea2），用 last-modified 當判別：
 
-  curl -s https://elementgroups-frontend.onrender.com/stroy/H | grep -o '<title>[^<]*</title>'
-  # 期望：Hydrogen H｜元素圖鑑 Element Groups
+  推送 7bdaea2                 04:11:09 UTC
+  /index.html last-modified   04:11:46 UTC  ← 有更新，部署確實跑了
+  /stroy/H                    仍是 <title>元素圖鑑 Element Groups</title>
 
-  curl -s https://elementgroups-frontend.onrender.com/sitemap.xml | grep -c '<lastmod>'
-  # 期望：> 0
+**部署有跑、rewrite 沒生效 ⇒ render.yaml 的 routes 沒有被套用。**
 
-  curl -s https://elementgroups-frontend.onrender.com/sitemap.xml | grep -c '/molecule/'
-  # 期望：> 0
+可能是這個服務不是由 Blueprint 管理，或 Blueprint 的 Auto Sync 被關掉
+（Render 文件說 Auto Sync 可在 Blueprint 設定頁關成 No）。無論哪一個，結論一樣：
+**render.yaml 是否生效不能假設。**
 
-三個都過，再回 Google Search Console 要求重新檢索。
+順帶查清另一件事：**Render 不支援 `_redirects` 檔案**（那是 Netlify 的格式，
+Render 只有 dashboard 與 render.yaml 的 routes，社群還在提功能請求
+https://feedback.render.com/features/p/redirects-file-for-static-sites）。
+所以 frontend/public/_redirects 在線上沒有作用，SPA fallback 來自 routes——
+context.md 原本把它歸因給 _redirects，已更正。
+
+這一發現同時暴露一個更嚴重的問題：我把「取不到資料就讓 build 失敗」那道防線
+放在 render.yaml 的 buildCommand 裡，等於**把防線放在一份不保證有人讀的檔案裡**
+——正是這個 issue 想根治的那類問題。所以 7bdaea2 把它改成看 Render 自己注入的
+`RENDER` 環境變數（值恆為 true，build 階段就有），寫在 build-fetch.js：
+
+  留空       → 跟著 RENDER 走（Render 上開、本機與 CI 關）
+  1 / true   → 強制開，本機要驗證失敗路徑時用
+  0 / false  → 強制關，逃生門
+
+  $ RENDER=true VITE_API_URL=http://127.0.0.1:9/api VITE_SITE_URL=… npm run build
+  → exit 1，印出錯誤區塊
+
+  $ npm run build          # 無任何環境變數（CI 路徑）
+  → exit 0
+
+
+驗證八：使用者端（瀏覽器實測）
+----------------------------
+
+預渲染的檔案在帶尾斜線的路徑上是拿得到的，所以可以先確認「加上 rewrite 之後
+使用者會拿到的那份檔案」本身沒問題：
+
+  /stroy/H/  → 頁面完整渲染（元素滾輪、圖鑑外框、基本資料、圖片都正常）
+               Vue Router 吃這個路徑，沒有尾斜線的問題
+  從 /stroy/H/ 點滾輪上的 O
+             → 網址變成 /stroy/O（絕對路徑，沒有變成 /stroy/H/O），頁面正常
+
+所以補上 rewrite 之後 /stroy/H 會送出同一份檔案，行為與現在一致。
+
+
+目前狀態
+--------
+
+  驗收 1  /stroy/H 的 title        ❌ 仍是全站標題（缺 rewrite 規則）
+  驗收 2  sitemap 的 <lastmod>     ✅ 8 個（原本 0）
+  驗收 3  sitemap 的 /molecule/    ✅ 5 個（原本 0）
+
+  預渲染檔案                       ✅ 118 份都在，抽查 H/Fe/Og 與前 5 個都正確
+  失敗時會吵                       ✅ RENDER 環境變數判定，exit 1
+  重試                             ✅ 實測從休眠的後端救回來
+  單元測試                         ✅ 34 個
+
+
+還需要做的一步（要在 Render dashboard 操作，程式改不到）
+----------------------------------------------------
+
+到 elementgroups-frontend 的 Redirects/Rewrites 設定新增一條，**排在
+`/* → /index.html` 之前**：
+
+  Source       /stroy/:symbol
+  Destination  /stroy/:symbol/index.html
+  Type         Rewrite
+
+加完後跑三條 curl 驗收。另外要確認一個副作用：無效的元素代號
+（例如 /stroy/Xyz）現在回 200 + SPA 自己的錯誤狀態，加了 rewrite 之後會被
+改寫到不存在的檔案，可能變成 Render 的裸 404。若那個體驗不能接受，改法是讓
+prerender plugin 產出 118 條逐一列名的規則（元素清單它本來就有），這樣無效
+代號就會落回 /* 規則、行為完全不變。
+
+三條驗收都過，再回 Google Search Console 要求重新檢索。
