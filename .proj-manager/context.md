@@ -204,6 +204,13 @@ POST /api/admin/update-db  # 爬取並寫入 118 筆元素
 - **SEO 靠 build 時注入**：`index.html` 是 build-time 靜態檔，JS 設定的 meta tag 爬蟲讀不到
   （Facebook / LINE / Twitter 完全不執行 JS）。`frontend/vite-plugin-seo.js` 在打包階段向後端
   抓一次設定並注入 title/description/og/twitter。**後台改完文案需重新部署一次爬蟲才看得到**
+- **連結也一樣拿不到，不只是 meta**（issue #47）：改動前全站每頁 body 都只有
+  `<div id="app"></div>`，`<a>` 標籤數是 0，所以 sitemap 是唯一的非 JS 發現路徑、
+  118 個元素頁對爬蟲是孤島。現在 `vite-plugin-prerender.js` 會在 body 尾端注入一段
+  `<noscript>` 站台索引（首頁 118 個、元素頁 117 個排除自己）。
+  **選 `<noscript>` 不是隨便選的**：放 `#app` 裡訊號較強，但 1.4MB 的 bundle 掛載前
+  會讓 118 個連結閃一下，每個使用者每一頁都看得到。要改成 `#app` 內只需換包裝標籤。
+  注入首頁等於 `/molecules`、`/guide`、`/links`、`/particles` 也有了——它們吃同一份空殼
 - **build 時取不到後端資料一律不可靜默略過**（issue #45，代價是整站三個月沒被索引）：
   後端也在 Render 免費方案上、會休眠，build 撞上冷啟動時請求就逾時。三個 plugin 原本各自
   `catch { return null }`＋`console.warn`＋`return`，**exit code 仍是 0**，於是 118 個元素頁
