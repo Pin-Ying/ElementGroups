@@ -5,8 +5,9 @@
 // 不執行 JS——它們抓 /story/O 和 /story/Fe 拿到的是一模一樣的空殼。
 //
 // 做法：把打包好的 index.html 複製 118 份到 story/{Symbol}/index.html，
-// 每份只換掉 head 裡的 title、description、og/twitter 與 JSON-LD。body
-// 完全不動，載入的還是同一份 JS，所以使用者看到的行為沒有任何差別。
+// 每份換掉 head 裡的 title、description、og/twitter 與 JSON-LD，並在 body
+// 尾端補一段 <noscript> 的元素索引。載入的還是同一份 JS，所以使用者看到的
+// 行為沒有任何差別。
 //
 // 這是安全的加法：如果靜態主機沒有把 /story/O 對應到這個檔案，就會落回
 // 原本的 /* → /index.html 重寫，也就是今天的行為，不會壞掉，只是少了
@@ -14,6 +15,20 @@
 //
 // 真正的預渲染（把 Vue 跑起來輸出完整 DOM）需要 headless browser，對這個
 // 專案的收益主要在 meta 而不是內文，先不引進那個相依。
+//
+// ── <noscript> 的元素索引（issue #47）──────────────────────────────
+//
+// 在此之前全站每一頁的 body 都只有 `<div id="app"></div>`，`<a>` 標籤數是 0
+// ——連結全由 JS 產生。所以 sitemap 是唯一的非 JS 發現路徑，118 個元素頁
+// 對爬蟲是孤島：sitemap 宣告「這些網址存在」，但沒有任何頁面宣告「它們重要」。
+//
+// 為什麼用 <noscript> 而不是放進 #app：放 #app 裡的連結訊號較強，但 Vue 掛載
+// 前會閃出來——1.4MB 的 bundle，每個使用者每一頁都會看到 118 個連結閃一下，
+// 那是實際的視覺退步。<noscript> 零 FOUC，也沒有被當成隱藏連結的風險，而真正
+// 不執行 JS 的爬蟲（Bing / Facebook / LINE）照樣讀得到。
+//
+// index.html 也一起注入：`/molecules`、`/guide`、`/links`、`/particles` 都是吃
+// 同一份空殼，所以那些頁面連帶也有了導覽（issue #47 的第三層順便解決）。
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -39,6 +54,53 @@ function describe(el) {
   ].filter(Boolean).join('、')
 
   return `${el.Name}（${el.Symbol}）：${facts}。`
+}
+
+// 全站共用的其他頁面。跟元素頁一樣，在此之前它們之間也沒有任何靜態連結
+const SITE_PAGES = [
+  ['/', '首頁 週期表'],
+  ['/molecules', '分子'],
+  ['/particles', '基本粒子'],
+  ['/guide', '元素說明書'],
+  ['/links', '社群連結']
+]
+
+// 給不執行 JS 的爬蟲用的靜態索引。
+//
+// currentSymbol 傳入時排除自己——自我連結沒有意義，而且元素頁本來就有
+// canonical 指向自己。
+function noscriptNav(elements, currentSymbol) {
+  const elementLinks = elements
+    .filter(el => el.Symbol !== currentSymbol)
+    .map(el => {
+      const name = el.Name ? `${escapeAttr(el.Name)}（${escapeAttr(el.Symbol)}）` : escapeAttr(el.Symbol)
+      return `<li><a href="/story/${encodeURIComponent(el.Symbol)}">${name}</a></li>`
+    })
+    .join('')
+
+  const pageLinks = SITE_PAGES
+    .filter(([href]) => !(currentSymbol === null && href === '/'))
+    .map(([href, label]) => `<li><a href="${escapeAttr(href)}">${escapeAttr(label)}</a></li>`)
+    .join('')
+
+  return [
+    '<noscript>',
+    '<nav aria-label="站台索引">',
+    `<h2>元素索引</h2><ul>${elementLinks}</ul>`,
+    `<h2>其他頁面</h2><ul>${pageLinks}</ul>`,
+    '</nav>',
+    '</noscript>'
+  ].join('')
+}
+
+// 注入到 body 尾端。**命中要斷言**——這是字串替換，錨點沒對上會靜默 no-op，
+// 而症狀是「build 成功但爬蟲還是看不到連結」，正是 issue #45 那類看不見的失敗
+function withNav(html, nav, label) {
+  const out = html.replace('</body>', `    ${nav}\n  </body>`)
+  if (out === html) {
+    throw new Error(`[prerender] ${label} 找不到 </body>，無法注入 <noscript> 索引`)
+  }
+  return out
 }
 
 // 換掉 head 裡的 SEO 標籤。既有的 og/twitter 是 vite-plugin-seo 用全站
@@ -143,10 +205,28 @@ export default function prerenderPlugin() {
 
         const dir = path.join(outDir, 'story', el.Symbol)
         await mkdir(dir, { recursive: true })
-        await writeFile(path.join(dir, 'index.html'), page)
+        await writeFile(
+          path.join(dir, 'index.html'),
+          withNav(page, noscriptNav(elements, el.Symbol), `/story/${el.Symbol}`)
+        )
       }))
 
-      console.log(`[prerender] 已輸出 ${elements.length} 個元素頁（其中 ${withStory} 個帶有故事開頭）`)
+      // index.html 也要有索引，而且它比元素頁更重要：首頁是 Google 重抓最頻繁
+      // 的頁面，從它出發才能發現全部元素頁。同時 /molecules、/guide、/links、
+      // /particles 都是吃這份空殼，所以它們連帶也有了導覽。
+      //
+      // 這裡是直接覆寫 vite 已經寫出的 dist/index.html（writeBundle 在檔案落地
+      // 之後才跑）。不改 bundle.source，因為上面 118 份是以它為母本複製的，
+      // 改了會讓每個元素頁都夾帶一份「全部 118 個」的索引而不是排除自己那份。
+      await writeFile(
+        path.join(outDir, 'index.html'),
+        withNav(html, noscriptNav(elements, null), 'index.html')
+      )
+
+      console.log(
+        `[prerender] 已輸出 ${elements.length} 個元素頁（其中 ${withStory} 個帶有故事開頭）；` +
+        'index.html 與各元素頁都注入了 <noscript> 站台索引'
+      )
     }
   }
 }
